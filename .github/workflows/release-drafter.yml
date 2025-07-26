@@ -6,7 +6,6 @@ name: Release Drafter
 on:
   push:
     branches:
-      - master
       - main
 
 jobs:
