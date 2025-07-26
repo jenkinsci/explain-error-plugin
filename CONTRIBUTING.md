@@ -30,6 +30,9 @@ This guide will help you get started with development and contribution.
    
    # Package the plugin
    mvn clean package
+
+   # Package without running tests (useful for development)
+   mvn clean package -DskipTests
    ```
 
 3. **Run Jenkins locally with the plugin:**
