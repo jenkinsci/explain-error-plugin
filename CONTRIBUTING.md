@@ -26,10 +26,10 @@ This guide will help you get started with development and contribution.
 
    ```bash
    # Clean and compile
-   mvn clean compile -DskipTests
+   mvn clean compile
    
    # Package the plugin
-   mvn clean package -DskipTests
+   mvn clean package
    ```
 
 3. **Run Jenkins locally with the plugin:**
