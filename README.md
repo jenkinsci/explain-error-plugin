@@ -9,6 +9,12 @@
 
 AI-powered Jenkins plugin that explains pipeline and job failures with human-readable insights.
 
+## 🎥 Demo
+
+👉 [Watch the hands-on demo on YouTube](https://youtu.be/rPI9PMeDQ2o?si=YMeprtSz9VmqglCL) — setup, run, and see how AI explains your Jenkins job failures.
+
+---
+
 ## Overview
 
 Tired of digging through long Jenkins logs to understand what went wrong?
