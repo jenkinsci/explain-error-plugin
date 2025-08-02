@@ -45,9 +45,40 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
     @Override
     public boolean configure(StaplerRequest2 req, JSONObject json) throws Descriptor.FormException {
-        req.bindJSON(this, json);
-        save();
-        return true;
+        try {
+            // Validate required fields before binding
+            if (json.has("enableExplanation")) {
+                this.enableExplanation = json.getBoolean("enableExplanation");
+            }
+            
+            if (json.has("provider")) {
+                String providerStr = json.getString("provider");
+                try {
+                    this.provider = AIProvider.valueOf(providerStr);
+                } catch (IllegalArgumentException e) {
+                    throw new Descriptor.FormException("Invalid provider: " + providerStr, "provider");
+                }
+            }
+            
+            if (json.has("apiKey")) {
+                String apiKeyStr = json.getString("apiKey");
+                this.apiKey = Secret.fromString(apiKeyStr);
+            }
+            
+            if (json.has("apiUrl")) {
+                this.apiUrl = json.getString("apiUrl");
+            }
+            
+            if (json.has("model")) {
+                this.model = json.getString("model");
+            }
+            
+            save();
+            return true;
+        } catch (Exception e) {
+            Logger.getLogger(GlobalConfigurationImpl.class.getName()).log(Level.SEVERE, "Configuration failed", e);
+            throw new Descriptor.FormException("Configuration failed: " + e.getMessage(), e, "");
+        }
     }
 
     // Getters and setters
