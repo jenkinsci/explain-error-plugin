@@ -20,10 +20,10 @@ class AIServiceTest {
         // Get the global configuration instance
         config = GlobalConfigurationImpl.get();
         
-        // Set test values
+        // Set minimal test values (no auto-population)
         config.setProvider(AIProvider.OPENAI);
-        config.setApiUrl("https://api.openai.com/v1/chat/completions");
-        config.setModel("gpt-3.5-turbo");
+        config.setApiUrl(null); // No auto-population
+        config.setModel(null); // No auto-population
         config.setApiKey(Secret.fromString("test-api-key"));
         config.setEnableExplanation(true);
         
@@ -213,18 +213,18 @@ class AIServiceTest {
 
     @Test
     void testProviderDefaults() {
-        // Test OpenAI defaults
+        // Test OpenAI - no auto-population
         config.setProvider(AIProvider.OPENAI);
-        assertEquals("https://api.openai.com/v1/chat/completions", config.getApiUrl());
-        assertEquals("gpt-3.5-turbo", config.getModel());
+        assertNull(config.getApiUrl()); // No auto-population
+        assertNull(config.getModel()); // No auto-population
         
-        // Test Gemini defaults
+        // Test Gemini - no auto-population
         config.setProvider(AIProvider.GEMINI);
-        config.setApiUrl(null); // Clear URL to test default
-        config.setModel(null);  // Clear model to test default
+        config.setApiUrl(null); // Clear URL
+        config.setModel(null);  // Clear model
         
-        assertEquals("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", config.getApiUrl());
-        assertEquals("gemini-1.5-flash", config.getModel());
+        assertNull(config.getApiUrl()); // No auto-population
+        assertNull(config.getModel()); // No auto-population
     }
 
     @Test

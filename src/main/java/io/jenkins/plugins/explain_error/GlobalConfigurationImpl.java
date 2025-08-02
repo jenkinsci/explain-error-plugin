@@ -67,19 +67,9 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setProvider(AIProvider provider) {
         this.provider = provider;
-        // Update defaults when provider changes
-        if (this.apiUrl == null || this.apiUrl.isEmpty()) {
-            this.apiUrl = provider.getDefaultApiUrl();
-        }
-        if (this.model == null || this.model.isEmpty()) {
-            this.model = provider.getDefaultModel();
-        }
     }
 
     public String getApiUrl() {
-        if (apiUrl == null || apiUrl.isEmpty()) {
-            return getProvider().getDefaultApiUrl();
-        }
         return apiUrl;
     }
 
@@ -96,9 +86,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     }
 
     public String getModel() {
-        if (model == null || model.isEmpty()) {
-            return getProvider().getDefaultModel();
-        }
         return model;
     }
 

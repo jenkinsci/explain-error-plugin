@@ -18,11 +18,11 @@ class GlobalConfigurationImplTest {
     void setUp(JenkinsRule jenkins) {
         config = GlobalConfigurationImpl.get();
         
-        // Reset to default values for each test
+        // Reset to clean state for each test (no auto-population)
         config.setApiKey(null);
         config.setProvider(AIProvider.OPENAI);
-        config.setApiUrl("https://api.openai.com/v1/chat/completions");
-        config.setModel("gpt-3.5-turbo");
+        config.setApiUrl(null);
+        config.setModel(null);
         config.setEnableExplanation(true);
     }
 
@@ -38,8 +38,8 @@ class GlobalConfigurationImplTest {
 
     @Test
     void testDefaultValues() {
-        assertEquals("https://api.openai.com/v1/chat/completions", config.getApiUrl());
-        assertEquals("gpt-3.5-turbo", config.getModel());
+        assertNull(config.getApiUrl()); // No auto-population, should be null initially
+        assertNull(config.getModel()); // No auto-population, should be null initially
         assertTrue(config.isEnableExplanation());
         assertNull(config.getApiKey()); // API key should be null by default in tests
     }
@@ -129,8 +129,8 @@ class GlobalConfigurationImplTest {
         config.setApiUrl(null);
         // Raw URL should be null
         assertNull(config.getRawApiUrl());
-        // Effective URL should return provider default when null
-        assertEquals(config.getProvider().getDefaultApiUrl(), config.getApiUrl());
+        // API URL should return null when null (no auto-population)
+        assertNull(config.getApiUrl());
     }
 
     @Test
@@ -138,8 +138,8 @@ class GlobalConfigurationImplTest {
         config.setApiUrl("");
         // Raw URL should be empty
         assertEquals("", config.getRawApiUrl());
-        // Effective URL should return provider default when empty
-        assertEquals(config.getProvider().getDefaultApiUrl(), config.getApiUrl());
+        // API URL should return empty string when empty (no auto-population)
+        assertEquals("", config.getApiUrl());
     }
 
     @Test
@@ -147,8 +147,8 @@ class GlobalConfigurationImplTest {
         config.setModel(null);
         // Raw model should be null
         assertNull(config.getRawModel());
-        // Effective model should return provider default when null
-        assertEquals(config.getProvider().getDefaultModel(), config.getModel());
+        // Model should return null when null (no auto-population)
+        assertNull(config.getModel());
     }
 
     @Test
@@ -156,8 +156,8 @@ class GlobalConfigurationImplTest {
         config.setModel("");
         // Raw model should be empty
         assertEquals("", config.getRawModel());
-        // Effective model should return provider default when empty
-        assertEquals(config.getProvider().getDefaultModel(), config.getModel());
+        // Model should return empty string when empty (no auto-population)
+        assertEquals("", config.getModel());
     }
 
     @Test

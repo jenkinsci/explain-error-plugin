@@ -35,10 +35,10 @@ class ExplainErrorStepTest {
         GlobalConfigurationImpl config =
                 jenkins.getInstance().getDescriptorByType(GlobalConfigurationImpl.class);
 
-        // Default values should be set (defaults come from the provider)
+        // With no auto-population, values should be null initially
         assert config.getProvider() == AIProvider.OPENAI;
-        assert config.getApiUrl().equals("https://api.openai.com/v1/chat/completions");
-        assert config.getModel().equals("gpt-3.5-turbo");
+        assert config.getApiUrl() == null; // No auto-population
+        assert config.getModel() == null; // No auto-population
         assert config.isEnableExplanation() == true;
     }
 }
