@@ -74,8 +74,8 @@ class ConsolePageDecoratorTest {
     void testIsExplainErrorEnabledWithNullApiUrl() {
         config.setApiUrl(null);
         
-        // Should return false when API URL is null
-        assertFalse(decorator.isExplainErrorEnabled());
+        // Should return true when API URL is null because provider defaults will be used
+        assertTrue(decorator.isExplainErrorEnabled());
     }
 
     @Test

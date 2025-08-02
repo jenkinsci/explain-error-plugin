@@ -127,28 +127,36 @@ class GlobalConfigurationImplTest {
     @Test
     void testSetApiUrlWithNullValue() {
         config.setApiUrl(null);
-        // Should return provider default when null
+        // Raw URL should be null
+        assertNull(config.getRawApiUrl());
+        // Effective URL should return provider default when null
         assertEquals(config.getProvider().getDefaultApiUrl(), config.getApiUrl());
     }
 
     @Test
     void testSetApiUrlWithEmptyString() {
         config.setApiUrl("");
-        // Should return provider default when empty
+        // Raw URL should be empty
+        assertEquals("", config.getRawApiUrl());
+        // Effective URL should return provider default when empty
         assertEquals(config.getProvider().getDefaultApiUrl(), config.getApiUrl());
     }
 
     @Test
     void testSetModelWithNullValue() {
         config.setModel(null);
-        // Should return provider default when null
+        // Raw model should be null
+        assertNull(config.getRawModel());
+        // Effective model should return provider default when null
         assertEquals(config.getProvider().getDefaultModel(), config.getModel());
     }
 
     @Test
     void testSetModelWithEmptyString() {
         config.setModel("");
-        // Should return provider default when empty
+        // Raw model should be empty
+        assertEquals("", config.getRawModel());
+        // Effective model should return provider default when empty
         assertEquals(config.getProvider().getDefaultModel(), config.getModel());
     }
 

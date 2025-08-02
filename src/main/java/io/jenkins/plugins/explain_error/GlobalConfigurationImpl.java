@@ -83,6 +83,13 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return apiUrl;
     }
 
+    /**
+     * Get the raw configured API URL without defaults, used for validation.
+     */
+    public String getRawApiUrl() {
+        return apiUrl;
+    }
+
     @DataBoundSetter
     public void setApiUrl(String apiUrl) {
         this.apiUrl = apiUrl;
@@ -92,6 +99,13 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         if (model == null || model.isEmpty()) {
             return getProvider().getDefaultModel();
         }
+        return model;
+    }
+
+    /**
+     * Get the raw configured model without defaults, used for validation.
+     */
+    public String getRawModel() {
         return model;
     }
 
