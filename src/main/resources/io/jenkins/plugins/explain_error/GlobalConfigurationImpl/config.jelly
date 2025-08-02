@@ -6,7 +6,10 @@
         </f:entry>
         
         <f:entry title="AI Provider" field="provider">
-            <f:select />
+            <f:select>
+                <f:option value="OPENAI">OpenAI</f:option>
+                <f:option value="GEMINI">Google Gemini</f:option>
+            </f:select>
         </f:entry>
         
         <f:entry title="API Key" field="apiKey">

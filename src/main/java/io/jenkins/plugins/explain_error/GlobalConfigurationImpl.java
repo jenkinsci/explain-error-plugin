@@ -1,9 +1,9 @@
 package io.jenkins.plugins.explain_error;
 
 import hudson.Extension;
-import hudson.Plugin;
 import hudson.model.Descriptor;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
@@ -133,6 +133,17 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
      */
     public AIProvider[] getProviderValues() {
         return AIProvider.values();
+    }
+
+    /**
+     * Populate the provider dropdown items for the UI.
+     */
+    public ListBoxModel doFillProviderItems() {
+        ListBoxModel items = new ListBoxModel();
+        for (AIProvider provider : AIProvider.values()) {
+            items.add(provider.getDisplayName(), provider.name());
+        }
+        return items;
     }
 
     /**
