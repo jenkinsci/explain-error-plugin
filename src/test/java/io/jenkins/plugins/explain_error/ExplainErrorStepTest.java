@@ -35,7 +35,8 @@ class ExplainErrorStepTest {
         GlobalConfigurationImpl config =
                 jenkins.getInstance().getDescriptorByType(GlobalConfigurationImpl.class);
 
-        // Default values should be set
+        // Default values should be set (defaults come from the provider)
+        assert config.getProvider() == AIProvider.OPENAI;
         assert config.getApiUrl().equals("https://api.openai.com/v1/chat/completions");
         assert config.getModel().equals("gpt-3.5-turbo");
         assert config.isEnableExplanation() == true;

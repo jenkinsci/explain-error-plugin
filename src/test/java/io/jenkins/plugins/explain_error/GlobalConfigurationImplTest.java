@@ -20,6 +20,7 @@ class GlobalConfigurationImplTest {
         
         // Reset to default values for each test
         config.setApiKey(null);
+        config.setProvider(AIProvider.OPENAI);
         config.setApiUrl("https://api.openai.com/v1/chat/completions");
         config.setModel("gpt-3.5-turbo");
         config.setEnableExplanation(true);
@@ -79,7 +80,7 @@ class GlobalConfigurationImplTest {
     @Test
     void testDoTestConfiguration() {
         // Test the doTestConfiguration method with invalid parameters
-        FormValidation result = config.doTestConfiguration("invalid-key", "invalid-url", "invalid-model");
+        FormValidation result = config.doTestConfiguration("invalid-key", "OPENAI", "invalid-url", "invalid-model");
         
         // The result should not be null and should have a message
         assertNotNull(result);
@@ -93,7 +94,7 @@ class GlobalConfigurationImplTest {
     @Test
     void testDoTestConfigurationWithNullParameters() {
         // Test with null parameters
-        FormValidation result = config.doTestConfiguration(null, null, null);
+        FormValidation result = config.doTestConfiguration(null, null, null, null);
         
         // Should handle null parameters gracefully
         assertNotNull(result);
@@ -103,7 +104,7 @@ class GlobalConfigurationImplTest {
     @Test
     void testDoTestConfigurationWithEmptyParameters() {
         // Test with empty parameters
-        FormValidation result = config.doTestConfiguration("", "", "");
+        FormValidation result = config.doTestConfiguration("", "", "", "");
         
         // Should handle empty parameters gracefully
         assertNotNull(result);
@@ -126,25 +127,29 @@ class GlobalConfigurationImplTest {
     @Test
     void testSetApiUrlWithNullValue() {
         config.setApiUrl(null);
-        assertNull(config.getApiUrl());
+        // Should return provider default when null
+        assertEquals(config.getProvider().getDefaultApiUrl(), config.getApiUrl());
     }
 
     @Test
     void testSetApiUrlWithEmptyString() {
         config.setApiUrl("");
-        assertEquals("", config.getApiUrl());
+        // Should return provider default when empty
+        assertEquals(config.getProvider().getDefaultApiUrl(), config.getApiUrl());
     }
 
     @Test
     void testSetModelWithNullValue() {
         config.setModel(null);
-        assertNull(config.getModel());
+        // Should return provider default when null
+        assertEquals(config.getProvider().getDefaultModel(), config.getModel());
     }
 
     @Test
     void testSetModelWithEmptyString() {
         config.setModel("");
-        assertEquals("", config.getModel());
+        // Should return provider default when empty
+        assertEquals(config.getProvider().getDefaultModel(), config.getModel());
     }
 
     @Test

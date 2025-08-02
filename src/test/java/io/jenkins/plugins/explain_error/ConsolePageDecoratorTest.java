@@ -22,6 +22,7 @@ class ConsolePageDecoratorTest {
         // Reset to default state
         config.setEnableExplanation(true);
         config.setApiKey(Secret.fromString("test-api-key"));
+        config.setProvider(AIProvider.OPENAI);
         config.setApiUrl("https://api.openai.com/v1/chat/completions");
         config.setModel("gpt-3.5-turbo");
     }

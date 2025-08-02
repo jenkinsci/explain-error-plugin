@@ -5,22 +5,26 @@
             <f:checkbox />
         </f:entry>
         
+        <f:entry title="AI Provider" field="provider">
+            <f:select />
+        </f:entry>
+        
         <f:entry title="API Key" field="apiKey">
             <f:password clazz="required"/>
         </f:entry>
         
         <f:entry title="API URL" field="apiUrl">
-            <f:textbox default="https://api.openai.com/v1/chat/completions" clazz="required"/>
+            <f:textbox clazz="required"/>
         </f:entry>
         
         <f:entry title="AI Model" field="model">
-            <f:textbox default="gpt-3.5-turbo" clazz="required"/>
+            <f:textbox clazz="required"/>
         </f:entry>
         
         <f:entry title="">
             <div>
                 <f:validateButton title="Test Configuration" progress="Testing..." 
-                                method="testConfiguration" with="apiKey,apiUrl,model" />
+                                method="testConfiguration" with="apiKey,provider,apiUrl,model" />
             </div>
         </f:entry>
     </f:section>

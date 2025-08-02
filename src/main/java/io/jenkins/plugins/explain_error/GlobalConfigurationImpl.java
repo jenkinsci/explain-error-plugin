@@ -26,8 +26,9 @@ import java.util.logging.Logger;
 public class GlobalConfigurationImpl extends GlobalConfiguration {
 
     private Secret apiKey;
-    private String apiUrl = "https://api.openai.com/v1/chat/completions";
-    private String model = "gpt-3.5-turbo";
+    private AIProvider provider = AIProvider.OPENAI;
+    private String apiUrl;
+    private String model;
     private boolean enableExplanation = true;
 
     public GlobalConfigurationImpl() {
@@ -59,7 +60,26 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         this.apiKey = apiKey;
     }
 
+    public AIProvider getProvider() {
+        return provider != null ? provider : AIProvider.OPENAI;
+    }
+
+    @DataBoundSetter
+    public void setProvider(AIProvider provider) {
+        this.provider = provider;
+        // Update defaults when provider changes
+        if (this.apiUrl == null || this.apiUrl.isEmpty()) {
+            this.apiUrl = provider.getDefaultApiUrl();
+        }
+        if (this.model == null || this.model.isEmpty()) {
+            this.model = provider.getDefaultModel();
+        }
+    }
+
     public String getApiUrl() {
+        if (apiUrl == null || apiUrl.isEmpty()) {
+            return getProvider().getDefaultApiUrl();
+        }
         return apiUrl;
     }
 
@@ -69,6 +89,9 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     }
 
     public String getModel() {
+        if (model == null || model.isEmpty()) {
+            return getProvider().getDefaultModel();
+        }
         return model;
     }
 
@@ -92,23 +115,42 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     }
 
     /**
+     * Get all available AI providers for the dropdown.
+     */
+    public AIProvider[] getProviderValues() {
+        return AIProvider.values();
+    }
+
+    /**
      * Method to test the AI API configuration.
      * This is called when the "Test Configuration" button is clicked.
      */
     @RequirePOST
     public FormValidation doTestConfiguration(@QueryParameter("apiKey") String apiKey,
+                                                @QueryParameter("provider") String provider,
                                                 @QueryParameter("apiUrl") String apiUrl,
                                                 @QueryParameter("model") String model) {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
         // Validate only the provided parameters
         Secret testApiKeySecret = (apiKey != null) ? Secret.fromString(apiKey) : null;
+        AIProvider testProvider = null;
+        if (provider != null && !provider.isEmpty()) {
+            try {
+                testProvider = AIProvider.valueOf(provider);
+            } catch (IllegalArgumentException e) {
+                return FormValidation.error("Invalid provider: " + provider);
+            }
+        }
         String testApiUrl = apiUrl != null ? apiUrl : "";
         String testModel = model != null ? model : "";
 
         try {
             GlobalConfigurationImpl tempConfig = new GlobalConfigurationImpl();
             tempConfig.setApiKey(testApiKeySecret);
+            if (testProvider != null) {
+                tempConfig.setProvider(testProvider);
+            }
             tempConfig.setApiUrl(testApiUrl);
             tempConfig.setModel(testModel);
 
