@@ -164,6 +164,7 @@ class GlobalConfigurationImplTest {
     void testConfigurationPersistence() {
         // Set some values
         config.setApiKey(Secret.fromString("test-key"));
+        config.setProvider(AIProvider.GEMINI);
         config.setApiUrl("https://test.example.com");
         config.setModel("test-model");
         config.setEnableExplanation(false);
@@ -173,9 +174,36 @@ class GlobalConfigurationImplTest {
         
         // Verify the values are still there
         assertEquals("test-key", config.getApiKey().getPlainText());
+        assertEquals(AIProvider.GEMINI, config.getProvider());
         assertEquals("https://test.example.com", config.getApiUrl());
         assertEquals("test-model", config.getModel());
         assertFalse(config.isEnableExplanation());
+    }
+
+    @Test
+    void testProviderSetterAndGetter() {
+        // Test setting different providers
+        config.setProvider(AIProvider.GEMINI);
+        assertEquals(AIProvider.GEMINI, config.getProvider());
+        
+        config.setProvider(AIProvider.OPENAI);
+        assertEquals(AIProvider.OPENAI, config.getProvider());
+        
+        // Test null provider defaults to OpenAI
+        config.setProvider(null);
+        assertEquals(AIProvider.OPENAI, config.getProvider());
+    }
+
+    @Test
+    void testProviderPersistence() {
+        // Test that provider setting persists after save/load
+        config.setProvider(AIProvider.GEMINI);
+        config.save();
+        assertEquals(AIProvider.GEMINI, config.getProvider());
+        
+        // Simulate reload
+        config.load();
+        assertEquals(AIProvider.GEMINI, config.getProvider());
     }
 
     @Test
