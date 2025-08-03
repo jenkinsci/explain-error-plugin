@@ -156,7 +156,9 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     /**
      * Populate the provider dropdown items for the UI.
      */
+    @RequirePOST
     public ListBoxModel doFillProviderItems() {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         return new ListBoxModel(
             new ListBoxModel.Option(AIProvider.OPENAI.getDisplayName(), AIProvider.OPENAI.name()),
             new ListBoxModel.Option(AIProvider.GEMINI.getDisplayName(), AIProvider.GEMINI.name())
