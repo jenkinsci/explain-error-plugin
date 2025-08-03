@@ -159,11 +159,20 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @RequirePOST
     public ListBoxModel doFillProviderItems() {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-        return new ListBoxModel(
-            new ListBoxModel.Option(AIProvider.OPENAI.getDisplayName(), AIProvider.OPENAI.name()),
-            new ListBoxModel.Option(AIProvider.GEMINI.getDisplayName(), AIProvider.GEMINI.name())
-        );
-    }
+
+        ListBoxModel model = new ListBoxModel();
+        AIProvider currentProvider = getProvider(); // Get the current provider
+
+        for (AIProvider p : AIProvider.values()) {
+            model.add(new ListBoxModel.Option(
+                p.getDisplayName(),          // display name
+                p.name(),                    // actual value
+                p == currentProvider         // is selected
+            ));
+        }
+
+        return model;
+}
 
     /**
      * Method to test the AI API configuration.
