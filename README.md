@@ -61,8 +61,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
 | **AI Provider** | Choose between OpenAI or Google Gemini | `OpenAI` |
 | **API Key** | Your AI provider API key | *Required*. Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| **API URL** | AI service endpoint | Auto-populated based on provider selection |
-| **AI Model** | Model to use for analysis | Auto-populated based on provider selection |
+| **API URL** | AI service endpoint | Enter the endpoint URL of your chosen AI provider |
+| **AI Model** | Model to use for analysis | Specify the model name offered by your selected AI provider |
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
