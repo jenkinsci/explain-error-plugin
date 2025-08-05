@@ -92,7 +92,8 @@ public abstract class BaseAIService {
                 + "1. A summary of what caused the error\n"
                 + "2. Specific steps to resolve the issue\n"
                 + "3. Any relevant best practices to prevent similar issues\n\n"
-                + "Keep your response concise and focused on actionable solutions.";
+                + "Keep your response concise and focused on actionable solutions. "
+                + "Use plain text formatting only - no markdown, bold text, italic text, or special symbols for formatting.";
     }
     
     /**
