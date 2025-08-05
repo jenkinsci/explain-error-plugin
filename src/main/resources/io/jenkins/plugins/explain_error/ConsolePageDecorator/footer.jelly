@@ -1,6 +1,6 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
-    <j:if test="${it.explainErrorEnabled}">
+    <j:if test="${it.pluginActive}">
         <script src="${rootURL}/plugin/explain-error/js/explain-error-footer.js" type="text/javascript"/>
         <div id="explain-error-container" class="jenkins-hidden">
           <l:card title="AI Error Explanation">

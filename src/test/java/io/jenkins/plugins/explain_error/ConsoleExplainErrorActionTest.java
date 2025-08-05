@@ -233,4 +233,17 @@ class ConsoleExplainErrorActionTest {
         assertNotNull(retrieved);
         assertFalse(retrieved.hasValidExplanation());
     }
+
+    @Test
+    void testGetRun() {
+        assertEquals(build, action.getRun());
+    }
+
+    @Test
+    void testBuildStatusCheck() {
+        // Test that the action can access build status through the run
+        assertNotNull(action.getRun());
+        // Build should not be building since it's completed in setUp
+        assertFalse(action.getRun().isBuilding());
+    }
 }

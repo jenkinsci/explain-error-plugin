@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     window.location.pathname.match(/\/console(Full)?$/) &&
     !window.location.pathname.includes('/error-explanation')
   ) {
-    addExplainErrorButton();
+    checkBuildStatusAndAddButton();
   }
   // Moved from the second DOMContentLoaded listener
   const container = document.getElementById('explain-error-container');
@@ -22,7 +22,48 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
+function checkBuildStatusAndAddButton() {
+  checkBuildStatus(function(isBuilding) {
+    if (!isBuilding) {
+      // Build is completed, show the button
+      addExplainErrorButton();
+    } else {
+      // Build is still running, check again after a delay
+      setTimeout(checkBuildStatusAndAddButton, 5000); // Check every 5 seconds
+    }
+  });
+}
+
+function checkBuildStatus(callback) {
+  const basePath = window.location.pathname.replace(/\/console(Full)?$/, '');
+  const url = basePath + '/console-explain-error/checkBuildStatus';
+
+  const headers = crumb.wrap({
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
+
+  fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: ""
+  })
+  .then(response => response.json())
+  .then(data => {
+    callback(data.isBuilding);
+  })
+  .catch(error => {
+    console.warn('Error checking build status:', error);
+    // If check fails, assume build is complete and show button
+    callback(false);
+  });
+}
+
 function addExplainErrorButton() {
+  // Check if button already exists to prevent duplicates
+  if (document.querySelector('.explain-error-btn')) {
+    return;
+  }
+
   // First try to find the existing console button bar
   const consoleButtonBar = 
     document.querySelector('.console-actions') ||
@@ -54,11 +95,13 @@ function addExplainErrorButton() {
 
   if (!consoleOutput && !buttonContainer) {
     console.warn('Console output element not found');
-    setTimeout(addExplainErrorButton, 3000);
-    return;
-  }
-
-  if (document.querySelector('.explain-error-btn')) {
+    setTimeout(function() {
+      // Only retry if the button doesn't exist yet and we're still on a console page
+      if (!document.querySelector('.explain-error-btn') && 
+          window.location.pathname.match(/\/console(Full)?$/)) {
+        checkBuildStatusAndAddButton();
+      }
+    }, 3000);
     return;
   }
 

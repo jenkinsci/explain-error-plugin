@@ -30,4 +30,13 @@ public class ConsolePageDecorator extends PageDecorator {
         // If API URL is set to a non-empty value, that's also valid
         return true;
     }
+    
+    /**
+     * Helper method for JavaScript to check if a build is completed.
+     * Returns true if the plugin is enabled (for JavaScript inclusion),
+     * actual build status check is done in JavaScript.
+     */
+    public boolean isPluginActive() {
+        return isExplainErrorEnabled();
+    }
 }

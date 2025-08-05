@@ -123,6 +123,30 @@ public class ConsoleExplainErrorAction implements Action {
         }
     }
 
+    /**
+     * AJAX endpoint to check build status.
+     * Returns JSON with isBuilding boolean to determine if button should be shown.
+     */
+    @RequirePOST
+    public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) throws ServletException, IOException {
+        try {
+            run.checkPermission(hudson.model.Item.READ);
+            
+            boolean isBuilding = run.isBuilding();
+            
+            rsp.setContentType("application/json");
+            rsp.setCharacterEncoding("UTF-8");
+            PrintWriter writer = rsp.getWriter();
+            
+            String response = String.format("{\"isBuilding\": %s}", isBuilding);
+            writer.write(response);
+            writer.flush();
+        } catch (Exception e) {
+            LOGGER.severe("Error checking build status: " + e.getMessage());
+            rsp.setStatus(500);
+        }
+    }
+
     private void writeJsonResponse(StaplerResponse2 rsp, String message) throws IOException {
         rsp.setContentType("application/json");
         rsp.setCharacterEncoding("UTF-8");
