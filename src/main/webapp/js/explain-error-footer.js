@@ -143,6 +143,7 @@ function viewExistingExplanation() {
 
 function generateNewExplanation() {
   hideConfirmationDialog();
+  clearExplanationContent();
   sendExplainRequest(true); // Force new explanation
 }
 
@@ -212,4 +213,11 @@ function showSpinner() {
 function hideContainer() {
   const container = document.getElementById('explain-error-container');
   container.classList.add('jenkins-hidden');
+}
+
+function clearExplanationContent() {
+  const content = document.getElementById('explain-error-content');
+  if (content) {
+    content.textContent = '';
+  }
 }
