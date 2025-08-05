@@ -33,13 +33,9 @@ class ConsoleExplainErrorActionTest {
     }
 
     @Test
-    void testCreateCachedResponse() throws Exception {
-        // Use reflection to access the private method
-        Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
-        method.setAccessible(true);
-        
+    void testCreateCachedResponse() {
         String originalExplanation = "This is the original AI explanation.";
-        String cachedResponse = (String) method.invoke(action, originalExplanation);
+        String cachedResponse = action.createCachedResponse(originalExplanation);
         
         assertNotNull(cachedResponse);
         assertTrue(cachedResponse.contains(originalExplanation));
