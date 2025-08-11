@@ -5,7 +5,7 @@
 [![GitHub Release](https://img.shields.io/github/release/jenkinsci/explain-error-plugin.svg?label=changelog)](https://github.com/jenkinsci/explain-error-plugin/releases/latest)
 [![Jenkins Plugin Installs](https://img.shields.io/jenkins/plugin/i/explain-error.svg?color=blue)](https://plugins.jenkins.io/explain-error/)
 
-<img src="docs/images/logo-small.png" width="230" alt="Explain Error Plugin Logo">
+<img src="docs/images/logo-new.png" width="450" alt="Explain Error Plugin Logo">
 
 AI-powered Jenkins plugin that explains pipeline and job failures with human-readable insights.
 
