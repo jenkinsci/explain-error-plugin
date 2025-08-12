@@ -2,7 +2,6 @@ package io.jenkins.plugins.explain_error;
 
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.util.Secret;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
