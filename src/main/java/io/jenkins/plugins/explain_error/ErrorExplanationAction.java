@@ -29,6 +29,17 @@ public class ErrorExplanationAction implements RunAction2 {
         return "AI Error Explanation";
     }
 
+    /**
+     * Get job context for display in card titles.
+     * @return job context string like "[JobName #BuildNumber]" or empty string if no run
+     */
+    public String getJobContext() {
+        if (run != null) {
+            return JobContextUtil.createJobContext(run);
+        }
+        return "";
+    }
+
     @Override
     public String getUrlName() {
         return "error-explanation";

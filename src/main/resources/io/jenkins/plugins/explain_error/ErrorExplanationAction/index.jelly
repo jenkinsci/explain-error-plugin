@@ -5,7 +5,7 @@
         <l:main-panel>
             <h1>AI Error Explanation</h1>
             
-            <l:card title="Generated on: ${it.formattedTimestamp}">
+            <l:card title="${it.jobContext} - Generated on: ${it.formattedTimestamp}">
                 <pre style="white-space: pre-wrap; word-wrap: break-word;" class="jenkins-!-margin-bottom-0">${it.explanation}</pre>
             </l:card>
         </l:main-panel>

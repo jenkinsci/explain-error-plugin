@@ -3,7 +3,7 @@
     <j:if test="${it.explainErrorEnabled}">
         <script src="${rootURL}/plugin/explain-error/js/explain-error-footer.js" type="text/javascript"/>
         <div id="explain-error-container" class="jenkins-hidden">
-          <l:card title="AI Error Explanation">
+          <l:card title="${it.jobContext} AI Error Explanation">
             <div id="explain-error-spinner" class="jenkins-hidden">
               <l:spinner text="Analyzing error logs..."/>
             </div>
@@ -13,7 +13,7 @@
         
         <!-- Confirmation Dialog for existing explanation -->
         <div id="explain-error-confirm-dialog" class="jenkins-hidden">
-          <l:card title="AI Error Explanation Exists">
+          <l:card title="${it.jobContext} AI Error Explanation Exists">
             <p>An AI explanation was already generated on <span id="existing-explanation-timestamp"></span>.</p>
             <p>Do you want to view the existing explanation or generate a new one?</p>
             <div class="jenkins-button-bar">

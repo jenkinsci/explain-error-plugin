@@ -84,8 +84,9 @@ public class ConsoleExplainErrorAction implements Action {
                 writeJsonResponse(rsp, "Error: Could not generate explanation. Please check your AI API configuration.");
             }
         } catch (Exception e) {
-            LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
-            LOGGER.severe("Error explaining console error: " + e.getMessage());
+            String jobContext = JobContextUtil.createJobContext(run);
+            LOGGER.severe(jobContext + " === EXPLAIN ERROR REQUEST FAILED ===");
+            LOGGER.severe(jobContext + " Error explaining console error: " + e.getMessage());
             writeJsonResponse(rsp, "Error: " + e.getMessage());
         }
     }
@@ -118,7 +119,8 @@ public class ConsoleExplainErrorAction implements Action {
             
             writer.flush();
         } catch (Exception e) {
-            LOGGER.severe("Error checking existing explanation: " + e.getMessage());
+            String jobContext = JobContextUtil.createJobContext(run);
+            LOGGER.severe(jobContext + " Error checking existing explanation: " + e.getMessage());
             rsp.setStatus(500);
         }
     }

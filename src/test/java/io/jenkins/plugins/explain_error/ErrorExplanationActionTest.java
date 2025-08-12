@@ -39,7 +39,23 @@ class ErrorExplanationActionTest {
 
     @Test
     void testGetDisplayName() {
+        // When no run is attached, should return default name
         assertEquals("AI Error Explanation", action.getDisplayName());
+    }
+
+    @Test
+    @WithJenkins
+    void testGetDisplayNameWithRun(JenkinsRule jenkins) throws Exception {
+        // Create a mock run
+        FreeStyleProject project = jenkins.createFreeStyleProject("test-job");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+        
+        // Attach the run to the action
+        action.onAttached(build);
+        
+        // Should return just the job context
+        String displayName = action.getDisplayName();
+        assertEquals("[test-job #1]", displayName);
     }
 
     @Test

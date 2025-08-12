@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
+import hudson.model.Run;
 import java.io.IOException;
 import java.util.logging.Logger;
 
@@ -42,5 +43,16 @@ public class AIService {
      */
     public String explainError(String errorLogs) throws IOException {
         return delegate.explainError(errorLogs);
+    }
+    
+    /**
+     * Explain error logs using the configured AI provider with job context for logging.
+     * @param errorLogs the error logs to explain
+     * @param run the run context for logging purposes
+     * @return the AI explanation
+     * @throws IOException if there's a communication error
+     */
+    public String explainError(String errorLogs, Run<?, ?> run) throws IOException {
+        return delegate.explainError(errorLogs, run);
     }
 }

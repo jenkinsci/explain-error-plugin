@@ -16,6 +16,8 @@ public class ErrorExplainer {
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
 
     public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
+        String jobContext = JobContextUtil.createJobContext(run);
+        
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
@@ -38,9 +40,9 @@ public class ErrorExplainer {
                 return;
             }
 
-            // Get AI explanation
+            // Get AI explanation with job context
             AIService aiService = new AIService(config);
-            String explanation = aiService.explainError(errorLogs);
+            String explanation = aiService.explainError(errorLogs, run);
 
             // Store explanation in build action
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorLogs);
@@ -49,7 +51,7 @@ public class ErrorExplainer {
             // Explanation is now available on the job page, no need to clutter console output
 
         } catch (Exception e) {
-            LOGGER.severe("Failed to explain error: " + e.getMessage());
+            LOGGER.severe(jobContext + " Failed to explain error: " + e.getMessage());
             listener.getLogger().println("Failed to explain error: " + e.getMessage());
         }
     }
@@ -79,37 +81,38 @@ public class ErrorExplainer {
      * Used for console output error explanation.
      */
     public String explainErrorText(String errorText, Run<?, ?> run) {
+        String jobContext = JobContextUtil.createJobContext(run);
         
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
             if (!config.isEnableExplanation()) {
-                LOGGER.warning("AI error explanation is disabled in global configuration");
-                return "AI error explanation is disabled in global configuration.";
+                LOGGER.warning(jobContext + " AI error explanation is disabled in global configuration");
+                return jobContext + " AI error explanation is disabled in global configuration.";
             }
 
             if (config.getApiKey() == null || StringUtils.isBlank(config.getApiKey().getPlainText())) {
-                LOGGER.warning("API key is not configured");
-                return "ERROR: API key is not configured. Please configure it in Jenkins global settings.";
+                LOGGER.warning(jobContext + " API key is not configured");
+                return jobContext + " ERROR: API key is not configured. Please configure it in Jenkins global settings.";
             }
 
             if (StringUtils.isBlank(errorText)) {
-                LOGGER.warning("No error text provided");
-                return "No error text provided to explain.";
+                LOGGER.warning(jobContext + " No error text provided");
+                return jobContext + " No error text provided to explain.";
             }
             
-            // Get AI explanation
+            // Get AI explanation with job context
             AIService aiService = new AIService(config);
-            String explanation = aiService.explainError(errorText);
+            String explanation = aiService.explainError(errorText, run);
 
-            LOGGER.fine("Explanation length: " + (explanation != null ? explanation.length() : 0));
+            LOGGER.fine(jobContext + " Explanation length: " + (explanation != null ? explanation.length() : 0));
 
             return explanation;
 
         } catch (Exception e) {
-            LOGGER.severe("Failed to explain error text: " + e.getMessage());
+            LOGGER.severe(jobContext + " Failed to explain error text: " + e.getMessage());
             e.printStackTrace();
-            return "Failed to explain error: " + e.getMessage();
+            return jobContext + " Failed to explain error: " + e.getMessage();
         }
     }
 }

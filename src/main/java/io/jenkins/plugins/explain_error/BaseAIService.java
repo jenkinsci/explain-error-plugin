@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hudson.ProxyConfiguration;
+import hudson.model.Run;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -33,10 +34,22 @@ public abstract class BaseAIService {
      * @throws IOException if there's a communication error
      */
     public String explainError(String errorLogs) throws IOException {
+        return explainError(errorLogs, null);
+    }
+    
+    /**
+     * Explain error logs using the configured AI provider with job context for logging.
+     * @param errorLogs the error logs to explain
+     * @param run the run context for logging purposes
+     * @return the AI explanation
+     * @throws IOException if there's a communication error
+     */
+    public String explainError(String errorLogs, Run<?, ?> run) throws IOException {
         if (StringUtils.isBlank(errorLogs)) {
             return "No error logs provided for explanation.";
         }
 
+        String jobContext = run != null ? JobContextUtil.createJobContext(run) + " " : "";
         String prompt = buildPrompt(errorLogs);
         String requestBody = buildRequestBody(prompt);
         
@@ -59,11 +72,11 @@ public abstract class BaseAIService {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             String responseBody = response.body();
 
-            LOGGER.fine("Response body length: " + responseBody.length());
-            LOGGER.fine("Response body preview: " + responseBody.substring(0, Math.min(500, responseBody.length())));
+            LOGGER.fine(jobContext + "Response body length: " + responseBody.length());
+            LOGGER.fine(jobContext + "Response body preview: " + responseBody.substring(0, Math.min(500, responseBody.length())));
 
             if (response.statusCode() != 200) {
-                LOGGER.severe("AI API request failed with status " + response.statusCode() + ": " + responseBody);
+                LOGGER.severe(jobContext + "AI API request failed with status " + response.statusCode() + ": " + responseBody);
                 return "Failed to get explanation from AI service. Status: " + response.statusCode() 
                     + ". Please check your API configuration and key.";
             }
@@ -72,10 +85,10 @@ public abstract class BaseAIService {
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOGGER.severe("AI API request was interrupted: " + e.getMessage());
+            LOGGER.severe(jobContext + "AI API request was interrupted: " + e.getMessage());
             return "Request was interrupted: " + e.getMessage();
         } catch (Exception e) {
-            LOGGER.severe("AI API request failed: " + e.getMessage());
+            LOGGER.severe(jobContext + "AI API request failed: " + e.getMessage());
             return "Failed to communicate with AI service: " + e.getMessage();
         }
     }

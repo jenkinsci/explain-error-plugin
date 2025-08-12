@@ -33,7 +33,8 @@ public class ConsoleExplainErrorActionFactory extends TransientActionFactory<Run
             ConsoleExplainErrorAction action = new ConsoleExplainErrorAction(run);
             return Collections.singletonList(action);
         } catch (Exception e) {
-            LOGGER.severe("Failed to create ConsoleExplainErrorAction for run: " + run.getFullDisplayName() + ". Error: " + e.getMessage());
+            String jobContext = JobContextUtil.createJobContext(run);
+            LOGGER.severe(jobContext + " Failed to create ConsoleExplainErrorAction. Error: " + e.getMessage());
             return Collections.emptyList();
         }
     }
