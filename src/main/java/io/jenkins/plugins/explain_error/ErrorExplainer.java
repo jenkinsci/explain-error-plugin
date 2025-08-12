@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.util.Secret;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
@@ -93,12 +94,12 @@ public class ErrorExplainer {
 
             if (config.getApiKey() == null || StringUtils.isBlank(config.getApiKey().getPlainText())) {
                 LOGGER.warning(jobContext + " API key is not configured");
-                return jobContext + " ERROR: API key is not configured. Please configure it in Jenkins global settings.";
+                return "ERROR: API key is not configured. Please configure it in Jenkins global settings.";
             }
 
             if (StringUtils.isBlank(errorText)) {
                 LOGGER.warning(jobContext + " No error text provided");
-                return jobContext + " No error text provided to explain.";
+                return "No error text provided to explain.";
             }
             
             // Get AI explanation with job context
