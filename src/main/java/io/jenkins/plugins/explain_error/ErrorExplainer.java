@@ -16,6 +16,7 @@ public class ErrorExplainer {
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
 
     public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
+        String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
@@ -41,6 +42,7 @@ public class ErrorExplainer {
             // Get AI explanation
             AIService aiService = new AIService(config);
             String explanation = aiService.explainError(errorLogs);
+            LOGGER.info(jobInfo + " AI error explanation succeeded.");
 
             // Store explanation in build action
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorLogs);
@@ -49,8 +51,8 @@ public class ErrorExplainer {
             // Explanation is now available on the job page, no need to clutter console output
 
         } catch (Exception e) {
-            LOGGER.severe("Failed to explain error: " + e.getMessage());
-            listener.getLogger().println("Failed to explain error: " + e.getMessage());
+            LOGGER.severe(jobInfo + " Failed to explain error: " + e.getMessage());
+            listener.getLogger().println(jobInfo + " Failed to explain error: " + e.getMessage());
         }
     }
 
@@ -79,7 +81,8 @@ public class ErrorExplainer {
      * Used for console output error explanation.
      */
     public String explainErrorText(String errorText, Run<?, ?> run) {
-        
+        String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
+
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
@@ -101,13 +104,12 @@ public class ErrorExplainer {
             // Get AI explanation
             AIService aiService = new AIService(config);
             String explanation = aiService.explainError(errorText);
-
-            LOGGER.fine("Explanation length: " + (explanation != null ? explanation.length() : 0));
+            LOGGER.info(jobInfo + " AI error explanation succeeded.");
+            LOGGER.fine(jobInfo + "Explanation length: " + (explanation != null ? explanation.length() : 0));
 
             return explanation;
-
         } catch (Exception e) {
-            LOGGER.severe("Failed to explain error text: " + e.getMessage());
+            LOGGER.severe(jobInfo + " Failed to explain error text: " + e.getMessage());
             e.printStackTrace();
             return "Failed to explain error: " + e.getMessage();
         }
