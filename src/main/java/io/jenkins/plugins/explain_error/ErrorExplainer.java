@@ -105,7 +105,7 @@ public class ErrorExplainer {
             AIService aiService = new AIService(config);
             String explanation = aiService.explainError(errorText);
             LOGGER.info(jobInfo + " AI error explanation succeeded.");
-            LOGGER.fine(jobInfo + "Explanation length: " + (explanation != null ? explanation.length() : 0));
+            LOGGER.fine("Explanation length: " + (explanation != null ? explanation.length() : 0));
 
             return explanation;
         } catch (Exception e) {
