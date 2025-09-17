@@ -27,7 +27,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * 🔍 **One-click error analysis** on any console output
 * ⚙️ **Pipeline-ready** with a simple `explainError()` step
-* 💡 **AI-powered explanations** using OpenAI GPT models or Google Gemini
+* 💡 **AI-powered explanations** using OpenAI GPT, Google Gemini or Custom models
 * 🌐 **Rich web UI** for viewing AI-generated insights
 * 🎯 **Customizable**: set provider, model, API endpoint, log filters, and more
 
@@ -37,7 +37,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 - Jenkins 2.479.3+
 - Java 17+
-- AI API Key (OpenAI or Google)
+- AI API Key (OpenAI, Google or Custom)
 
 ### Installation
 
@@ -59,8 +59,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI or Google Gemini | `OpenAI` |
-| **API Key** | Your AI provider API key | *Required*. Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| **AI Provider** | Choose between OpenAI, Google Gemini or Custom | `OpenAI` |
+| **API Key** | Your AI provider API key | *Required*. Get from [OpenAI](https://platform.openai.com/settings), [Google AI Studio](https://aistudio.google.com/app/apikey) or [Custom](http://localhost:11434/v1/chat/completions) |
 | **API URL** | AI service endpoint | Enter the endpoint URL of your chosen AI provider |
 | **AI Model** | Model to use for analysis | Specify the model name offered by your selected AI provider |
 
@@ -95,6 +95,17 @@ unclassified:
     model: "gemini-1.5-flash"
 ```
 
+**Custom Configuration:**
+```yaml
+unclassified:
+  explainError:
+    enableExplanation: true
+    provider: "CUSTOM"
+    apiKey: "${AI_API_KEY}"
+    apiUrl: "http://localhost:11434/v1/chat/completions"
+    model: "vicuna-13b"
+```
+
 **Environment Variable Example:**
 ```bash
 export AI_API_KEY="your-api-key-here"
@@ -115,6 +126,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### Custom/Ollama/OSS
+- **Models**: `vicuna-13b`, `llama2-70b`
+- **API Key**: Depends on your self-hosted or third-party service
+- **Endpoint**: e.g., `http://localhost:11434/v1/chat/completions`
+- **Best for**: Cost-effective or privacy-focused setups
 
 ## Usage
 
