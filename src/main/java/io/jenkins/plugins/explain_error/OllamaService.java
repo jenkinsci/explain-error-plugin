@@ -27,16 +27,16 @@ public class OllamaService extends BaseAIService {
 
     @Override
     protected String buildRequestBody(String prompt) throws IOException {
-    ObjectNode requestJson = MAPPER.createObjectNode();
-    requestJson.put("model", config.getModel());
-    ArrayNode messages = MAPPER.createArrayNode();
-    ObjectNode message = MAPPER.createObjectNode();
-    message.put("role", "user");
-    message.put("content", prompt);
-    messages.add(message);
-    requestJson.set("messages", messages);
-    requestJson.put("stream", false); // Ensure we get a single, complete response
-    return MAPPER.writeValueAsString(requestJson);
+        ObjectNode requestJson = MAPPER.createObjectNode();
+        requestJson.put("model", config.getModel());
+        ArrayNode messages = MAPPER.createArrayNode();
+        ObjectNode message = MAPPER.createObjectNode();
+        message.put("role", "user");
+        message.put("content", prompt);
+        messages.add(message);
+        requestJson.set("messages", messages);
+        requestJson.put("stream", false); // Ensure we get a single, complete response
+        return MAPPER.writeValueAsString(requestJson);
     }
 
     @Override
