@@ -11,6 +11,27 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
 class AIServiceTest {
+    @Test
+    void testOllamaProviderExplainError() throws IOException {
+        config.setProvider(AIProvider.OLLAMA);
+        config.setApiUrl("http://localhost:11434/api/chat");
+        config.setModel("gpt-oss");
+        config.setApiKey(Secret.fromString("")); // Ollama usually does not require an API key
+        aiService = new AIService(config);
+
+        String result = aiService.explainError("Test error log for Ollama");
+        assertNotNull(result);
+        assertFalse(result.trim().isEmpty());
+        // Should not be the "no error logs" message
+        assertNotEquals("No error logs provided for explanation.", result);
+        // Should handle connection errors gracefully if Ollama is not running
+        assertTrue(result.contains("Failed to communicate with AI service") ||
+                   result.contains("AI API request failed") ||
+                   result.contains("Failed to get explanation") ||
+                   result.contains("AI API Error") ||
+                   result.contains("Failed to get explanation from AI service") ||
+                   result.contains("No explanation returned by Ollama."));
+    }
 
     private GlobalConfigurationImpl config;
     private AIService aiService;

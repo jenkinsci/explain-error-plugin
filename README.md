@@ -59,7 +59,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI or Google Gemini | `OpenAI` |
+| **AI Provider** | Choose between OpenAI, Google Gemini, or Ollama | `OpenAI` |
 | **API Key** | Your AI provider API key | *Required*. Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **API URL** | AI service endpoint | Enter the endpoint URL of your chosen AI provider |
 | **AI Model** | Model to use for analysis | Specify the model name offered by your selected AI provider |
@@ -102,6 +102,7 @@ export AI_API_KEY="your-api-key-here"
 
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
+
 ## Supported AI Providers
 
 ### OpenAI
@@ -115,6 +116,22 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### Ollama (Local/Private LLM)
+- **Models**: `llama2`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
+- **API Key**: Not required by default (unless your Ollama server is secured)
+- **Endpoint**: `http://localhost:11434/api/chat` (or your Ollama server URL)
+- **Best for**: Private, local, or open-source LLMs; no external API usage or cost
+
+**Ollama Configuration Example:**
+```yaml
+unclassified:
+    explainError:
+        enableExplanation: true
+        provider: "OLLAMA"
+        apiUrl: "http://localhost:11434/api/chat"
+        model: "llama2" # gpt-oss, deepseek-r1, etc
+```
 
 ## Usage
 

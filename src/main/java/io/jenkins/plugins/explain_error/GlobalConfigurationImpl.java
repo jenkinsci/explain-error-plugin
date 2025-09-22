@@ -62,7 +62,12 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             
             if (json.has("apiKey")) {
                 String apiKeyStr = json.getString("apiKey");
-                this.apiKey = Secret.fromString(apiKeyStr);
+                // Only set apiKey if provider requires it
+                if (this.provider != AIProvider.OLLAMA) {
+                    this.apiKey = Secret.fromString(apiKeyStr);
+                } else {
+                    this.apiKey = null; // Ollama does not require API key
+                }
             }
             
             if (json.has("apiUrl")) {
@@ -186,7 +191,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
         // Validate only the provided parameters
-        Secret testApiKeySecret = (apiKey != null) ? Secret.fromString(apiKey) : null;
+    Secret testApiKeySecret = (apiKey != null) ? Secret.fromString(apiKey) : null;
         AIProvider testProvider = null;
         if (provider != null && !provider.isEmpty()) {
             try {
@@ -200,7 +205,11 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
         try {
             GlobalConfigurationImpl tempConfig = new GlobalConfigurationImpl();
-            tempConfig.setApiKey(testApiKeySecret);
+            if (testProvider != AIProvider.OLLAMA) {
+                tempConfig.setApiKey(testApiKeySecret);
+            } else {
+                tempConfig.setApiKey(null); // Ollama does not require API key
+            }
             if (testProvider != null) {
                 tempConfig.setProvider(testProvider);
             }
@@ -212,12 +221,13 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
             if (testResponse != null && testResponse.contains("Configuration test successful")) {
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } else if (testResponse != null && testResponse.contains("AI API Error:")) {
-                return FormValidation.error("" + testResponse);
-            } else if (testResponse != null && testResponse.contains("Failed to get explanation from AI service")) {
-                return FormValidation.error("" + testResponse);
+            } else if (testResponse != null && (testResponse.contains("AI API Error:") || testResponse.contains("Failed to get explanation from AI service"))) {
+                return FormValidation.error("Connection failed: Please check your API URL, model, and network connection.");
+            } else if (testResponse != null && !testResponse.trim().isEmpty()) {
+                // Do not show the AI response, just indicate success
+                return FormValidation.ok("API connection established and responded successfully.");
             } else {
-                return FormValidation.ok("API connection established, but got unexpected response: " + testResponse);
+                return FormValidation.error("No response received from AI service. Please check your API URL, model, and network connection.");
             }
 
         } catch (IOException e) {

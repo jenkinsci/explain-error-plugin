@@ -22,12 +22,13 @@ public class AIService {
      */
     private BaseAIService createServiceForProvider(GlobalConfigurationImpl config) {
         AIProvider provider = config.getProvider();
-        
         switch (provider) {
             case OPENAI:
                 return new OpenAIService(config);
             case GEMINI:
                 return new GeminiService(config);
+            case OLLAMA:
+                return new OllamaService(config);
             default:
                 LOGGER.warning("Unknown AI provider: " + provider + ". Defaulting to OpenAI.");
                 return new OpenAIService(config);

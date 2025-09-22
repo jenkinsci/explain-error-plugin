@@ -39,22 +39,17 @@ public abstract class BaseAIService {
 
         String prompt = buildPrompt(errorLogs);
         String requestBody = buildRequestBody(prompt);
-        
         try {
             URI apiUri = URI.create(getApiUrl());
-            
             // Use Jenkins' ProxyConfiguration.newHttpRequestBuilder() to get a properly 
             // configured HttpRequest that respects Jenkins proxy settings
             HttpRequest.Builder requestBuilder = ProxyConfiguration.newHttpRequestBuilder(apiUri);
-            
             // Build the HTTP request with proper proxy configuration
             HttpRequest request = buildHttpRequest(requestBuilder, requestBody);
-
-            // Create HttpClient with timeout configuration
+            // Create HttpClient with increased timeout configuration
             HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(30))
+                .connectTimeout(Duration.ofSeconds(180)) // 3 minutes for long LLM inference
                 .build();
-
             // Execute the request
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             String responseBody = response.body();
