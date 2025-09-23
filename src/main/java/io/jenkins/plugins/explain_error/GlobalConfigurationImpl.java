@@ -62,12 +62,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             
             if (json.has("apiKey")) {
                 String apiKeyStr = json.getString("apiKey");
-                // Only set apiKey if provider requires it
-                if (this.provider != AIProvider.OLLAMA) {
-                    this.apiKey = Secret.fromString(apiKeyStr);
-                } else {
-                    this.apiKey = null; // Ollama does not require API key
-                }
+                this.apiKey = Secret.fromString(apiKeyStr);
             }
             
             if (json.has("apiUrl")) {
