@@ -219,16 +219,25 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             AIService aiService = new AIService(tempConfig);
             String testResponse = aiService.explainError("Test configuration call - please respond with 'Configuration test successful'");
 
-            if (testResponse != null && testResponse.contains("Configuration test successful")) {
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } else if (testResponse != null && (testResponse.contains("AI API Error:") || testResponse.contains("Failed to get explanation from AI service"))) {
-                return FormValidation.error("Connection failed: Please check your API URL, model, and network connection.");
-            } else if (testResponse != null && !testResponse.trim().isEmpty()) {
-                // Do not show the AI response, just indicate success
-                return FormValidation.ok("API connection established and responded successfully.");
-            } else {
+            if (testResponse == null || testResponse.trim().isEmpty()) {
                 return FormValidation.error("No response received from AI service. Please check your API URL, model, and network connection.");
             }
+
+            if (testResponse.contains("Configuration test successful")) {
+                return FormValidation.ok("Configuration test successful! API connection is working properly.");
+            }
+
+            if (testResponse.contains("AI API Error:") || testResponse.contains("Failed to get explanation from AI service")) {
+                return FormValidation.error("Connection failed: Please check your API URL, model, and network connection.");
+            }
+
+            // Any other response is considered a failure during configuration test because
+            // the model did not follow the explicit instruction. Provide a short preview.
+            String singleLine = testResponse.replaceAll("\r?\n", " ").trim();
+            if (singleLine.length() > 140) {
+                singleLine = singleLine.substring(0, 140) + "...";
+            }
+            return FormValidation.error("Unexpected response (missing confirmation phrase). Received: '" + singleLine + "'");
 
         } catch (IOException e) {
             Logger.getLogger(GlobalConfigurationImpl.class.getName()).log(Level.WARNING, "API test failed", e);
