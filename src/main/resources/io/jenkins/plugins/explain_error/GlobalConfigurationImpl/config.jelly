@@ -10,15 +10,7 @@
         </f:entry>
         
         <f:entry title="API Key" field="apiKey">
-            <j:choose>
-                <j:when test="${instance.provider == 'OLLAMA'}">
-                    <f:password disabled="true" default=""/>
-                    <div style="color: #888; font-size: 90%;">Ollama does not require an API key.</div>
-                </j:when>
-                <j:otherwise>
-                    <f:password clazz="required"/>
-                </j:otherwise>
-            </j:choose>
+            <f:password/>
         </f:entry>
         
         <f:entry title="API URL" field="apiUrl">
