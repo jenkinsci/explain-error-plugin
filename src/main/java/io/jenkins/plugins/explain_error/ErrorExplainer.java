@@ -91,7 +91,7 @@ public class ErrorExplainer {
                 return "AI error explanation is disabled in global configuration.";
             }
 
-            if (config.getProvider() != AIProvider.OLLAMA && (config.getApiKey() == null || StringUtils.isBlank(config.getApiKey().getPlainText()))) {
+            if (config.getApiKey() == null || StringUtils.isBlank(config.getApiKey().getPlainText())) {
                 LOGGER.warning("API key is not configured");
                 return "ERROR: API key is not configured. Please configure it in Jenkins global settings.";
             }
