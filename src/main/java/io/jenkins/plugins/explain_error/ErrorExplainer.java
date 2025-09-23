@@ -25,7 +25,7 @@ public class ErrorExplainer {
                 return;
             }
 
-            if (config.getProvider() != AIProvider.OLLAMA && (config.getApiKey() == null || StringUtils.isBlank(config.getApiKey().getPlainText()))) {
+            if (config.getApiKey() == null || StringUtils.isBlank(config.getApiKey().getPlainText())) {
                 listener.getLogger()
                         .println("ERROR: API key is not configured. Please configure it in Jenkins global settings.");
                 return;
