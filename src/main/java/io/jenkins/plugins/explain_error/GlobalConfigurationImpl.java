@@ -186,7 +186,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
         // Validate only the provided parameters
-    Secret testApiKeySecret = (apiKey != null) ? Secret.fromString(apiKey) : null;
+        Secret testApiKeySecret = (apiKey != null) ? Secret.fromString(apiKey) : null;
         AIProvider testProvider = null;
         if (provider != null && !provider.isEmpty()) {
             try {
@@ -200,11 +200,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
         try {
             GlobalConfigurationImpl tempConfig = new GlobalConfigurationImpl();
-            if (testProvider != AIProvider.OLLAMA) {
-                tempConfig.setApiKey(testApiKeySecret);
-            } else {
-                tempConfig.setApiKey(null); // Ollama does not require API key
-            }
+            tempConfig.setApiKey(testApiKeySecret);
             if (testProvider != null) {
                 tempConfig.setProvider(testProvider);
             }
