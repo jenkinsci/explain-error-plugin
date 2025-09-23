@@ -222,13 +222,16 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
                 return FormValidation.error("Connection failed: Please check your API URL, model, and network connection.");
             }
 
-            // Any other response is considered a failure during configuration test because
-            // the model did not follow the explicit instruction. Provide a short preview.
+            // Any other response: treat as failure and give actionable guidance (keep preview short)
             String singleLine = testResponse.replaceAll("\r?\n", " ").trim();
-            if (singleLine.length() > 140) {
-                singleLine = singleLine.substring(0, 140) + "...";
+            if (singleLine.length() > 160) {
+                singleLine = singleLine.substring(0, 160) + "...";
             }
-            return FormValidation.error("Unexpected response (missing confirmation phrase). Received: '" + singleLine + "'");
+            return FormValidation.error(
+                "The AI service responded but didn't include the expected confirmation phrase. " +
+                "This usually means: (1) the endpoint/model is reachable, but (2) the prompt format isn't supported or the model ignored instructions. " +
+                "Verify you are pointing at a chat/completions style endpoint that accepts plain text prompts. Response preview: '" + singleLine + "'"
+            );
 
         } catch (IOException e) {
             Logger.getLogger(GlobalConfigurationImpl.class.getName()).log(Level.WARNING, "API test failed", e);
