@@ -27,7 +27,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
     private Secret apiKey;
     private AIProvider provider = AIProvider.OPENAI;
-    private String apiUrl;
     private String model;
     private boolean enableExplanation = true;
 
@@ -50,7 +49,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             if (json.has("enableExplanation")) {
                 this.enableExplanation = json.getBoolean("enableExplanation");
             }
-            
+
             if (json.has("provider")) {
                 String providerStr = json.getString("provider");
                 try {
@@ -59,20 +58,16 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
                     throw new Descriptor.FormException("Invalid provider: " + providerStr, "provider");
                 }
             }
-            
+
             if (json.has("apiKey")) {
                 String apiKeyStr = json.getString("apiKey");
                 this.apiKey = Secret.fromString(apiKeyStr);
             }
-            
-            if (json.has("apiUrl")) {
-                this.apiUrl = json.getString("apiUrl");
-            }
-            
+
             if (json.has("model")) {
                 this.model = json.getString("model");
             }
-            
+
             save();
             return true;
         } catch (Exception e) {
@@ -98,22 +93,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setProvider(AIProvider provider) {
         this.provider = provider;
-    }
-
-    public String getApiUrl() {
-        return apiUrl;
-    }
-
-    /**
-     * Get the raw configured API URL without defaults, used for validation.
-     */
-    public String getRawApiUrl() {
-        return apiUrl;
-    }
-
-    @DataBoundSetter
-    public void setApiUrl(String apiUrl) {
-        this.apiUrl = apiUrl;
     }
 
     public String getModel() {
@@ -181,7 +160,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @RequirePOST
     public FormValidation doTestConfiguration(@QueryParameter("apiKey") String apiKey,
                                                 @QueryParameter("provider") String provider,
-                                                @QueryParameter("apiUrl") String apiUrl,
                                                 @QueryParameter("model") String model) {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
@@ -195,7 +173,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
                 return FormValidation.error("Invalid provider: " + provider);
             }
         }
-        String testApiUrl = apiUrl != null ? apiUrl : "";
         String testModel = model != null ? model : "";
 
         try {
@@ -204,7 +181,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             if (testProvider != null) {
                 tempConfig.setProvider(testProvider);
             }
-            tempConfig.setApiUrl(testApiUrl);
             tempConfig.setModel(testModel);
 
             AIService aiService = new AIService(tempConfig);

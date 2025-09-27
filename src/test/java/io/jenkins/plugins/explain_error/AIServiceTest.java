@@ -19,14 +19,13 @@ class AIServiceTest {
     void setUp(JenkinsRule jenkins) {
         // Get the global configuration instance
         config = GlobalConfigurationImpl.get();
-        
+
         // Set minimal test values (no auto-population)
         config.setProvider(AIProvider.OPENAI);
-        config.setApiUrl(null); // No auto-population
         config.setModel(null); // No auto-population
         config.setApiKey(Secret.fromString("test-api-key"));
         config.setEnableExplanation(true);
-        
+
         aiService = new AIService(config);
     }
 
@@ -53,19 +52,19 @@ class AIServiceTest {
         String errorLogs = "ERROR: Failed to compile\n" +
                           "FAILED: Task execution failed\n" +
                           "BUILD FAILED in 2s";
-        
+
         // Since we don't have a real API key or network connection,
         // the service should handle the error gracefully
         String result = aiService.explainError(errorLogs);
-        
+
         // The result should not be the "no error logs" message
         assertNotEquals("No error logs provided for explanation.", result);
         assertNotNull(result);
         assertFalse(result.trim().isEmpty());
-        
+
         // The result should contain some indication of failure or error handling
         // since we don't have a real API connection
-        assertTrue(result.contains("Failed to communicate with AI service") || 
+        assertTrue(result.contains("Failed to communicate with AI service") ||
                   result.contains("AI API request failed") ||
                   result.contains("Failed to get explanation") ||
                   result.contains("AI API Error") ||
@@ -82,9 +81,9 @@ class AIServiceTest {
                                  "Execution failed for task ':compileJava'.\n" +
                                  "> Compilation failed; see the compiler error output for details.\n" +
                                  "BUILD FAILED in 15s";
-        
+
         String result = aiService.explainError(complexErrorLogs);
-        
+
         // Should not return the "no error logs" message for valid input
         assertNotEquals("No error logs provided for explanation.", result);
         assertNotNull(result);
@@ -94,9 +93,9 @@ class AIServiceTest {
     @Test
     void testServiceWithNullApiKey() {
         config.setApiKey(null);
-        
+
         String result = assertDoesNotThrow(() -> aiService.explainError("Some error"));
-        
+
         // Should handle null API key gracefully - just verify we get some response
         assertNotNull(result);
         assertFalse(result.trim().isEmpty());
@@ -107,23 +106,10 @@ class AIServiceTest {
     @Test
     void testServiceWithEmptyApiKey() {
         config.setApiKey(Secret.fromString(""));
-        
-        String result = assertDoesNotThrow(() -> aiService.explainError("Some error"));
-        
-        // Should handle empty API key gracefully - just verify we get some response
-        assertNotNull(result);
-        assertFalse(result.trim().isEmpty());
-        // Should not be the "no error logs" message since we provided error logs
-        assertNotEquals("No error logs provided for explanation.", result);
-    }
 
-    @Test
-    void testServiceWithInvalidApiUrl() {
-        config.setApiUrl("invalid-url");
-        
         String result = assertDoesNotThrow(() -> aiService.explainError("Some error"));
-        
-        // Should handle invalid URL gracefully - just verify we get some response
+
+        // Should handle empty API key gracefully - just verify we get some response
         assertNotNull(result);
         assertFalse(result.trim().isEmpty());
         // Should not be the "no error logs" message since we provided error logs
@@ -133,9 +119,9 @@ class AIServiceTest {
     @Test
     void testServiceWithNullModel() {
         config.setModel(null);
-        
+
         String result = assertDoesNotThrow(() -> aiService.explainError("Some error"));
-        
+
         // Should handle null model gracefully (might cause JSON serialization issues)
         assertNotNull(result);
     }
@@ -147,9 +133,9 @@ class AIServiceTest {
         for (int i = 0; i < 50; i++) { // Reduced size for testing
             longErrorLog.append("ERROR: Line ").append(i).append(" of error log\n");
         }
-        
+
         String result = aiService.explainError(longErrorLog.toString());
-        
+
         // Should handle long input without throwing exception
         assertNotEquals("No error logs provided for explanation.", result);
         assertNotNull(result);
@@ -160,9 +146,9 @@ class AIServiceTest {
         String errorLogsWithSpecialChars = "ERROR: Failed to process file 'test@#$%^&*().txt'\n" +
                                           "FAILURE: Build failed with special chars: <>&\"'\n" +
                                           "Unicode characters: ñáéíóú 中文 العربية";
-        
+
         String result = aiService.explainError(errorLogsWithSpecialChars);
-        
+
         // Should handle special characters without throwing exception
         assertNotEquals("No error logs provided for explanation.", result);
         assertNotNull(result);
@@ -176,9 +162,9 @@ class AIServiceTest {
                                    "error\n" +
                                    "messages\n" +
                                    "BUILD FAILED";
-        
+
         String result = aiService.explainError(multilineErrorLogs);
-        
+
         // Should handle multiline input properly
         assertNotEquals("No error logs provided for explanation.", result);
         assertNotNull(result);
@@ -189,9 +175,9 @@ class AIServiceTest {
         String errorLogsWithJSON = "ERROR: JSON parsing failed\n" +
                                    "Expected: {\"key\": \"value\"}\n" +
                                    "Actual: {\"key\": \"broken";
-        
+
         String result = aiService.explainError(errorLogsWithJSON);
-        
+
         // Should handle JSON-like content without breaking
         assertNotEquals("No error logs provided for explanation.", result);
         assertNotNull(result);
@@ -201,10 +187,10 @@ class AIServiceTest {
     void testGeminiProviderConfiguration() {
         config.setProvider(AIProvider.GEMINI);
         config.setApiKey(Secret.fromString("test-gemini-key"));
-        
+
         AIService geminiService = new AIService(config);
         String result = assertDoesNotThrow(() -> geminiService.explainError("Test error"));
-        
+
         // Should create Gemini service successfully
         assertNotNull(result);
         assertFalse(result.trim().isEmpty());
@@ -215,15 +201,12 @@ class AIServiceTest {
     void testProviderDefaults() {
         // Test OpenAI - no auto-population
         config.setProvider(AIProvider.OPENAI);
-        assertNull(config.getApiUrl()); // No auto-population
         assertNull(config.getModel()); // No auto-population
-        
+
         // Test Gemini - no auto-population
         config.setProvider(AIProvider.GEMINI);
-        config.setApiUrl(null); // Clear URL
         config.setModel(null);  // Clear model
-        
-        assertNull(config.getApiUrl()); // No auto-population
+
         assertNull(config.getModel()); // No auto-population
     }
 
@@ -232,15 +215,15 @@ class AIServiceTest {
         // Start with OpenAI
         config.setProvider(AIProvider.OPENAI);
         AIService openaiService = new AIService(config);
-        
+
         // Switch to Gemini
         config.setProvider(AIProvider.GEMINI);
         AIService geminiService = new AIService(config);
-        
+
         // Both should work (though will fail due to no network, but should not crash)
         String openaiResult = assertDoesNotThrow(() -> openaiService.explainError("Test error"));
         String geminiResult = assertDoesNotThrow(() -> geminiService.explainError("Test error"));
-        
+
         assertNotNull(openaiResult);
         assertNotNull(geminiResult);
     }

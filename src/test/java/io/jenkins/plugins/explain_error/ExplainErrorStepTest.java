@@ -37,7 +37,6 @@ class ExplainErrorStepTest {
 
         // With no auto-population, values should be null initially
         assert config.getProvider() == AIProvider.OPENAI;
-        assert config.getApiUrl() == null; // No auto-population
         assert config.getModel() == null; // No auto-population
         assert config.isEnableExplanation() == true;
     }

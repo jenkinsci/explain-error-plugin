@@ -37,10 +37,10 @@ class ConsoleExplainErrorActionTest {
         // Use reflection to access the private method
         Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
         method.setAccessible(true);
-        
+
         String originalExplanation = "This is the original AI explanation.";
         String cachedResponse = (String) method.invoke(action, originalExplanation);
-        
+
         assertNotNull(cachedResponse);
         assertTrue(cachedResponse.contains(originalExplanation));
         assertTrue(cachedResponse.contains("previously generated explanation"));
@@ -52,9 +52,9 @@ class ConsoleExplainErrorActionTest {
         // Use reflection to access the private method
         Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
         method.setAccessible(true);
-        
+
         String cachedResponse = (String) method.invoke(action, (String) null);
-        
+
         assertNotNull(cachedResponse);
         assertTrue(cachedResponse.contains("null"));
         assertTrue(cachedResponse.contains("previously generated explanation"));
@@ -65,9 +65,9 @@ class ConsoleExplainErrorActionTest {
         // Use reflection to access the private method
         Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
         method.setAccessible(true);
-        
+
         String cachedResponse = (String) method.invoke(action, "");
-        
+
         assertNotNull(cachedResponse);
         assertTrue(cachedResponse.contains("previously generated explanation"));
     }
@@ -77,14 +77,14 @@ class ConsoleExplainErrorActionTest {
         // Use reflection to access the private method
         Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
         method.setAccessible(true);
-        
+
         StringBuilder longExplanation = new StringBuilder();
         for (int i = 0; i < 100; i++) {
             longExplanation.append("This is line ").append(i).append(" of a very long explanation.\n");
         }
-        
+
         String cachedResponse = (String) method.invoke(action, longExplanation.toString());
-        
+
         assertNotNull(cachedResponse);
         assertTrue(cachedResponse.contains(longExplanation.toString()));
         assertTrue(cachedResponse.contains("previously generated explanation"));
@@ -95,10 +95,10 @@ class ConsoleExplainErrorActionTest {
         // Use reflection to access the private method
         Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
         method.setAccessible(true);
-        
+
         String specialExplanation = "Error with special chars: <>&\"'\nUnicode: ñáéíóú 中文 العربية";
         String cachedResponse = (String) method.invoke(action, specialExplanation);
-        
+
         assertNotNull(cachedResponse);
         assertTrue(cachedResponse.contains(specialExplanation));
         assertTrue(cachedResponse.contains("previously generated explanation"));
@@ -109,11 +109,11 @@ class ConsoleExplainErrorActionTest {
         // Initially no explanation should exist
         ErrorExplanationAction existingAction = build.getAction(ErrorExplanationAction.class);
         assertNull(existingAction);
-        
+
         // Add an explanation
         ErrorExplanationAction action = new ErrorExplanationAction("Test explanation", "Error logs");
         build.addAction(action);
-        
+
         // Now explanation should exist and be valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -126,7 +126,7 @@ class ConsoleExplainErrorActionTest {
         // Add an invalid explanation (null content)
         ErrorExplanationAction invalidAction = new ErrorExplanationAction(null, "Error logs");
         build.addAction(invalidAction);
-        
+
         // Explanation exists but should not be valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -138,7 +138,7 @@ class ConsoleExplainErrorActionTest {
         // Add an empty explanation
         ErrorExplanationAction emptyAction = new ErrorExplanationAction("", "Error logs");
         build.addAction(emptyAction);
-        
+
         // Explanation exists but should not be valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -149,7 +149,7 @@ class ConsoleExplainErrorActionTest {
     void testDoCheckExistingExplanationWithNoExistingAction() throws Exception {
         // Use reflection to test the JSON logic without Stapler mocking
         assertNull(build.getAction(ErrorExplanationAction.class));
-        
+
         // Since no existing action, should return hasExplanation: false
         // We can't easily test the full HTTP response without complex mocking,
         // but we can verify the core logic by checking the build state
@@ -162,7 +162,7 @@ class ConsoleExplainErrorActionTest {
         // Add an existing explanation action
         ErrorExplanationAction existingAction = new ErrorExplanationAction("Test explanation", "Test error logs");
         build.addAction(existingAction);
-        
+
         // Verify the action was added and is valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -176,7 +176,7 @@ class ConsoleExplainErrorActionTest {
         // Add an existing explanation action with invalid explanation (null)
         ErrorExplanationAction existingAction = new ErrorExplanationAction(null, "Test error logs");
         build.addAction(existingAction);
-        
+
         // Verify the action was added but is not valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -188,7 +188,7 @@ class ConsoleExplainErrorActionTest {
         // Add an existing explanation action with empty explanation
         ErrorExplanationAction existingAction = new ErrorExplanationAction("", "Test error logs");
         build.addAction(existingAction);
-        
+
         // Verify the action was added but is not valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -200,7 +200,7 @@ class ConsoleExplainErrorActionTest {
         // Add an existing explanation action with whitespace-only explanation
         ErrorExplanationAction existingAction = new ErrorExplanationAction("   \n  \t  ", "Test error logs");
         build.addAction(existingAction);
-        
+
         // Verify the action was added but is not valid
         ErrorExplanationAction retrievedAction = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrievedAction);
@@ -210,25 +210,25 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testDoCheckExistingExplanationLogic() throws Exception {
         // Test the core logic that doCheckExistingExplanation uses
-        
+
         // Case 1: No existing action
         assertNull(build.getAction(ErrorExplanationAction.class));
-        
+
         // Case 2: Valid existing action
         ErrorExplanationAction validAction = new ErrorExplanationAction("Valid explanation", "Error logs");
         build.addAction(validAction);
-        
+
         ErrorExplanationAction retrieved = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrieved);
         assertTrue(retrieved.hasValidExplanation());
-        
+
         // Remove and test invalid cases
         build.removeAction(validAction);
-        
+
         // Case 3: Invalid existing action (null explanation)
         ErrorExplanationAction invalidAction = new ErrorExplanationAction(null, "Error logs");
         build.addAction(invalidAction);
-        
+
         retrieved = build.getAction(ErrorExplanationAction.class);
         assertNotNull(retrieved);
         assertFalse(retrieved.hasValidExplanation());

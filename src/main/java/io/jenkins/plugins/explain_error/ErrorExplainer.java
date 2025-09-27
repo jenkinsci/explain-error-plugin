@@ -100,7 +100,7 @@ public class ErrorExplainer {
                 LOGGER.warning("No error text provided");
                 return "No error text provided to explain.";
             }
-            
+
             // Get AI explanation
             AIService aiService = new AIService(config);
             String explanation = aiService.explainError(errorText);

@@ -75,13 +75,13 @@ class ErrorExplanationActionTest {
     void testRunAction2Interface(JenkinsRule jenkins) throws Exception {
         FreeStyleProject project = jenkins.createFreeStyleProject("test");
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
-        
+
         // Test onAttached
         action.onAttached(build);
-        
+
         // Test onLoad
         action.onLoad(build);
-        
+
         // The action should now be associated with the build
         // This doesn't throw an exception, so the interface is properly implemented
         assertTrue(true);
@@ -114,7 +114,7 @@ class ErrorExplanationActionTest {
         for (int i = 0; i < 1000; i++) {
             longExplanation.append("This is line ").append(i).append(" of a very long explanation.\n");
         }
-        
+
         ErrorExplanationAction longAction = new ErrorExplanationAction(longExplanation.toString(), testErrorLogs);
         assertEquals(longExplanation.toString(), longAction.getExplanation());
     }
@@ -123,7 +123,7 @@ class ErrorExplanationActionTest {
     void testWithSpecialCharacters() {
         String specialExplanation = "Error with special chars: <>&\"'\nUnicode: ñáéíóú 中文 العربية";
         String specialErrorLogs = "ERROR: File 'test@#$%^&*().txt' not found";
-        
+
         ErrorExplanationAction specialAction = new ErrorExplanationAction(specialExplanation, specialErrorLogs);
         assertEquals(specialExplanation, specialAction.getExplanation());
         assertEquals(specialErrorLogs, specialAction.getOriginalErrorLogs());
@@ -133,12 +133,12 @@ class ErrorExplanationActionTest {
     void testTimestampConsistency() throws InterruptedException {
         long beforeCreation = System.currentTimeMillis();
         Thread.sleep(10); // Small delay to ensure timestamp difference
-        
+
         ErrorExplanationAction timedAction = new ErrorExplanationAction("test", "test");
-        
+
         Thread.sleep(10); // Small delay to ensure timestamp difference
         long afterCreation = System.currentTimeMillis();
-        
+
         long actionTimestamp = timedAction.getTimestamp();
         assertTrue(actionTimestamp >= beforeCreation);
         assertTrue(actionTimestamp <= afterCreation);
@@ -149,23 +149,23 @@ class ErrorExplanationActionTest {
         // Test with valid explanation
         ErrorExplanationAction validAction = new ErrorExplanationAction("Valid explanation", "Error logs");
         assertTrue(validAction.hasValidExplanation());
-        
+
         // Test with null explanation
         ErrorExplanationAction nullAction = new ErrorExplanationAction(null, "Error logs");
         assertFalse(nullAction.hasValidExplanation());
-        
+
         // Test with empty explanation
         ErrorExplanationAction emptyAction = new ErrorExplanationAction("", "Error logs");
         assertFalse(emptyAction.hasValidExplanation());
-        
+
         // Test with whitespace-only explanation
         ErrorExplanationAction whitespaceAction = new ErrorExplanationAction("   \n  \t  ", "Error logs");
         assertFalse(whitespaceAction.hasValidExplanation());
-        
+
         // Test with explanation containing only spaces
         ErrorExplanationAction spacesAction = new ErrorExplanationAction("     ", "Error logs");
         assertFalse(spacesAction.hasValidExplanation());
-        
+
         // Test with valid explanation containing whitespace
         ErrorExplanationAction validWithWhitespaceAction = new ErrorExplanationAction("  Valid explanation  ", "Error logs");
         assertTrue(validWithWhitespaceAction.hasValidExplanation());

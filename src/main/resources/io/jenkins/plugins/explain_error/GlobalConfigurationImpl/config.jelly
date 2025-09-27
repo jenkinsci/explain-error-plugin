@@ -13,10 +13,6 @@
             <f:password clazz="required"/>
         </f:entry>
         
-        <f:entry title="API URL" field="apiUrl">
-            <f:textbox clazz="required"/>
-        </f:entry>
-        
         <f:entry title="AI Model" field="model">
             <f:textbox clazz="required"/>
         </f:entry>
@@ -24,7 +20,7 @@
         <f:entry title="">
             <div>
                 <f:validateButton title="Test Configuration" progress="Testing..." 
-                                method="testConfiguration" with="apiKey,provider,apiUrl,model" />
+                                method="testConfiguration" with="apiKey,provider,model" />
             </div>
         </f:entry>
     </f:section>

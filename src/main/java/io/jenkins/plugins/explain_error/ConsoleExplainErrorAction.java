@@ -78,7 +78,7 @@ public class ConsoleExplainErrorAction implements Action {
                 // Save the explanation as a build action (like the sidebar functionality)
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorText);
                 run.addOrReplaceAction(action);
-                
+
                 writeJsonResponse(rsp, explanation);
             } else {
                 writeJsonResponse(rsp, "Error: Could not generate explanation. Please check your AI API configuration.");
@@ -98,24 +98,24 @@ public class ConsoleExplainErrorAction implements Action {
     public void doCheckExistingExplanation(StaplerRequest2 req, StaplerResponse2 rsp) throws ServletException, IOException {
         try {
             run.checkPermission(hudson.model.Item.READ);
-            
+
             ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
             boolean hasExplanation = existingAction != null && existingAction.hasValidExplanation();
-            
+
             rsp.setContentType("application/json");
             rsp.setCharacterEncoding("UTF-8");
             PrintWriter writer = rsp.getWriter();
-            
+
             if (hasExplanation) {
                 String response = String.format(
-                    "{\"hasExplanation\": true, \"timestamp\": \"%s\"}", 
+                    "{\"hasExplanation\": true, \"timestamp\": \"%s\"}",
                     existingAction.getFormattedTimestamp()
                 );
                 writer.write(response);
             } else {
                 writer.write("{\"hasExplanation\": false}");
             }
-            
+
             writer.flush();
         } catch (Exception e) {
             LOGGER.severe("Error checking existing explanation: " + e.getMessage());

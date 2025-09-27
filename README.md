@@ -80,7 +80,6 @@ unclassified:
     enableExplanation: true
     provider: "OPENAI"
     apiKey: "${AI_API_KEY}"
-    apiUrl: "https://api.openai.com/v1/chat/completions"
     model: "gpt-3.5-turbo"
 ```
 
@@ -91,7 +90,6 @@ unclassified:
     enableExplanation: true
     provider: "GEMINI"
     apiKey: "${AI_API_KEY}"
-    apiUrl: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     model: "gemini-1.5-flash"
 ```
 
