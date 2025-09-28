@@ -1,0 +1,34 @@
+package io.jenkins.plugins.explain_error;
+
+import java.time.Duration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.service.AiServices;
+
+/**
+ * OpenAI-specific implementation of the AI service using LangChain4j.
+ */
+public class OllmaService extends BaseAIService {
+
+    protected static final Logger LOGGER = Logger.getLogger(OpenAIService.class.getName());
+
+    public OllmaService(GlobalConfigurationImpl config) {
+        super(config);
+    }
+
+    @Override
+    protected Assistant createAssistant() {
+        ChatModel model = OllamaChatModel.builder()
+            .baseUrl(config.getApiUrl())
+            .modelName(config.getModel())
+            .temperature(0.3)
+            .timeout(Duration.ofSeconds(180))
+            .logRequests(LOGGER.getLevel() == Level.FINE)
+            .logResponses(LOGGER.getLevel() == Level.FINE)
+            .build();
+        return AiServices.create(Assistant.class, model);
+    }
+}

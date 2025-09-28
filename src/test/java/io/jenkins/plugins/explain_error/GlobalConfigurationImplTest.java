@@ -70,7 +70,7 @@ class GlobalConfigurationImplTest {
     @Test
     void testDoTestConfiguration() {
         // Test the doTestConfiguration method with invalid parameters
-        FormValidation result = config.doTestConfiguration("invalid-key", "OPENAI", "invalid-model");
+        FormValidation result = config.doTestConfiguration("invalid-key", "OPENAI", "invalid-url", "invalid-model");
 
         // The result should not be null and should have a message
         assertNotNull(result);
@@ -84,7 +84,7 @@ class GlobalConfigurationImplTest {
     @Test
     void testDoTestConfigurationWithNullParameters() {
         // Test with null parameters
-        FormValidation result = config.doTestConfiguration(null, null, null);
+        FormValidation result = config.doTestConfiguration(null, null, null, null);
 
         // Should handle null parameters gracefully
         assertNotNull(result);
@@ -94,7 +94,7 @@ class GlobalConfigurationImplTest {
     @Test
     void testDoTestConfigurationWithEmptyParameters() {
         // Test with empty parameters
-        FormValidation result = config.doTestConfiguration("", "", "");
+        FormValidation result = config.doTestConfiguration("", "", "", "");
 
         // Should handle empty parameters gracefully
         assertNotNull(result);

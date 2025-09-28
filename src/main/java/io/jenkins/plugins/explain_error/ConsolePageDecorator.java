@@ -17,8 +17,12 @@ public class ConsolePageDecorator extends PageDecorator {
     public boolean isExplainErrorEnabled() {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
-        // Must have explanation enabled and API key
-        if (!config.isEnableExplanation() || Secret.toString(config.getApiKey()).isBlank()) {
+        // Must have explanation enabled. API key required for providers other than OLLAMA.
+        if (!config.isEnableExplanation()) {
+            return false;
+        }
+
+        if (config.getProvider() != AIProvider.OLLAMA && Secret.toString(config.getApiKey()).isBlank()) {
             return false;
         }
 

@@ -27,7 +27,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * 🔍 **One-click error analysis** on any console output
 * ⚙️ **Pipeline-ready** with a simple `explainError()` step
-* 💡 **AI-powered explanations** using OpenAI GPT models or Google Gemini
+* 💡 **AI-powered explanations** using OpenAI GPT models, Google Gemini or local Ollama models
 * 🌐 **Rich web UI** for viewing AI-generated insights
 * 🎯 **Customizable**: set provider, model, API endpoint, log filters, and more
 
@@ -59,10 +59,10 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI or Google Gemini | `OpenAI` |
-| **API Key** | Your AI provider API key | *Required*. Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| **AI Provider** | Choose between OpenAI, Google Gemini, or Ollama  | `OpenAI` |
+| **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **API URL** | AI service endpoint | Enter the endpoint URL of your chosen AI provider |
-| **AI Model** | Model to use for analysis | Specify the model name offered by your selected AI provider |
+| **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
@@ -93,6 +93,16 @@ unclassified:
     model: "gemini-1.5-flash"
 ```
 
+**Ollama Configuration:**
+```yaml
+unclassified:
+  explainError:
+    enableExplanation: true
+    provider: "OLLAMA"
+    apiUrl: "http://localhost:11434"
+    model: "llama2" # gpt-oss, deepseek-r1, etc
+```
+
 **Environment Variable Example:**
 ```bash
 export AI_API_KEY="your-api-key-here"
@@ -113,6 +123,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### Ollama (Local/Private LLM)
+- **Models**: `llama2`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
+- **API Key**: Not required by default (unless your Ollama server is secured)
+- **Endpoint**: `http://localhost:11434` (or your Ollama server URL)
+- **Best for**: Private, local, or open-source LLMs; no external API usage or cost
 
 ## Usage
 

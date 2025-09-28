@@ -22,6 +22,7 @@ class AIServiceTest {
 
         // Set minimal test values (no auto-population)
         config.setProvider(AIProvider.OPENAI);
+        config.setApiUrl(null); // No auto-population
         config.setModel(null); // No auto-population
         config.setApiKey(Secret.fromString("test-api-key"));
         config.setEnableExplanation(true);
