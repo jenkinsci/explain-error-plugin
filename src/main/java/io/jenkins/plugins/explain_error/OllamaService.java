@@ -9,13 +9,13 @@ import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.service.AiServices;
 
 /**
- * OpenAI-specific implementation of the AI service using LangChain4j.
+ * Ollama-specific implementation of the AI service using LangChain4j.
  */
-public class OllmaService extends BaseAIService {
+public class OllamaService extends BaseAIService {
 
-    protected static final Logger LOGGER = Logger.getLogger(OllmaService.class.getName());
+    protected static final Logger LOGGER = Logger.getLogger(OllamaService.class.getName());
 
-    public OllmaService(GlobalConfigurationImpl config) {
+    public OllamaService(GlobalConfigurationImpl config) {
         super(config);
     }
 

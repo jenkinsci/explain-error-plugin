@@ -29,7 +29,7 @@ public class AIService {
             case GEMINI:
                 return new GeminiService(config);
             case OLLAMA:
-                return new OllmaService(config);
+                return new OllamaService(config);
             default:
                 LOGGER.warning("Unknown AI provider: " + provider + ". Defaulting to OpenAI.");
                 return new OpenAIService(config);
