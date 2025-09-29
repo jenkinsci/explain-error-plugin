@@ -4,17 +4,15 @@ package io.jenkins.plugins.explain_error;
  * Enum representing the supported AI providers.
  */
 public enum AIProvider {
-    OPENAI("OpenAI", "", "gpt-5-nano"),
-    GEMINI("Google Gemini", "", "gemini-2.0-flash"),
-    OLLAMA("Ollama", "", "gemma3:1b");
+    OPENAI("OpenAI", "gpt-5-nano"),
+    GEMINI("Google Gemini", "gemini-2.0-flash"),
+    OLLAMA("Ollama", "gemma3:1b");
 
     private final String displayName;
-    private final String defaultApiUrl;
     private final String defaultModel;
 
-    AIProvider(String displayName, String defaultApiUrl, String defaultModel) {
+    AIProvider(String displayName, String defaultModel) {
         this.displayName = displayName;
-        this.defaultApiUrl = defaultApiUrl;
         this.defaultModel = defaultModel;
     }
 

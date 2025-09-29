@@ -98,7 +98,6 @@ unclassified:
     enableExplanation: true
     provider: "OPENAI"  # or "GEMINI"
     apiKey: "${AI_API_KEY}"
-    apiUrl: "https://api.openai.com/v1/chat/completions"
     model: "gpt-3.5-turbo"
 ```
 
