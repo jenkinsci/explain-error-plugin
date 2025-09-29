@@ -201,7 +201,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             tempConfig.setModel(testModel);
 
             AIService aiService = new AIService(tempConfig);
-            String testResponse = aiService.explainError("Test configuration call - please respond with 'Configuration test successful'");
+            String testResponse = aiService.explainError("Send 'Configuration test successful' to me.");
 
             if (testResponse != null && testResponse.contains("Configuration test successful")) {
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
@@ -209,8 +209,10 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
                 return FormValidation.error("" + testResponse);
             } else if (testResponse != null && testResponse.contains("Failed to get explanation from AI service")) {
                 return FormValidation.error("" + testResponse);
+            } else if (testResponse != null && testResponse.contains("Unable to create assistant")) {
+                return FormValidation.error("" + testResponse);
             } else {
-                return FormValidation.ok("API connection established, but got unexpected response: " + testResponse);
+                return FormValidation.error("Connection failed: No valid response received from AI service.");
             }
 
         } catch (IOException e) {
