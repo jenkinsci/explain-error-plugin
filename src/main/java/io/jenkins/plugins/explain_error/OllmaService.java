@@ -13,7 +13,7 @@ import dev.langchain4j.service.AiServices;
  */
 public class OllmaService extends BaseAIService {
 
-    protected static final Logger LOGGER = Logger.getLogger(OpenAIService.class.getName());
+    protected static final Logger LOGGER = Logger.getLogger(OllmaService.class.getName());
 
     public OllmaService(GlobalConfigurationImpl config) {
         super(config);
