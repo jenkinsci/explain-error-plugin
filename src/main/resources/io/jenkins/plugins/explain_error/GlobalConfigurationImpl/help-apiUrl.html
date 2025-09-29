@@ -1,12 +1,19 @@
 The API endpoint URL for your chosen AI provider.
 
-<p><strong>Default URLs by provider:</strong></p>
+<h4>Ollama</h4>
+<p>For Ollama, specify the base URL where your Ollama service is running:</p>
 <ul>
-<li><strong>OpenAI</strong>: https://api.openai.com/v1/chat/completions</li>
-<li><strong>Google Gemini</strong>: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent</li>
+<li>Local instance: <code>http://localhost:11434</code></li>
+<li>Remote instance: <code>http://YOUR_OLLAMA_HOST:11434</code></li>
 </ul>
+<p>Note: Ensure the Ollama service is running and accessible from your Jenkins instance.</p>
 
-<p>For OpenAI, use the standard chat completions endpoint.</p>
-<p>For Google Gemini, use the generateContent endpoint with the {model} placeholder replaced with your specific model name.</p>
+<h4>OpenAI</h4>
+<p><strong>Leave this field empty.</strong> LangChain4j automatically uses the official OpenAI API endpoint.</p>
+<p>Only specify a custom URL if you're using an OpenAI-compatible service or proxy.</p>
 
-<p>You can customize this URL if you're using a different endpoint, proxy, or self-hosted deployment.</p>
+<h4>Google Gemini</h4>
+<p><strong>Leave this field empty.</strong> LangChain4j automatically uses the official Google AI API endpoint.</p>
+<p>Only specify a custom URL if you're using a custom Google AI proxy.</p>
+
+<p>For standard cloud providers (OpenAI, Google), LangChain4j handles the endpoint configuration automatically.</p>

@@ -4,9 +4,9 @@ package io.jenkins.plugins.explain_error;
  * Enum representing the supported AI providers.
  */
 public enum AIProvider {
-    OPENAI("OpenAI", "", "gpt-3.5-turbo"),
-    GEMINI("Google Gemini", "", "gemini-1.5-flash"),
-    OLLAMA("Ollama", "", "llama2");
+    OPENAI("OpenAI", "", "gpt-5-nano"),
+    GEMINI("Google Gemini", "", "gemini-2.0-flash"),
+    OLLAMA("Ollama", "", "gemma3:1b");
 
     private final String displayName;
     private final String defaultApiUrl;
