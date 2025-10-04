@@ -25,6 +25,7 @@ public class AIService {
 
         switch (provider) {
             case OPENAI:
+            case MOONSHOT:
                 return new OpenAIService(config);
             case GEMINI:
                 return new GeminiService(config);

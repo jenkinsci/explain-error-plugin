@@ -109,6 +109,17 @@ unclassified:
     # apiUrl: "" # Optional, leave empty for default
 ```
 
+**Moonshot Configuration:**
+```yaml
+unclassified:
+  explainError:
+    enableExplanation: true
+    provider: "MOONSHOT"
+    apiUrl: "https://api.moonshot.ai/v1"
+    apiKey: "${AI_API_KEY}"
+    model: "moonshot-v1-8k"
+```
+
 **Ollama Configuration:**
 ```yaml
 unclassified:
@@ -133,6 +144,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
 - **Best for**: Comprehensive error analysis with excellent reasoning
+
+### Moonshot
+- **Models**: `moonshot-v1-8k`
+- **API Key**: Get from [Moonshot Official Site](https://platform.moonshot.ai/console/api-keys)
+- **Endpoint**: https://api.moonshot.ai (It's an openai compatible with his own endpoint)
+- **Best for**: Comprehensive error analysis with long context processing capability
 
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.

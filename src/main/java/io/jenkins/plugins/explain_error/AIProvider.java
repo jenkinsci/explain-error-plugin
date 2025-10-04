@@ -6,6 +6,7 @@ package io.jenkins.plugins.explain_error;
 public enum AIProvider {
     OPENAI("OpenAI", "gpt-4"),
     GEMINI("Google Gemini", "gemini-2.0-flash"),
+    MOONSHOT("Moonshot AI", "moonshot-v1-8k"),
     OLLAMA("Ollama", "gemma3:1b");
 
     private final String displayName;
