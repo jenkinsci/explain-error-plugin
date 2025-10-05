@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 @Symbol("explainError")
 public class GlobalConfigurationImpl extends GlobalConfiguration {
 
+    private static final Logger LOGGER = Logger.getLogger(GlobalConfigurationImpl.class.getName());
     private Secret apiKey;
     private AIProvider provider = AIProvider.OPENAI;
     private String apiUrl;
@@ -76,7 +77,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             save();
             return true;
         } catch (Exception e) {
-            Logger.getLogger(GlobalConfigurationImpl.class.getName()).log(Level.SEVERE, "Configuration failed", e);
+            LOGGER.log(Level.SEVERE, "Configuration failed", e);
             throw new Descriptor.FormException("Configuration failed: " + e.getMessage(), e, "");
         }
     }
@@ -216,10 +217,10 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             }
 
         } catch (IOException e) {
-            Logger.getLogger(GlobalConfigurationImpl.class.getName()).log(Level.WARNING, "API test failed", e);
+            LOGGER.log(Level.WARNING, "API test failed", e);
             return FormValidation.error("Connection failed: " + e.getMessage() + ". Please check your API URL and network connection.");
         } catch (Exception e) {
-            Logger.getLogger(GlobalConfigurationImpl.class.getName()).log(Level.WARNING, "Configuration test failed", e);
+            LOGGER.log(Level.WARNING, "Configuration test failed", e);
             return FormValidation.error("Test failed: " + e.getMessage());
         }
     }
