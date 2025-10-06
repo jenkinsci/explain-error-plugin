@@ -136,7 +136,7 @@ function explainConsoleError() {
 }
 
 function checkExistingExplanation() {
-  const basePath = window.location.pathname.replace(/\/console$/, '');
+  const basePath = window.location.pathname.replace(/\/console(Full)?$/, '');
   const url = basePath + '/console-explain-error/checkExistingExplanation';
 
   const headers = crumb.wrap({
@@ -200,7 +200,7 @@ function hideConfirmationDialog() {
 }
 
 function sendExplainRequest(forceNew = false) {
-  const basePath = window.location.pathname.replace(/\/console$/, '');
+  const basePath = window.location.pathname.replace(/\/console(Full)?$/, '');
   const url = basePath + '/console-explain-error/explainConsoleError';
 
   const headers = crumb.wrap({
