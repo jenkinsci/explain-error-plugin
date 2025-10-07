@@ -1,13 +1,25 @@
-# Explain Error Plugin
+<!-- [![Jenkins Plugin Installs](https://img.shields.io/jenkins/plugin/i/explain-error.svg?color=blue)](https://plugins.jenkins.io/explain-error/) -->
+<p align="center">
+  <img src="docs/images/logo-new.png" width="800" alt="Explain Error Plugin">
+</p>
 
-[![Build Status](https://ci.jenkins.io/buildStatus/icon?job=Plugins%2Fexplain-error-plugin%2Fmain)](https://ci.jenkins.io/job/Plugins/job/explain-error-plugin/job/main/)
-[![Jenkins Plugin](https://img.shields.io/jenkins/plugin/v/explain-error.svg)](https://plugins.jenkins.io/explain-error/)
-[![GitHub Release](https://img.shields.io/github/release/jenkinsci/explain-error-plugin.svg?label=changelog)](https://github.com/jenkinsci/explain-error-plugin/releases/latest)
-[![Jenkins Plugin Installs](https://img.shields.io/jenkins/plugin/i/explain-error.svg?color=blue)](https://plugins.jenkins.io/explain-error/)
+<h1 align="center">Explain Error — Jenkins Plugin</h1>
+<p align="center">🤖 AI-powered plugin that explains Jenkins job failures with human-readable insights.</p>
 
-<img src="docs/images/logo-new.png" width="450" alt="Explain Error Plugin Logo">
+<p align="center">
+  <a href="https://plugins.jenkins.io/explain-error/">
+    <img alt="Jenkins Plugin" src="https://img.shields.io/jenkins/plugin/v/explain-error.svg">
+  </a>
+  <a href="https://github.com/jenkinsci/explain-error-plugin/releases/latest">
+    <img alt="GitHub Release" src="https://img.shields.io/github/release/jenkinsci/explain-error-plugin.svg?label=changelog">
+  </a>
+  <a href="https://ci.jenkins.io/job/Plugins/job/explain-error-plugin/job/main/">
+    <img alt="Build Status" src="https://ci.jenkins.io/buildStatus/icon?job=Plugins%2Fexplain-error-plugin%2Fmain">
+  </a>
+  <img alt="License" src="https://img.shields.io/github/license/jenkinsci/explain-error-plugin">
+</p>
 
-AI-powered Jenkins plugin that explains pipeline and job failures with human-readable insights.
+---
 
 ## 🎥 Demo
 
