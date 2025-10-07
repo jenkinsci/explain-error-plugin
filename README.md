@@ -37,11 +37,11 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 ## Key Features
 
-* 🔍 **One-click error analysis** on any console output
-* ⚙️ **Pipeline-ready** with a simple `explainError()` step
-* 💡 **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
-* 🤖 **Smart provider management** — LangChain4j handles most providers automatically
-* 🎯 **Customizable**: set provider, model, API endpoint, log filters, and more
+* **One-click error analysis** on any console output
+* **Pipeline-ready** with a simple `explainError()` step
+* **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
+* **Smart provider management** — LangChain4j handles most providers automatically
+* **Customizable**: set provider, model, API endpoint, log filters, and more
 
 ## Quick Start
 
@@ -92,7 +92,7 @@ unclassified:
     enableExplanation: true
     provider: "OPENAI"
     apiKey: "${AI_API_KEY}"
-    model: "gpt-5-nano"
+    model: "gpt-4"
 ```
 
 **Google Gemini Configuration:**
@@ -125,13 +125,13 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ## Supported AI Providers
 
 ### OpenAI
-- **Models**: `gpt-5-nano`, `gpt-4`, `gpt-4-turbo`
+- **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
 - **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: Automatically handled by LangChain4j
 - **Best for**: Comprehensive error analysis with excellent reasoning
 
 ### Google Gemini
-- **Models**: `gemini-2.0-flash`, `gemini-2.0-pro`
+- **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: Automatically handled by LangChain4j
 - **Best for**: Fast, efficient analysis with competitive quality
