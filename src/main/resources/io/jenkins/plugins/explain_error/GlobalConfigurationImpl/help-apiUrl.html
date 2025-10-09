@@ -9,11 +9,12 @@ The API endpoint URL for your chosen AI provider.
 <p>Note: Ensure the Ollama service is running and accessible from your Jenkins instance.</p>
 
 <h4>OpenAI</h4>
-<p><strong>Leave this field empty.</strong> LangChain4j automatically uses the official OpenAI API endpoint.</p>
-<p>Only specify a custom URL if you're using an OpenAI-compatible service or proxy.</p>
+<p><strong>Leave this field empty</strong> for standard OpenAI API usage.</p>
+<p><strong>Specify a custom URL</strong> only when using custom OpenAI proxies or enterprise endpoints.</p>
 
 <h4>Google Gemini</h4>
-<p><strong>Leave this field empty.</strong> LangChain4j automatically uses the official Google AI API endpoint.</p>
-<p>Only specify a custom URL if you're using a custom Google AI proxy.</p>
+<p><strong>Leave this field empty</strong> for standard Google AI usage.</p>
+<p><strong>Specify a custom URL</strong> only when using custom Gemini proxies or enterprise endpoints.</p>
 
-<p>For standard cloud providers (OpenAI, Google), LangChain4j handles the endpoint configuration automatically.</p>
+<h4>How it Works</h4>
+<p>When left empty, LangChain4j automatically uses the official API endpoints. When specified, your custom URL will be used instead, enabling compatibility with alternative API providers that implement the same interface.</p>

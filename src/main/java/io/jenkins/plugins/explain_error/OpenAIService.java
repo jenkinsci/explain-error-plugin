@@ -20,13 +20,24 @@ public class OpenAIService extends BaseAIService {
 
     @Override
     protected Assistant createAssistant() {
+        // Determine base URL - use custom URL if provided, otherwise use default
+        String baseUrl = (config.getApiUrl() != null && !config.getApiUrl().trim().isEmpty()) 
+            ? config.getApiUrl() 
+            : null;
+        
+        if (baseUrl != null) {
+            LOGGER.info("Using custom OpenAI API URL: " + baseUrl);
+        }
+        
         ChatModel model = OpenAiChatModel.builder()
+            .baseUrl(baseUrl) // Will use default if null
             .apiKey(config.getApiKey().getPlainText())
             .modelName(config.getModel())
             .temperature(0.3)
             .logRequests(LOGGER.getLevel() == Level.FINE)
             .logResponses(LOGGER.getLevel() == Level.FINE)
             .build();
+            
         return AiServices.create(Assistant.class, model);
     }
 }
