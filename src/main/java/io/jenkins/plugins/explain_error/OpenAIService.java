@@ -20,14 +20,7 @@ public class OpenAIService extends BaseAIService {
 
     @Override
     protected Assistant createAssistant() {
-        // Determine base URL - use custom URL if provided, otherwise use default
-        String baseUrl = (config.getApiUrl() != null && !config.getApiUrl().trim().isEmpty()) 
-            ? config.getApiUrl() 
-            : null;
-        
-        if (baseUrl != null) {
-            LOGGER.info("Using custom OpenAI API URL: " + baseUrl);
-        }
+        String baseUrl = determineBaseUrl("OpenAI");
         
         ChatModel model = OpenAiChatModel.builder()
             .baseUrl(baseUrl) // Will use default if null

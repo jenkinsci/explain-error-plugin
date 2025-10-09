@@ -20,14 +20,7 @@ public class GeminiService extends BaseAIService {
 
     @Override
     protected Assistant createAssistant() {
-        // Determine base URL - use custom URL if provided, otherwise use default
-        String baseUrl = (config.getApiUrl() != null && !config.getApiUrl().trim().isEmpty()) 
-            ? config.getApiUrl() 
-            : null;
-        
-        if (baseUrl != null) {
-            LOGGER.info("Using custom Gemini API URL: " + baseUrl);
-        }
+        String baseUrl = determineBaseUrl("Gemini");
         
         ChatModel model = GoogleAiGeminiChatModel.builder()
             .baseUrl(baseUrl) // Will use default if null

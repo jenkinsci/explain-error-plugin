@@ -72,5 +72,25 @@ public abstract class BaseAIService {
         }
     }
 
+    /**
+     * Determines the base URL to use for the AI service.
+     * Returns the custom URL if provided and not empty, otherwise returns null
+     * to let the service use its default endpoint.
+     * 
+     * @param providerName the name of the provider (for logging purposes)
+     * @return the base URL to use, or null to use the default
+     */
+    protected String determineBaseUrl(String providerName) {
+        String baseUrl = (config.getApiUrl() != null && !config.getApiUrl().trim().isEmpty()) 
+            ? config.getApiUrl() 
+            : null;
+        
+        if (baseUrl != null) {
+            LOGGER.info("Using custom " + providerName + " API URL: " + baseUrl);
+        }
+        
+        return baseUrl;
+    }
+
     protected abstract Assistant createAssistant();
 }
