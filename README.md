@@ -75,7 +75,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
 | **AI Provider** | Choose between OpenAI, Google Gemini, or Ollama  | `OpenAI` |
 | **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OtherAI-compatible services and air-gapped environments. |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OpenAI-compatible services and air-gapped environments. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 
 4. Click **"Test Configuration"** to verify your setup
