@@ -43,7 +43,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
 
-[^1] *Enterprise-ready API endpoints support custom URLs for OpenAI-compatible services (LocalAI, DeepSeek), air-gapped environments.*
+[^1]: *Enterprise-ready API endpoints support custom URLs for OpenAI-compatible services (LocalAI, DeepSeek), air-gapped environments.*
 
 ## Quick Start
 
