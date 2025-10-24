@@ -14,7 +14,8 @@
 
   <groupId>io.jenkins.plugins</groupId>
   <artifactId>explain-error</artifactId>
-  <version>${changelist}</version>
+  <!-- Fixed: hardcoded version to avoid unresolved property error -->
+  <version>999999-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
   <properties>
@@ -24,6 +25,8 @@
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
     <langchain4j.version>1.4.0</langchain4j.version>
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
+    <!-- Added scmTag property to fix trailing character error -->
+    <scmTag>HEAD</scmTag>
   </properties>
 
   <name>Explain Error Plugin</name>
