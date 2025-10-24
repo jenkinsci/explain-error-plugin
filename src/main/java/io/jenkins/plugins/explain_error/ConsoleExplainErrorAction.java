@@ -1,5 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
+import io.jenkins.plugins.explain_error.GlobalConfigurationImpl; 
+import io.jenkins.plugins.explain_error.AIProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hudson.model.Action;
 import hudson.model.Run;
@@ -32,7 +34,24 @@ public class ConsoleExplainErrorAction implements Action {
 
     @Override
     public String getDisplayName() {
-        return null; // No display name in sidebar
+        // 1. Get configuration
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+
+        // 2. Get the provider object and its display name
+        AIProvider provider = config.getProvider(); 
+
+        String baseTitle = "AI Error Explanation";
+
+        // 3. Construct the dynamic title
+        if (provider != null) {
+            String providerName = provider.getDisplayName();
+            if (providerName != null && !providerName.isEmpty()) {
+                return baseTitle + " (" + providerName + ")"; 
+            }
+        }
+
+        // 4. Fallback
+        return baseTitle; 
     }
 
     @Override
