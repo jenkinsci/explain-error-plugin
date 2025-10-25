@@ -37,20 +37,26 @@ public class ConsoleExplainErrorAction implements Action {
         // 1. Get configuration
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
-        // 2. Get the provider object and its display name
-        AIProvider provider = config.getProvider(); 
+        String baseTitle = "AI Error Explanation"; // Set the default title first
 
-        String baseTitle = "AI Error Explanation";
+        // ** CRITICAL FIX : Check if the configuration object is not null **
+        if (config != null) {
+            // 2. Get the provider object and its display name
+            AIProvider provider = config.getProvider(); 
 
-        // 3. Construct the dynamic title
-        if (provider != null) {
-            String providerName = provider.getDisplayName();
-            if (providerName != null && !providerName.isEmpty()) {
-                return baseTitle + " (" + providerName + ")"; 
+            // 3. Construct the dynamic title
+            if (provider != null) {
+                String providerName = provider.getDisplayName();
+                //This logic is good, it checks for an empty provider name
+                if (providerName != null && !providerName.isEmpty()) {
+                    return baseTitle + " (" + providerName + ")"; 
+                }
             }
         }
 
-        // 4. Fallback
+
+        // 4. Fallback : This returns the default title if config is null (fixing the CI)
+        // or if the provider/providerName is null/empty.
         return baseTitle; 
     }
 
