@@ -23,11 +23,12 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function checkBuildStatusAndAddButton() {
-  checkBuildStatus(function(isBuilding) {
-    if (!isBuilding) {
+  checkBuildStatus(function(buildingStatus) {
+    // Build status 2 is completed and it's UNSTABLE or FAILURE
+    if (buildingStatus == 2) {
       // Build is completed, show the button
       addExplainErrorButton();
-    } else {
+    } else if (buildingStatus == 1) {
       // Build is still running, check again after a delay
       setTimeout(checkBuildStatusAndAddButton, 5000); // Check every 5 seconds
     }
@@ -49,7 +50,7 @@ function checkBuildStatus(callback) {
   })
   .then(response => response.json())
   .then(data => {
-    callback(data.isBuilding);
+    callback(data.buildingStatus);
   })
   .catch(error => {
     console.warn('Error checking build status:', error);

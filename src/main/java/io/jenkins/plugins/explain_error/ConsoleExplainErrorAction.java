@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hudson.model.Action;
+import hudson.model.Result;
 import hudson.model.Run;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -125,20 +126,29 @@ public class ConsoleExplainErrorAction implements Action {
 
     /**
      * AJAX endpoint to check build status.
-     * Returns JSON with isBuilding boolean to determine if button should be shown.
+     * Returns JSON with buildingStatus to determine if button should be shown. 0 - SUCCESS, 1 - RUNNING, 2 - FINISHED and FAILURE
      */
     @RequirePOST
     public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) throws ServletException, IOException {
         try {
             run.checkPermission(hudson.model.Item.READ);
             
-            boolean isBuilding = run.isBuilding();
+            Integer buildingStatus = run.isBuilding() ? 1 : 0;
+
+            if (buildingStatus == 0) {
+                Result result = run.getResult();
+                if (result == Result.SUCCESS) {
+                    buildingStatus = 0;
+                } else {
+                    buildingStatus = 2;
+                }
+            }
             
             rsp.setContentType("application/json");
             rsp.setCharacterEncoding("UTF-8");
             PrintWriter writer = rsp.getWriter();
             
-            String response = String.format("{\"isBuilding\": %s}", isBuilding);
+            String response = String.format("{\"buildingStatus\": %s}", buildingStatus);
             writer.write(response);
             writer.flush();
         } catch (Exception e) {
