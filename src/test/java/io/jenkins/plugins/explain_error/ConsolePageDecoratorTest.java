@@ -157,10 +157,10 @@ class ConsolePageDecoratorTest {
     void testIsPluginActive() {
         // isPluginActive should return the same as isExplainErrorEnabled
         assertEquals(decorator.isExplainErrorEnabled(), decorator.isPluginActive());
-        
+
         config.setEnableExplanation(false);
         assertEquals(decorator.isExplainErrorEnabled(), decorator.isPluginActive());
-        
+
         config.setEnableExplanation(true);
         config.setApiKey(null);
         assertEquals(decorator.isExplainErrorEnabled(), decorator.isPluginActive());
