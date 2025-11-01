@@ -3,7 +3,7 @@
     <l:layout title="AI Error Explanation">
         <st:include it="${it.run}" page="sidepanel.jelly"/>
         <l:main-panel>
-            <h1>AI Error Explanation</h1>
+            <h1>${it.displayName}</h1>
             
             <l:card title="Generated on: ${it.formattedTimestamp}">
                 <pre style="white-space: pre-wrap; word-wrap: break-word;" class="jenkins-!-margin-bottom-0">${it.explanation}</pre>

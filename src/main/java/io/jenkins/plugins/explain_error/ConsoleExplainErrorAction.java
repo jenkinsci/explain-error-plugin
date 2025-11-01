@@ -12,6 +12,10 @@ import javax.servlet.ServletException;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
+import net.sf.json.JSONObject;
+import org.kohsuke.stapler.interceptor.RequirePOST;
+import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerResponse;
 
 /**
  * Action to add "Explain Error" functionality to console output pages.
@@ -23,8 +27,15 @@ public class ConsoleExplainErrorAction implements Action {
 
     private final Run<?, ?> run;
 
-    public ConsoleExplainErrorAction(Run<?, ?> run) {
+    private final String provider;
+
+    public ConsoleExplainErrorAction(Run<?, ?> run, String provider) {
         this.run = run;
+        this.provider = provider;
+    }
+
+    public String getProvider() {
+        return provider;
     }
 
     @Override
@@ -95,13 +106,14 @@ public class ConsoleExplainErrorAction implements Action {
             // Fetch the last N lines of the log
             java.util.List<String> logLines = run.getLog(maxLines);
             String errorText = String.join("\n", logLines);
-
+            String providerName = GlobalConfigurationImpl.get().getCurrentProviderDisplayName();
+            
             ErrorExplainer explainer = new ErrorExplainer();
             String explanation = explainer.explainErrorText(errorText, run);
 
             if (explanation != null && !explanation.trim().isEmpty()) {
                 // Save the explanation as a build action (like the sidebar functionality)
-                ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorText);
+                ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorText, providerName);
                 run.addOrReplaceAction(action);
 
                 writeJsonResponse(rsp, explanation);
@@ -125,13 +137,12 @@ public class ConsoleExplainErrorAction implements Action {
             run.checkPermission(hudson.model.Item.READ);
 
             ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
-            boolean hasExplanation = existingAction != null && existingAction.hasValidExplanation();
 
             rsp.setContentType("application/json");
             rsp.setCharacterEncoding("UTF-8");
             PrintWriter writer = rsp.getWriter();
 
-            if (hasExplanation) {
+            if (existingAction != null && existingAction.hasValidExplanation()) {
                 String response = String.format(
                     "{\"hasExplanation\": true, \"timestamp\": \"%s\"}",
                     existingAction.getFormattedTimestamp()
@@ -146,6 +157,16 @@ public class ConsoleExplainErrorAction implements Action {
             LOGGER.severe("Error checking existing explanation: " + e.getMessage());
             rsp.setStatus(500);
         }
+    }
+
+    @RequirePOST
+    public void doCheckBuildStatus(StaplerRequest req, StaplerResponse rsp) throws IOException {
+        JSONObject result = new JSONObject();
+        // Logic: check if a build is running, for now return false
+        result.put("isBuilding", false);
+        rsp.setContentType("application/json");
+        rsp.getWriter().write(result.toString());
+        rsp.getWriter().flush();
     }
 
     /**

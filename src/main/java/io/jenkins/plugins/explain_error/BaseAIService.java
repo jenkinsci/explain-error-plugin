@@ -3,6 +3,7 @@ package io.jenkins.plugins.explain_error;
 import dev.langchain4j.model.input.Prompt;
 import dev.langchain4j.model.input.PromptTemplate;
 
+import hudson.util.Secret;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +36,10 @@ public abstract class BaseAIService {
      */
     public String explainError(String errorLogs) throws IOException {
         Assistant assistant;
+
+        if (config.getApiKey() == null || config.getApiKey().getPlainText() == null || config.getApiKey().getPlainText().trim().isEmpty()) {
+            return "API key is missing. Please configure it in Jenkins settings.";
+        }
 
         if (StringUtils.isBlank(errorLogs)) {
             return "No error logs provided for explanation.";

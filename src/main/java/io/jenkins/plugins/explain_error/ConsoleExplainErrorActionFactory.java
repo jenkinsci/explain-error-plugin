@@ -27,13 +27,15 @@ public class ConsoleExplainErrorActionFactory extends TransientActionFactory<Run
 
     @Nonnull
     @Override
-    public Collection<? extends Action> createFor(@Nonnull Run<?, ?> run) {
+    public Collection<? extends Action> createFor(Run<?, ?> run) {
         try {
             // Create and return the ConsoleExplainErrorAction for this run
-            ConsoleExplainErrorAction action = new ConsoleExplainErrorAction(run);
+            String providerName = GlobalConfigurationImpl.get().getCurrentProviderDisplayName();
+            ConsoleExplainErrorAction action = new ConsoleExplainErrorAction(run, providerName);
             return Collections.singletonList(action);
         } catch (Exception e) {
             LOGGER.severe("Failed to create ConsoleExplainErrorAction for run: " + run.getFullDisplayName() + ". Error: " + e.getMessage());
+            e.printStackTrace();
             return Collections.emptyList();
         }
     }

@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import hudson.model.Run;
 import jenkins.model.RunAction2;
+import javax.annotation.Nonnull;
 
 /**
  * Build action to store and display error explanations.
@@ -11,11 +12,14 @@ public class ErrorExplanationAction implements RunAction2 {
     private final String explanation;
     private final String originalErrorLogs;
     private final long timestamp;
+    private final String providerName;
+
     private transient Run<?, ?> run;
 
-    public ErrorExplanationAction(String explanation, String originalErrorLogs) {
+    public ErrorExplanationAction(@Nonnull String explanation, String originalErrorLogs, @Nonnull String providerName) {
         this.explanation = explanation;
         this.originalErrorLogs = originalErrorLogs;
+        this.providerName = providerName;
         this.timestamp = System.currentTimeMillis();
     }
 
@@ -26,6 +30,9 @@ public class ErrorExplanationAction implements RunAction2 {
 
     @Override
     public String getDisplayName() {
+        if(providerName != null && !providerName.isEmpty()) {
+            return "AI Error Explanation (" + providerName + ")";
+        }
         return "AI Error Explanation";
     }
 

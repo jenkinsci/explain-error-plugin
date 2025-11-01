@@ -15,12 +15,13 @@ class ConsoleExplainErrorActionTest {
 
     private ConsoleExplainErrorAction action;
     private FreeStyleBuild build;
+    private String providerName = "Test Console Provider";
 
     @BeforeEach
     void setUp(JenkinsRule jenkins) throws Exception {
         FreeStyleProject project = jenkins.createFreeStyleProject("test");
         build = jenkins.buildAndAssertSuccess(project);
-        action = new ConsoleExplainErrorAction(build);
+        action = new ConsoleExplainErrorAction(build, providerName);
     }
 
     @Test
@@ -111,7 +112,7 @@ class ConsoleExplainErrorActionTest {
         assertNull(existingAction);
 
         // Add an explanation
-        ErrorExplanationAction action = new ErrorExplanationAction("Test explanation", "Error logs");
+        ErrorExplanationAction action = new ErrorExplanationAction("Test explanation", "Error logs", providerName);
         build.addAction(action);
 
         // Now explanation should exist and be valid
@@ -124,7 +125,7 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testExistingExplanationDetectionWithInvalidExplanation() {
         // Add an invalid explanation (null content)
-        ErrorExplanationAction invalidAction = new ErrorExplanationAction(null, "Error logs");
+        ErrorExplanationAction invalidAction = new ErrorExplanationAction("", "Error logs", providerName);
         build.addAction(invalidAction);
 
         // Explanation exists but should not be valid
@@ -136,7 +137,7 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testExistingExplanationDetectionWithEmptyExplanation() {
         // Add an empty explanation
-        ErrorExplanationAction emptyAction = new ErrorExplanationAction("", "Error logs");
+        ErrorExplanationAction emptyAction = new ErrorExplanationAction("", "Error logs", providerName);
         build.addAction(emptyAction);
 
         // Explanation exists but should not be valid
@@ -160,7 +161,7 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testDoCheckExistingExplanationWithExistingValidAction() throws Exception {
         // Add an existing explanation action
-        ErrorExplanationAction existingAction = new ErrorExplanationAction("Test explanation", "Test error logs");
+        ErrorExplanationAction existingAction = new ErrorExplanationAction("Test explanation", "Test error logs", providerName);
         build.addAction(existingAction);
 
         // Verify the action was added and is valid
@@ -174,7 +175,7 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testDoCheckExistingExplanationWithExistingInvalidAction() throws Exception {
         // Add an existing explanation action with invalid explanation (null)
-        ErrorExplanationAction existingAction = new ErrorExplanationAction(null, "Test error logs");
+        ErrorExplanationAction existingAction = new ErrorExplanationAction("", "Test error logs", providerName);
         build.addAction(existingAction);
 
         // Verify the action was added but is not valid
@@ -186,7 +187,7 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testDoCheckExistingExplanationWithEmptyExplanation() throws Exception {
         // Add an existing explanation action with empty explanation
-        ErrorExplanationAction existingAction = new ErrorExplanationAction("", "Test error logs");
+        ErrorExplanationAction existingAction = new ErrorExplanationAction("", "Test error logs", providerName);
         build.addAction(existingAction);
 
         // Verify the action was added but is not valid
@@ -198,7 +199,7 @@ class ConsoleExplainErrorActionTest {
     @Test
     void testDoCheckExistingExplanationWithWhitespaceOnlyExplanation() throws Exception {
         // Add an existing explanation action with whitespace-only explanation
-        ErrorExplanationAction existingAction = new ErrorExplanationAction("   \n  \t  ", "Test error logs");
+        ErrorExplanationAction existingAction = new ErrorExplanationAction("   \n  \t  ", "Test error logs", providerName);
         build.addAction(existingAction);
 
         // Verify the action was added but is not valid
@@ -215,7 +216,7 @@ class ConsoleExplainErrorActionTest {
         assertNull(build.getAction(ErrorExplanationAction.class));
 
         // Case 2: Valid existing action
-        ErrorExplanationAction validAction = new ErrorExplanationAction("Valid explanation", "Error logs");
+        ErrorExplanationAction validAction = new ErrorExplanationAction("Valid explanation", "Error logs", providerName);
         build.addAction(validAction);
 
         ErrorExplanationAction retrieved = build.getAction(ErrorExplanationAction.class);
@@ -226,7 +227,7 @@ class ConsoleExplainErrorActionTest {
         build.removeAction(validAction);
 
         // Case 3: Invalid existing action (null explanation)
-        ErrorExplanationAction invalidAction = new ErrorExplanationAction(null, "Error logs");
+        ErrorExplanationAction invalidAction = new ErrorExplanationAction("", "Error logs", providerName);
         build.addAction(invalidAction);
 
         retrieved = build.getAction(ErrorExplanationAction.class);

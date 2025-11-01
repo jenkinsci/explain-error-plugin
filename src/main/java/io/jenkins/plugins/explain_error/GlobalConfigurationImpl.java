@@ -95,6 +95,15 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return provider != null ? provider : AIProvider.OPENAI;
     }
 
+    public String
+    getCurrentProviderDisplayName() {
+        AIProvider selectedProvider = getProvider();
+        if (selectedProvider != null) {
+            return selectedProvider.getDisplayName();
+        }
+        return "Unknown AI Provider";
+    }
+
     @DataBoundSetter
     public void setProvider(AIProvider provider) {
         this.provider = provider;

@@ -14,6 +14,8 @@ import org.apache.commons.lang3.StringUtils;
 public class ErrorExplainer {
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
+    private String explanation;
+    private String originalErrorLogs;
 
     public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
@@ -34,6 +36,7 @@ public class ErrorExplainer {
 
             // Extract error logs
             String errorLogs = extractErrorLogs(run, logPattern, maxLines);
+            this.originalErrorLogs = errorLogs;
 
             if (StringUtils.isBlank(errorLogs)) {
                 listener.getLogger().println("No error logs found to explain.");
@@ -44,17 +47,20 @@ public class ErrorExplainer {
             AIService aiService = new AIService(config);
             String explanation = aiService.explainError(errorLogs);
             LOGGER.info(jobInfo + " AI error explanation succeeded.");
-
-            // Store explanation in build action
-            ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorLogs);
-            run.addOrReplaceAction(action);
-
-            // Explanation is now available on the job page, no need to clutter console output
+            this.explanation = explanation;
 
         } catch (Exception e) {
             LOGGER.severe(jobInfo + " Failed to explain error: " + e.getMessage());
             listener.getLogger().println(jobInfo + " Failed to explain error: " + e.getMessage());
         }
+    }
+
+    public String getExplanation() {
+        return explanation;
+    }
+
+    public String getOriginalErrorLogs() {
+        return originalErrorLogs;
     }
 
     private String extractErrorLogs(Run<?, ?> run, String logPattern, int maxLines) throws IOException {

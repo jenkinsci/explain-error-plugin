@@ -11,6 +11,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import io.jenkins.plugins.explain_error.GlobalConfigurationImpl;
 
 /**
  * Pipeline step to explain errors using AI.
@@ -80,17 +81,41 @@ public class ExplainErrorStep extends Step {
 
         @Override
         protected Void run() throws Exception {
-            Run<?, ?> run = getContext().get(Run.class);
-            TaskListener listener = getContext().get(TaskListener.class);
+            try {
+                Run<?, ?> run = getContext().get(Run.class);
+                TaskListener listener = getContext().get(TaskListener.class);
+                String apiKey = GlobalConfigurationImpl.get().getApiKey() != null
+                    ? GlobalConfigurationImpl.get().getApiKey().getPlainText()
+                    : null;
+                if (apiKey == null || apiKey.isEmpty()) {
+                    listener.error("ERROR: API key is not configured");
+                    return null;
+                }
+                String providerName = GlobalConfigurationImpl.get().getCurrentProviderDisplayName();
+                if (providerName == null || providerName.isEmpty()) {
+                    providerName = "PlaceholderProvider";
+                }
 
-            // Add console explain error action to build (if not already present)
-            if (run.getAction(ConsoleExplainErrorAction.class) == null) {
-                run.addOrReplaceAction(new ConsoleExplainErrorAction(run));
+                //Add console explain error action to build (if not already present)
+                if (run.getAction(ConsoleExplainErrorAction.class) == null) {
+                run.addOrReplaceAction(new ConsoleExplainErrorAction(run, providerName));
+                }
+                    if (GlobalConfigurationImpl.get().getApiKey() != null && !GlobalConfigurationImpl.get().getApiKey().getPlainText().isEmpty()) {
+                        ErrorExplainer explainer = new ErrorExplainer();
+                        explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines());
+                        String explanation = explainer.getExplanation();
+                        String originalErrorLogs = explainer.getOriginalErrorLogs();
+                        if (explanation != null) {
+                            if (run.getAction(ErrorExplanationAction.class) == null) {
+                                //Call the NEW 3-argument constructor
+                                run.addAction(new ErrorExplanationAction(explanation, originalErrorLogs, providerName));
+                            }
+                        }
+                    }
+            } catch (Exception e) {
+                TaskListener listener = getContext().get(TaskListener.class);
+                e.printStackTrace(listener.getLogger());
             }
-
-            ErrorExplainer explainer = new ErrorExplainer();
-            explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines());
-
             return null;
         }
     }
