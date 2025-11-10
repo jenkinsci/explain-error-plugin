@@ -101,7 +101,7 @@ unclassified:
       gemini:
         apiKey: "${AI_API_KEY}"
         model: "gpt-5"
-    enableExplanation: true```
+    enableExplanation: true
 ```
 
 ### Pipeline Usage

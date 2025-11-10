@@ -92,11 +92,16 @@ This plugin supports [Configuration as Code](https://plugins.jenkins.io/configur
 unclassified:
   explainError:
     aiProvider:
-      gemini:
+      openai:
         apiKey: "${AI_API_KEY}"
         model: "gpt-5"
         # url: "" # Optional, leave empty for default
-    enableExplanation: true```
+    enableExplanation: true
+```
+
+**Environment Variable Example:**
+```bash
+export AI_API_KEY="your-api-key-here"
 ```
 
 **Google Gemini Configuration:**
@@ -108,8 +113,7 @@ unclassified:
         apiKey: "${AI_API_KEY}"
         model: "gemini-2.5-flash"
         # url: "" # Optional, leave empty for default
-    enableExplanation: true```
-    
+    enableExplanation: true
 ```
 
 **Ollama Configuration:**
@@ -119,13 +123,8 @@ unclassified:
     aiProvider:
       ollama:
         model: "gemma3:1b"
-        url: "http://localhost:11434"
+        url: "http://localhost:11434" # Required for Ollama
     enableExplanation: true
-```
-
-**Environment Variable Example:**
-```bash
-export AI_API_KEY="your-api-key-here"
 ```
 
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
