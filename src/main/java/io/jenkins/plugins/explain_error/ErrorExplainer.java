@@ -70,11 +70,21 @@ public class ErrorExplainer {
         Pattern pattern = Pattern.compile(logPattern, Pattern.CASE_INSENSITIVE);
         StringBuilder errorLogs = new StringBuilder();
 
-        for (String line : logLines) {
-            if (pattern.matcher(line).find()) {
-                errorLogs.append(line).append("\n");
-            }
-        }
+for (int i = 0; i < logLines.size(); i++) {
+    String line = logLines.get(i);
+
+    if (pattern.matcher(line).find()) {
+        int lineNumber = i + 1; // 1-indexed
+        LOGGER.fine("Matched error at line: " + lineNumber);
+
+        errorLogs.append("[Line ")
+                .append(lineNumber)
+                .append("] ")
+                .append(line)
+                .append("\n");
+    }
+}
+
 
         return errorLogs.toString();
     }
