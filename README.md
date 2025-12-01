@@ -39,7 +39,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
+* **AI-powered explanations** via OpenAI GPT models, Google Gemini, or local Ollama models
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
 
