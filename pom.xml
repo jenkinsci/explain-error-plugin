@@ -22,7 +22,7 @@
     <gitHubRepo>jenkinsci/explain-error-plugin</gitHubRepo>
     <jenkins.baseline>2.479</jenkins.baseline>
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
-    <langchain4j.version>1.4.0</langchain4j.version>
+    <langchain4j.version>1.9.1</langchain4j.version>
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
   </properties>
 
