@@ -1,9 +1,9 @@
 <!-- [![Jenkins Plugin Installs](https://img.shields.io/jenkins/plugin/i/explain-error.svg?color=blue)](https://plugins.jenkins.io/explain-error/) -->
 <p align="center">
-  <img src="docs/images/logo-new.png" width="800" alt="Explain Error Plugin">
+  <img src="docs/images/logo-new.png" width="600" alt="Explain Error Plugin">
 </p>
 
-<h1 align="center">Explain Error — Jenkins Plugin</h1>
+<h1 align="center">Explain Error Plugin for Jenkins</h1>
 <p align="center">🤖 AI-powered plugin that explains Jenkins job failures with human-readable insights.</p>
 
 <p align="center">
