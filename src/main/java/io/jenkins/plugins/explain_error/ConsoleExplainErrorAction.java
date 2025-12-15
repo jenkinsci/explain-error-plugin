@@ -101,7 +101,7 @@ public class ConsoleExplainErrorAction implements Action {
     public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) throws ServletException, IOException {
         try {
             run.checkPermission(hudson.model.Item.READ);
-            
+
             Integer buildingStatus = run.isBuilding() ? 1 : 0;
 
             if (buildingStatus == 0) {
@@ -112,11 +112,11 @@ public class ConsoleExplainErrorAction implements Action {
                     buildingStatus = 2;
                 }
             }
-            
+
             rsp.setContentType("application/json");
             rsp.setCharacterEncoding("UTF-8");
             PrintWriter writer = rsp.getWriter();
-            
+
             String response = String.format("{\"buildingStatus\": %s}", buildingStatus);
             writer.write(response);
             writer.flush();
