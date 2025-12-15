@@ -93,7 +93,7 @@ public class ErrorExplainer {
         // Get AI explanation
         String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE));
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
-        LOGGER.finer("Explanation length: " + (explanation != null ? explanation.length() : 0));
+        LOGGER.finer("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
         ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorText, provider.getProviderName());
         run.addOrReplaceAction(action);

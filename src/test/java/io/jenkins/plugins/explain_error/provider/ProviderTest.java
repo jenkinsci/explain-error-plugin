@@ -47,7 +47,7 @@ class ProviderTest {
         String result = provider.explainError(complexErrorLogs, null);
 
         // Should not return the "no error logs" message for valid input
-        assertEquals("Request was successful", result);
+        assertEquals("Summary: Request was successful\n", result);
     }
 
     @Test

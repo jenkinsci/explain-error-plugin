@@ -70,7 +70,7 @@ class ErrorExplainerTest {
         // Test with valid error text (will fail with API but should not throw exception)
         assertDoesNotThrow(() -> {
             ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", build);
-            assertEquals("Request was successful", action.getExplanation());
+            assertEquals("Summary: Request was successful\n", action.getExplanation());
         });
 
         // Test with null input

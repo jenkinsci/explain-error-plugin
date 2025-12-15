@@ -1,7 +1,17 @@
 package io.jenkins.plugins.explain_error.provider;
 
-import dev.langchain4j.model.input.Prompt;
-import dev.langchain4j.model.input.PromptTemplate;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.logging.Logger;
+
+import org.apache.commons.lang3.StringUtils;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
+
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.ExtensionPoint;
 import hudson.model.AbstractDescribableImpl;
@@ -9,16 +19,7 @@ import hudson.model.Descriptor;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Logger;
-import org.apache.commons.lang3.StringUtils;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.POST;
+import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 
 public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvider> implements ExtensionPoint {
 
@@ -67,26 +68,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             throw new ExplanationException("error", "Failed to create assistant", e);
         }
 
-        // Use PromptTemplate for dynamic prompt creation
-        PromptTemplate promptTemplate = PromptTemplate.from(
-                "You are an expert Jenkins administrator and software engineer. "
-                        + "Please analyze the following Jenkins build error logs and provide a clear, "
-                        + "actionable explanation of what went wrong and how to fix it:\n\n"
-                        + "ERROR LOGS:\n"
-                        + "{{errorLogs}}\n\n" + "Please provide:\n"
-                        + "1. A summary of what caused the error\n"
-                        + "2. Specific steps to resolve the issue\n"
-                        + "3. Any relevant best practices to prevent similar issues\n\n"
-                        + "Keep your response concise and focused on actionable solutions. "
-                        + "Use plain text formatting only - no markdown, bold text, italic text, or special symbols for formatting."
-        );
-
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("errorLogs", errorLogs);
-        Prompt prompt = promptTemplate.apply(variables);
-
         try {
-            return assistant.chat(prompt.text());
+            return assistant.analyzeLogs(errorLogs).toString();
         } catch (Exception e) {
             LOGGER.severe("AI API request failed: " + e.getMessage());
             throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);
@@ -99,7 +82,16 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     }
 
     public interface Assistant {
-        String chat(String message);
+        @UserMessage("""
+            You are an expert Jenkins administrator and software engineer.
+            Please analyze the following Jenkins build error logs.
+
+            ERROR LOGS:
+            {{errorLogs}}
+
+            Provide a clear, actionable explanation of what went wrong.
+            """)
+        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs);
     }
 
     public String getProviderName() {

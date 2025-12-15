@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -34,6 +35,7 @@ public class OllamaProvider extends BaseAIProvider {
                 .baseUrl(getUrl())
                 .modelName(getModel())
                 .temperature(0.3)
+                .responseFormat(ResponseFormat.JSON)
                 .timeout(Duration.ofSeconds(180))
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))

@@ -120,7 +120,7 @@ class ConsoleExplainErrorActionTest {
             client.getPage(request);
             action = build.getAction(ErrorExplanationAction.class);
             assertNotNull(action);
-            assertEquals("Request was successful", action.getExplanation());
+            assertEquals("Summary: Request was successful\n", action.getExplanation());
         }
     }
 
@@ -132,12 +132,12 @@ class ConsoleExplainErrorActionTest {
             client.getPage(request);
             ErrorExplanationAction action = build.getAction(ErrorExplanationAction.class);
             assertNotNull(action);
-            assertEquals("Request was successful", action.getExplanation());
+            assertEquals("Summary: Request was successful\n", action.getExplanation());
             provider.setAnswerMessage("Second call");
             client.getPage(request);
             assertEquals(1, provider.getCallCount());
             action = build.getAction(ErrorExplanationAction.class);
-            assertEquals("Request was successful", action.getExplanation());
+            assertEquals("Summary: Request was successful\n", action.getExplanation());
         }
     }
     @Test
@@ -148,7 +148,7 @@ class ConsoleExplainErrorActionTest {
             client.getPage(request);
             ErrorExplanationAction action = build.getAction(ErrorExplanationAction.class);
             assertNotNull(action);
-            assertEquals("Request was successful", action.getExplanation());
+            assertEquals("Summary: Request was successful\n", action.getExplanation());
             provider.setAnswerMessage("Second call");
             request.setRequestParameters(java.util.Collections.singletonList(
                 new org.htmlunit.util.NameValuePair("forceNew", "true")
@@ -156,7 +156,7 @@ class ConsoleExplainErrorActionTest {
             client.getPage(request);
             assertEquals(2, provider.getCallCount());
             action = build.getAction(ErrorExplanationAction.class);
-            assertEquals("Second call", action.getExplanation());
+            assertEquals("Summary: Second call\n", action.getExplanation());
         }
     }
 

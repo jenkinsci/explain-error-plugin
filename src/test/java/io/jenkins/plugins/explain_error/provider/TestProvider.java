@@ -3,13 +3,18 @@ package io.jenkins.plugins.explain_error.provider;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.Secret;
+import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
+
+import java.util.List;
+
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public class TestProvider extends OpenAIProvider {
 
     private boolean throwError = false;
-    private String answerMessage = "Request was successful";
+    private JenkinsLogAnalysis answerMessage = new JenkinsLogAnalysis(
+        "Request was successful", null, null, null);
     private int callCount = 0;
 
     @DataBoundConstructor
@@ -21,7 +26,7 @@ public class TestProvider extends OpenAIProvider {
     public Assistant createAssistant() {
         return new Assistant() {
             @Override
-            public String chat(String message) {
+            public JenkinsLogAnalysis analyzeLogs(String errorLogs) {
                 if (throwError) {
                     throw new RuntimeException("Request failed.");
                 }
@@ -44,7 +49,7 @@ public class TestProvider extends OpenAIProvider {
     }
 
     public void setAnswerMessage(String answerMessage) {
-        this.answerMessage = answerMessage;
+        this.answerMessage = new JenkinsLogAnalysis(answerMessage, null, null, null);
     }
 
     public int getCallCount() {

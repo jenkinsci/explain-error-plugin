@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -44,6 +45,8 @@ public class OpenAIProvider extends BaseAIProvider {
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())
                 .temperature(0.3)
+                .responseFormat(ResponseFormat.JSON)
+                .strictJsonSchema(true)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
                 .build();
