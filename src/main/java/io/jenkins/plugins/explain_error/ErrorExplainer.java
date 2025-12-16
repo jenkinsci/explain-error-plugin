@@ -11,6 +11,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 /**
  * Service class responsible for explaining errors using AI.
@@ -60,7 +61,7 @@ public class ErrorExplainer {
     }
 
     private String extractErrorLogs(Run<?, ?> run, String logPattern, int maxLines) throws IOException {
-        List<String> logLines = run.getLog(maxLines);
+        List<String> logLines = PipelineLogExtractor.getFailedStepLog(run, maxLines);
 
         if (StringUtils.isBlank(logPattern)) {
             // Return last few lines if no pattern specified
