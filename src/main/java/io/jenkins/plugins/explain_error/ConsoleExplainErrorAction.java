@@ -6,9 +6,12 @@ import hudson.model.Run;
 import jenkins.model.RunAction2;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.logging.Logger;
 import javax.servlet.ServletException;
 import net.sf.json.JSONObject;
+
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
@@ -86,7 +89,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             }
 
             // Fetch the last N lines of the log
-            java.util.List<String> logLines = run.getLog(maxLines);
+            List<String> logLines = PipelineLogExtractor.getFailedStepLog(run, maxLines);
             String errorText = String.join("\n", logLines);
 
             ErrorExplainer explainer = new ErrorExplainer();
