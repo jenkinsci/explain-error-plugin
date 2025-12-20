@@ -1,9 +1,9 @@
 package io.jenkins.plugins.explain_error;
 
 import com.google.common.annotations.VisibleForTesting;
-import hudson.model.Action;
 import hudson.model.Result;
 import hudson.model.Run;
+import jenkins.model.RunAction2;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.logging.Logger;
@@ -17,14 +17,24 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
  * Action to add "Explain Error" functionality to console output pages.
  * This action needs to be manually added to builds.
  */
-public class ConsoleExplainErrorAction implements Action {
+public class ConsoleExplainErrorAction implements RunAction2 {
 
     private static final Logger LOGGER = Logger.getLogger(ConsoleExplainErrorAction.class.getName());
 
-    private final Run<?, ?> run;
+    private transient Run<?, ?> run;
 
     public ConsoleExplainErrorAction(Run<?, ?> run) {
         this.run = run;
+    }
+
+    @Override
+    public void onAttached(Run<?, ?> r) {
+        this.run = r;
+    }
+
+    @Override
+    public void onLoad(Run<?, ?> r) {
+        this.run = r;
     }
 
     @Override

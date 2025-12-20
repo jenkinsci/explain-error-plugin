@@ -9,7 +9,7 @@ import jenkins.model.RunAction2;
 public class ErrorExplanationAction implements RunAction2 {
 
     private final String explanation;
-    private final String originalErrorLogs;
+    private final transient String originalErrorLogs;
     private final long timestamp;
     private String providerName = "Unknown";
     private transient Run<?, ?> run;
