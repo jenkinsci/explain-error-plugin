@@ -81,8 +81,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                 return;
             }
 
-            // Optionally allow maxLines as a parameter, default to 200
-            int maxLines = 200;
+            // Optionally allow maxLines as a parameter, default to 100
+            int maxLines = 100;
             String maxLinesParam = req.getParameter("maxLines");
             if (maxLinesParam != null) {
                 try { maxLines = Integer.parseInt(maxLinesParam); } catch (NumberFormatException ignore) {}
