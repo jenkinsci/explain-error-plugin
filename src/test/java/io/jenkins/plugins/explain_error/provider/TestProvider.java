@@ -5,8 +5,6 @@ import hudson.Extension;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 
-import java.util.List;
-
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 
