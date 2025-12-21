@@ -7,6 +7,12 @@
             
             <l:card title="Generated on: ${it.formattedTimestamp}">
                 <pre style="white-space: pre-wrap; word-wrap: break-word;" class="jenkins-!-margin-bottom-0">${it.explanation}</pre>
+                <div class="jenkins-!-margin-top-3">
+                    <a id="explain-error-url" href="${it.urlString}" class="jenkins-button jenkins-!-destructive-color" target="_self" >
+                        <l:icon src="symbol-warning-outline plugin-ionicons-api" class="icon-md" />
+                        View failure output
+                    </a>
+                </div>
             </l:card>
         </l:main-panel>
     </l:layout>

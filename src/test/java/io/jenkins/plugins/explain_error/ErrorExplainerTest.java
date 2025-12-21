@@ -69,27 +69,27 @@ class ErrorExplainerTest {
 
         // Test with valid error text (will fail with API but should not throw exception)
         assertDoesNotThrow(() -> {
-            ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", build);
+            ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", "", build);
             assertEquals("Summary: Request was successful\n", action.getExplanation());
         });
 
         // Test with null input
         ExplanationException e = assertThrows(ExplanationException.class, () -> {
-            errorExplainer.explainErrorText(null, build);
+            errorExplainer.explainErrorText(null, "", build);
             // Should return error message about no error text provided
         });
         assertEquals("No error logs provided for explanation.", e.getMessage());
 
         // Test with empty input
         e = assertThrows(ExplanationException.class, () -> {
-            errorExplainer.explainErrorText("", build);
+            errorExplainer.explainErrorText("", "", build);
             // Should return error message about no error text provided
         });
         assertEquals("No error logs provided for explanation.", e.getMessage());
 
         // Test with whitespace only input
         e = assertThrows(ExplanationException.class, () -> {
-            errorExplainer.explainErrorText("   ", build);
+            errorExplainer.explainErrorText("   ", "", build);
             // Should return error message about no error text provided
         });
         assertEquals("No error logs provided for explanation.", e.getMessage());
@@ -97,7 +97,7 @@ class ErrorExplainerTest {
         // Test with invalid config input
         e = assertThrows(ExplanationException.class, () -> {
             provider.setApiKey(null);
-            errorExplainer.explainErrorText("Build Failed", build);
+            errorExplainer.explainErrorText("Build Failed", "", build);
         });
         assertEquals("The provider is not properly configured.", e.getMessage());
 
@@ -105,7 +105,7 @@ class ErrorExplainerTest {
         e = assertThrows(ExplanationException.class, () -> {
             provider.setApiKey(Secret.fromString("test-key"));
             provider.setThrowError(true);
-            errorExplainer.explainErrorText("Build failed", build);
+            errorExplainer.explainErrorText("Build failed", "", build);
         });
         assertEquals("API request failed: Request failed.", e.getMessage());
     }

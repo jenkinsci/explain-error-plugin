@@ -11,7 +11,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
-import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 /**
  * Service class responsible for explaining errors using AI.
@@ -19,6 +18,8 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 public class ErrorExplainer {
 
     private String providerName;
+    private String urlString;
+
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
 
     public String getProviderName() {
@@ -46,7 +47,7 @@ public class ErrorExplainer {
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
 
                 // Store explanation in build action
-                ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorLogs, provider.getProviderName());
+                ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs, provider.getProviderName());
                 run.addOrReplaceAction(action);
             } catch (ExplanationException ee) {
                 listener.getLogger().println(ee.getMessage());
@@ -61,7 +62,9 @@ public class ErrorExplainer {
     }
 
     private String extractErrorLogs(Run<?, ?> run, String logPattern, int maxLines) throws IOException {
-        List<String> logLines = PipelineLogExtractor.getFailedStepLog(run, maxLines);
+        PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines);
+        List<String> logLines =  logExtractor.getFailedStepLog();
+        this.urlString = logExtractor.getUrl();
 
         if (StringUtils.isBlank(logPattern)) {
             // Return last few lines if no pattern specified
@@ -84,7 +87,7 @@ public class ErrorExplainer {
      * Explains error text directly without extracting from logs.
      * Used for console output error explanation.
      */
-    public ErrorExplanationAction explainErrorText(String errorText, @NonNull  Run<?, ?> run) throws IOException, ExplanationException {
+    public ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull  Run<?, ?> run) throws IOException, ExplanationException {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
 
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
@@ -96,7 +99,7 @@ public class ErrorExplainer {
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
         LOGGER.finer("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
-        ErrorExplanationAction action = new ErrorExplanationAction(explanation, errorText, provider.getProviderName());
+        ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText, provider.getProviderName());
         run.addOrReplaceAction(action);
         run.save();
 

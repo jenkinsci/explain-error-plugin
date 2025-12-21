@@ -2,8 +2,6 @@ package io.jenkins.plugins.explain_error;
 
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
-import edu.umd.cs.findbugs.annotations.NonNull;
-
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
@@ -12,6 +10,7 @@ import org.jenkinsci.plugins.workflow.actions.LogAction;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
 import hudson.model.Run;
+import jenkins.model.Jenkins;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -20,11 +19,37 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.logging.Logger;
 import java.util.List;
 
 public class PipelineLogExtractor {
 
-    private static List<String> readLimitedLog(AnnotatedLargeText<? extends FlowNode> logText,
+    private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
+    public static final String URL_NAME = "pipeline-overview";
+    private boolean isGraphViewPluginAvailable = false;
+    private transient String url;
+    private transient Run<?, ?> run;
+    private int maxLines;
+
+
+
+    /**
+     * Reads the provided log text and returns at most the last {@code maxLines} lines.
+     * <p>
+     * The entire log is streamed into memory, Jenkins {@link ConsoleNote} annotations are stripped,
+     * and a sliding window is maintained over the lines: when the number of buffered lines reaches
+     * {@code maxLines}, the oldest line is removed before adding the next one. This ensures that
+     * only the most recent {@code maxLines} lines are retained.
+     * <p>
+     * Line terminators ({@code \n} and {@code \r}) are removed from each returned line. If no log
+     * content is available or an error occurs while reading, an empty list is returned.
+     *
+     * @param logText  the annotated log text associated with a {@link FlowNode}
+     * @param maxLines the maximum number of trailing log lines to return
+     * @return a list containing up to the last {@code maxLines} lines of the log, or an empty list
+     *         if the log is empty or an error occurs
+     */
+    private List<String> readLimitedLog(AnnotatedLargeText<? extends FlowNode> logText,
                                                int maxLines) {
         StringWriter writer = new StringWriter();
         try {
@@ -44,22 +69,23 @@ public class PipelineLogExtractor {
                 queue.add(line);
             }
             return new ArrayList<>(queue);
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            LOGGER.severe("Unable to serialize the flow node log: " + e.getMessage());
         }
         return Collections.emptyList();
     }
 
     /**
      * Extracts the log output of the specific step that caused the pipeline failure.
-     * @param run The pipeline build
-     * @return The log text of the failed step, or null if no failed step with a log is found.
+     *
+     * @return A non-null list of log lines for the failed step, or the overall build log if
+     *         no failed step with a log is found.
      * @throws IOException
      */
-    public static List<String> getFailedStepLog(@NonNull  Run<?, ?> run, int maxLines) throws IOException {
+    public List<String> getFailedStepLog() throws IOException {
 
-        if (run instanceof WorkflowRun) {
-            FlowExecution execution = ((WorkflowRun) run).getExecution();
+        if (this.run instanceof WorkflowRun) {
+            FlowExecution execution = ((WorkflowRun) this.run).getExecution();
 
             FlowGraphWalker walker = new FlowGraphWalker(execution);
             for (FlowNode node : walker) {
@@ -72,17 +98,42 @@ public class PipelineLogExtractor {
                     LogAction logAction = nodeThatThrewException.getAction(LogAction.class);
                     if (logAction != null) {
                         AnnotatedLargeText<? extends FlowNode> logText = logAction.getLogText();
-                        List<String> result = readLimitedLog(logText, maxLines);
+                        List<String> result = readLimitedLog(logText, this.maxLines);
                         if (result == null || result.isEmpty())
                         {
                             continue;
                         }
+                        setUrl(nodeThatThrewException.getId());
                         return result;
                    }
                 }
             }
         }
-
+        /* Reference to pipeline overview or console output */
+        setUrl("0");
         return run.getLog(maxLines);
+    }
+
+    private void setUrl(String node)
+    {
+        String rootUrl = Jenkins.get().getRootUrl();
+        if (isGraphViewPluginAvailable) {
+            url = rootUrl + run.getUrl() + URL_NAME + "?selected-node=" + node;
+        } else {
+            url = rootUrl + run.getUrl() + "console";
+        }
+    }
+
+    public String getUrl() {
+        return this.url;
+    }
+
+    public PipelineLogExtractor(Run<?, ?> run, int maxLines)
+    {
+        this.run = run;
+        this.maxLines = maxLines;
+        if (Jenkins.get().getPlugin("pipeline-graph-view") != null) {
+            isGraphViewPluginAvailable = true;
+        }
     }
 }

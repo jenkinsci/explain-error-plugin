@@ -171,7 +171,8 @@ class ConsolePageDecoratorTest {
     void testContainerIsInjectedWithExistingExplanationWhenDisabled() throws Exception {
         FreeStyleProject project = rule.createFreeStyleProject("test");
         FreeStyleBuild build = rule.buildAndAssertSuccess(project);
-        build.addAction(new ErrorExplanationAction("This is a test explanation of the error", "ERROR: Build failed\nFinished: FAILURE", "Ollama" ));
+        build.addAction(new ErrorExplanationAction("This is a test explanation of the error", "",
+            "ERROR: Build failed\nFinished: FAILURE", "Ollama" ));
         build.save();
         config.setEnableExplanation(false);
 

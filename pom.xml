@@ -102,6 +102,17 @@
       <artifactId>commons-lang3-api</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>pipeline-graph-view</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>ionicons-api</artifactId>
+    </dependency>
+
     <!-- Needed only for testing -->
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>

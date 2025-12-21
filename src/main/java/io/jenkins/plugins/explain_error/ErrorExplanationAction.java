@@ -9,16 +9,18 @@ import jenkins.model.RunAction2;
 public class ErrorExplanationAction implements RunAction2 {
 
     private final String explanation;
+    private final String urlString;
     private final transient String originalErrorLogs;
     private final long timestamp;
     private String providerName = "Unknown";
     private transient Run<?, ?> run;
 
-    public ErrorExplanationAction(String explanation, String originalErrorLogs, String providerName) {
+    public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this.explanation = explanation;
         this.originalErrorLogs = originalErrorLogs;
         this.timestamp = System.currentTimeMillis();
         this.providerName = providerName;
+        this.urlString = urlString;
     }
 
     public Object readResolve() {
@@ -61,6 +63,10 @@ public class ErrorExplanationAction implements RunAction2 {
 
     public String getProviderName() {
         return providerName;
+    }
+
+    public String getUrlString() {
+        return urlString;
     }
 
     @Override
