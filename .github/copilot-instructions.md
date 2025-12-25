@@ -193,7 +193,7 @@ When adding new AI providers:
    - Use structured output for consistent parsing
    - Add proper exclusions for SLF4J and Jackson to avoid conflicts
    - Handle timeout and network errors gracefully
-10. **UI Consistency**: Follow Jenkins UI/UX patterns in Jelly templat
+10. **UI Consistency**: Follow Jenkins UI/UX patterns in Jelly templates
 5. Add comprehensive tests
 
 ## Security Considerations
