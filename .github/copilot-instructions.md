@@ -84,7 +84,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 
 ## Build & Dependencies
 
-### Maven Configuration6`
+### Maven Configuration
 - Jenkins baseline: 2.479.3
 - Java 17+ required
 - LangChain4j: v1.9.1 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-ollama)
