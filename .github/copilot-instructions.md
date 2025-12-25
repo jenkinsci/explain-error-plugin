@@ -118,7 +118,7 @@ unclasopenai:
       #   model: "gemini-2.0-flash"
       # ollama:
       #   url: "http://localhost:11434"
-      #   model: "gemma3:1b
+      #   model: "gemma3:1b"
       gemini:
         apiKey: "${AI_API_KEY}"
         model: "gpt-5"
