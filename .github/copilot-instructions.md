@@ -139,6 +139,13 @@ pipeline {
     post {
         failure {
             explainError()  // Analyze failure a with setup instructions and examples
+        }
+    }
+}
+```
+
+## File Overview
+
 - `CONTRIBUTING.md` - Developer contribution guidelines and workflow
 - `pom.xml` - Maven project configuration with LangChain4j dependencies
 - `src/main/resources/index.jelly` - Plugin metadata for Jenkins UI
@@ -148,6 +155,7 @@ pipeline {
 - `.github/copilot-instructions.md` - This file - AI assistant guidance for development
 
 ## Important Files
+
 **Extend `BaseAIProvider`**
    - Implement `createAssistant()` - Build LangChain4j assistant with provider-specific configuration
    - Define constructor with required parameters (url, model, apiKey as needed)
