@@ -138,7 +138,7 @@ pipeline {
     }
     post {
         failure {
-            explainError()  // Analyze failure a with setup instructions and examples
+            explainError()  // Analyze failure and add explanation
         }
     }
 }
