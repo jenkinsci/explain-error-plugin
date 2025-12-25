@@ -156,7 +156,7 @@ pipeline {
 
 ## Important Files
 
-**Extend `BaseAIProvider`**
+1. **Extend `BaseAIProvider`**
    - Implement `createAssistant()` - Build LangChain4j assistant with provider-specific configuration
    - Define constructor with required parameters (url, model, apiKey as needed)
    - Use `@DataBoundConstructor` annotation
