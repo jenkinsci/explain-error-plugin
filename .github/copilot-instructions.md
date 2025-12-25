@@ -182,7 +182,7 @@ pipeline {
 When adding new AI providers:
 
 1. Extend `BaseAIProvider`
-2. Implement abstract methods:  
+2. Implement abstract methods:
 3. **Documentation**: Update README.md and Javadoc for new features
 4. **Error Messages**: Provide clear, actionable error messages using `ExplanationException`
 5. **Testing**: Test with real Jenkins instances and AI providers (manual testing in Jenkins test instance)
