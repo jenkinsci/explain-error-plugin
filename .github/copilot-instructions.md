@@ -181,7 +181,7 @@ pipeline {
 
 When adding new AI providers:
 
-1. Extend `BaseAIProvder`
+1. Extend `BaseAIProvider`
 2. Implement abstract methods:  
 3. **Documentation**: Update README.md and Javadoc for new features
 4. **Error Messages**: Provide clear, actionable error messages using `ExplanationException`
