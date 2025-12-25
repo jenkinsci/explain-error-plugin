@@ -90,7 +90,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 - LangChain4j: v1.9.1 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-ollama)
 - Key Jenkins dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 - SLF4J and Jackson exclusions to avoid conflicts with Jenkins core
-- Test dependencies: `workflow-cps`, `workflow-job`, `workflow-durable-task-step`, `workflow-basic-steps`, `test-harness
+- Test dependencies: `workflow-cps`, `workflow-job`, `workflow-durable-task-step`, `workflow-basic-steps`, `test-harness`
 - Key dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 
 ### Commands
