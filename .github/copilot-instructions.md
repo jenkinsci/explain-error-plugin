@@ -107,21 +107,15 @@ src/main/java/io/jenkins/plugins/explain_error/
 - Configure AI provider, API key, URL, and model
 
 ### Configuration as Code
+
 ```yaml
-unclasopenai:
-        apiKey: "${AI_API_KEY}"
-        model: "gpt-4"
-        url: ""  # Optional: leave empty for default or specify custom endpoint
-      # Alternative providers:
-      # gemini:
-      #   apiKey: "${AI_API_KEY}"
-      #   model: "gemini-2.0-flash"
-      # ollama:
-      #   url: "http://localhost:11434"
-      #   model: "gemma3:1b"
+unclassified:
+  explainError:
+    aiProvider:
       gemini:
         apiKey: "${AI_API_KEY}"
-        model: "gpt-5"
+        model: "gemini-2.5-flash"
+        # url: "" # Optional, leave empty for default
     enableExplanation: true
 ```
 
@@ -194,7 +188,6 @@ When adding new AI providers:
    - Add proper exclusions for SLF4J and Jackson to avoid conflicts
    - Handle timeout and network errors gracefully
 10. **UI Consistency**: Follow Jenkins UI/UX patterns in Jelly templates
-5. Add comprehensive tests
 
 ## Security Considerations
 
