@@ -22,6 +22,21 @@ import java.util.LinkedList;
 import java.util.logging.Logger;
 import java.util.List;
 
+/**
+ * Utility for extracting log lines related to a failing build or pipeline step
+ * and computing a URL that points back to the error source.
+ * <p>
+ * For {@link org.jenkinsci.plugins.workflow.job.WorkflowRun} (Pipeline) builds,
+ * this class walks the flow graph to locate the node that originally threw the
+ * error, reads a limited number of log lines from that step, and records a
+ * node-specific URL that can be used to navigate to the failure location.
+ * When no failing step log can be found, or when the build is not a pipeline,
+ * it falls back to the standard build console log.
+ * <p>
+ * If the optional {@code pipeline-graph-view} plugin is installed, the
+ * generated URL is compatible with its overview page so that consumers can
+ * deep-link directly into the failing node from error explanations.
+ */
 public class PipelineLogExtractor {
 
     private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
@@ -65,7 +80,7 @@ public class PipelineLogExtractor {
                 if (queue.size() >= maxLines) {
                     queue.removeFirst();
                 }
-                line = line.replace("\n", "").replace("\r", "");
+
                 queue.add(line);
             }
             return new ArrayList<>(queue);
@@ -80,7 +95,7 @@ public class PipelineLogExtractor {
      *
      * @return A non-null list of log lines for the failed step, or the overall build log if
      *         no failed step with a log is found.
-     * @throws IOException
+     * @throws IOException if there is an error reading the build logs.
      */
     public List<String> getFailedStepLog() throws IOException {
 
@@ -124,6 +139,17 @@ public class PipelineLogExtractor {
         }
     }
 
+    /**
+     * Returns the URL associated with the extracted log.
+     * <p>
+     * When {@link #getFailedStepLog()} finds a failed pipeline step with an attached log and the
+     * {@code pipeline-graph-view} plugin is available, this will point to the pipeline overview page with the
+     * failing node preselected. Otherwise, it falls back to the build's console output URL.
+     * </p>
+     *
+     * @return the Jenkins URL for either the pipeline overview of the failing step or the build console output,
+     *         or {@code null} if {@link #getFailedStepLog()} has not been invoked successfully.
+     */
     public String getUrl() {
         return this.url;
     }
