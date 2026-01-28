@@ -9,4 +9,9 @@
              description="Maximum number of lines to analyze (default: 100). Set to 0 for unlimited.">
         <f:number min="0" default="100" />
     </f:entry>
+
+    <f:entry title="Language" field="language"
+             description="Preferred response language (e.g., English, 中文，日本語, Español, etc). Leave empty for English.">
+        <f:textbox />
+    </f:entry>
 </j:jelly>

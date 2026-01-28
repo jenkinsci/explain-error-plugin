@@ -27,6 +27,10 @@ public class ErrorExplainer {
     }
 
     public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
+        explainError(run, listener, logPattern, maxLines, null);
+    }
+
+    public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
@@ -43,7 +47,7 @@ public class ErrorExplainer {
 
             // Get AI explanation
             try {
-                String explanation = provider.explainError(errorLogs, listener);
+                String explanation = provider.explainError(errorLogs, listener, language);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
 
                 // Store explanation in build action

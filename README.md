@@ -182,7 +182,8 @@ Optional parameters:
 ```groovy
 explainError(
   maxLines: 500,
-  logPattern: '(?i)(error|failed|exception)'
+  logPattern: '(?i)(error|failed|exception)',
+  language: 'English' // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
 )
 ```
 Output appears in the sidebar of the failed job.

@@ -52,6 +52,17 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      * @throws ExplanationException if there's a communication error
      */
     public final String explainError(String errorLogs, TaskListener listener) throws ExplanationException {
+        return explainError(errorLogs, listener, null);
+    }
+
+    /**
+     * Explain error logs using the configured AI provider.
+     * @param errorLogs the error logs to explain
+     * @param language the preferred response language
+     * @return the AI explanation
+     * @throws ExplanationException if there's a communication error
+     */
+    public final String explainError(String errorLogs, TaskListener listener, String language) throws ExplanationException {
         Assistant assistant;
 
         if (StringUtils.isBlank(errorLogs)) {
@@ -68,8 +79,9 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             throw new ExplanationException("error", "Failed to create assistant", e);
         }
 
+        String responseLanguage = StringUtils.isBlank(language) ? "English" : language.trim();
         try {
-            return assistant.analyzeLogs(errorLogs).toString();
+            return assistant.analyzeLogs(errorLogs, responseLanguage).toString();
         } catch (Exception e) {
             LOGGER.severe("AI API request failed: " + e.getMessage());
             throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);
@@ -86,12 +98,14 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             You are an expert Jenkins administrator and software engineer.
             Please analyze the following Jenkins build error logs.
 
+            Preferred response language: {{language}}
+
             ERROR LOGS:
             {{errorLogs}}
 
             Provide a clear, actionable explanation of what went wrong.
             """)
-        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs);
+        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language);
     }
 
     public String getProviderName() {

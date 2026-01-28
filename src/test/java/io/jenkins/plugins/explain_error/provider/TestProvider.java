@@ -24,7 +24,7 @@ public class TestProvider extends OpenAIProvider {
     public Assistant createAssistant() {
         return new Assistant() {
             @Override
-            public JenkinsLogAnalysis analyzeLogs(String errorLogs) {
+            public JenkinsLogAnalysis analyzeLogs(String errorLogs, String language) {
                 if (throwError) {
                     throw new RuntimeException("Request failed.");
                 }
