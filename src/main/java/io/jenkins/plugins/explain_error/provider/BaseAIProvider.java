@@ -98,7 +98,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             You are an expert Jenkins administrator and software engineer.
             Please analyze the following Jenkins build error logs.
 
-            Preferred response language: {{language}}
+            And respond in {{language}}.
 
             ERROR LOGS:
             {{errorLogs}}
