@@ -57,4 +57,28 @@ class ExplainErrorStepTest {
         assertNotNull(action);
     }
 
+    @Test
+    void testExplainErrorStepReturnValue(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+
+        // Create a test pipeline job
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-explain-error-return");
+
+        // Define a pipeline that captures the return value
+        String pipelineScript = "node {\n"
+                + "    def explanation = explainError()\n"
+                + "    echo \"Got explanation: ${explanation}\"\n"
+                + "}";
+
+        job.setDefinition(new CpsFlowDefinition(pipelineScript, true));
+
+        // Run the job and verify the explanation was returned
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("Got explanation:", run);
+        
+        ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
+        assertNotNull(action);
+    }
+
 }

@@ -26,18 +26,18 @@ public class ErrorExplainer {
         return providerName;
     }
 
-    public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
-        explainError(run, listener, logPattern, maxLines, null);
+    public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
+        return explainError(run, listener, logPattern, maxLines, null);
     }
 
-    public void explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language) {
+    public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
             if (!config.isEnableExplanation()) {
                 listener.getLogger().println("AI error explanation is disabled in global configuration.");
-                return;
+                return null;
             }
 
             BaseAIProvider provider = config.getAiProvider();
@@ -53,8 +53,11 @@ public class ErrorExplainer {
                 // Store explanation in build action
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs, provider.getProviderName());
                 run.addOrReplaceAction(action);
+                
+                return explanation;
             } catch (ExplanationException ee) {
                 listener.getLogger().println(ee.getMessage());
+                return null;
             }
 
             // Explanation is now available on the job page, no need to clutter console output
@@ -62,6 +65,7 @@ public class ErrorExplainer {
         } catch (IOException e) {
             LOGGER.severe(jobInfo + " Failed to explain error: " + e.getMessage());
             listener.getLogger().println(jobInfo + " Failed to explain error: " + e.getMessage());
+            return null;
         }
     }
 

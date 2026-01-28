@@ -79,7 +79,7 @@ public class ExplainErrorStep extends Step {
         }
     }
 
-    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<Void> {
+    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<String> {
 
         private static final long serialVersionUID = 1L;
         private final transient ExplainErrorStep step;
@@ -90,14 +90,14 @@ public class ExplainErrorStep extends Step {
         }
 
         @Override
-        protected Void run() throws Exception {
+        protected String run() throws Exception {
             Run<?, ?> run = getContext().get(Run.class);
             TaskListener listener = getContext().get(TaskListener.class);
 
             ErrorExplainer explainer = new ErrorExplainer();
-            explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(), step.getLanguage());
+            String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(), step.getLanguage());
 
-            return null;
+            return explanation;
         }
     }
 }

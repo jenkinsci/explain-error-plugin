@@ -177,7 +177,35 @@ pipeline {
 }
 ```
 
-Optional parameters:
+**✨ NEW: Return Value Support** - The step now returns the AI explanation as a string, enabling integration with notifications and alerting:
+
+```groovy
+post {
+    failure {
+        script {
+            // Capture the AI explanation
+            def explanation = explainError()
+            
+            // Use it in notifications
+            slackSend(
+                color: 'danger',
+                message: "Build Failed!\n\nAI Analysis:\n${explanation}"
+            )
+            
+            // Or send to email, webhook, etc.
+            emailext body: "Error Analysis:\n${explanation}"
+        }
+    }
+}
+```
+
+#### Optional parameters:
+
+| Parameter    | Description                                         | Default               |
+|--------------|-----------------------------------------------------|-----------------------|
+| **maxLines** | Max log lines to analyze (trims from the end)          | `1000`             |
+| **logPattern** | Regex pattern to filter relevant log lines          | `''` (no filtering) |
+| **language** | Language for the explanation                          | `'English'`         |
 
 ```groovy
 explainError(
@@ -186,6 +214,7 @@ explainError(
   language: 'English' // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
 )
 ```
+
 Output appears in the sidebar of the failed job.
 
 ![Side Panel - AI Error Explanation](docs/images/side-panel.png)
