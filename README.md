@@ -203,7 +203,7 @@ post {
 
 | Parameter    | Description                                         | Default               |
 |--------------|-----------------------------------------------------|-----------------------|
-| **maxLines** | Max log lines to analyze (trims from the end)          | `1000`             |
+| **maxLines** | Max log lines to analyze (trims from the end)          | `100`              |
 | **logPattern** | Regex pattern to filter relevant log lines          | `''` (no filtering) |
 | **language** | Language for the explanation                          | `'English'`         |
 
