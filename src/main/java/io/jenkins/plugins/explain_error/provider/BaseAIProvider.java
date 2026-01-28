@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
+import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -94,11 +95,13 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     }
 
     public interface Assistant {
-        @UserMessage("""
+        @SystemMessage("""
             You are an expert Jenkins administrator and software engineer.
+            You must respond ONLY in {{language}}.
+            If the error logs are in another language, still respond ONLY in {{language}}.
+            """)
+        @UserMessage("""
             Please analyze the following Jenkins build error logs.
-
-            And respond in {{language}}.
 
             ERROR LOGS:
             {{errorLogs}}
