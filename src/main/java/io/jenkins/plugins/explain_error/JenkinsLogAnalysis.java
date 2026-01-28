@@ -4,16 +4,16 @@ import dev.langchain4j.model.output.structured.Description;
 import java.util.List;
 
 public record JenkinsLogAnalysis(
-    @Description("A summary of what caused the error")
+    @Description("Error summary")
     String errorSummary,
 
-    @Description("Specific actionable steps to resolve the issue")
+    @Description("Resolution steps")
     List<String> resolutionSteps,
 
-    @Description("Relevant best practices to prevent similar issues in the future")
+    @Description("Best practices")
     List<String> bestPractices,
 
-    @Description("The first 40 words of the error line to verify location")
+    @Description("Error snippet")
     String errorSignature
 ) {
     @Override

@@ -97,16 +97,16 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public interface Assistant {
         @SystemMessage("""
             You are an expert Jenkins administrator and software engineer.
-            You must respond ONLY in {{language}}.
-            If the error logs are in another language, still respond ONLY in {{language}}.
+            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
+            This includes: error summaries, resolution steps, best practices, and any other text.
             """)
         @UserMessage("""
-            Please analyze the following Jenkins build error logs.
+            Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
+            
+            IMPORTANT: Your ENTIRE response must be in {{language}}, including all field values.
 
             ERROR LOGS:
             {{errorLogs}}
-
-            Provide a clear, actionable explanation of what went wrong.
             """)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language);
     }
