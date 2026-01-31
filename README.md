@@ -39,8 +39,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
-* **Smart provider management** — LangChain4j handles most providers automatically
+* **AI-powered explanations** via OpenAI, Google Gemini, Anthropic Claude, Azure OpenAI, DeepSeek, or local Ollama
+* **Smart provider management** — LangChain4j handles 6+ providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
 
 [^1]: *Enterprise-ready API endpoints support custom URLs for OpenAI-compatible services (LocalAI, DeepSeek), air-gapped environments.*
@@ -73,9 +73,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, or Ollama  | `OpenAI` |
-| **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OpenAI-compatible services and air-gapped environments. |
+| **AI Provider** | Choose between OpenAI, Google Gemini, Anthropic Claude, Azure OpenAI, DeepSeek, or Ollama  | `OpenAI` |
+| **API Key** | Your AI provider API key | Get from provider's platform |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini, Anthropic). **Required** for Azure OpenAI endpoint and Ollama. **Optional** for custom/self-hosted services. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 
 4. Click **"Test Configuration"** to verify your setup
@@ -132,7 +132,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ## Supported AI Providers
 
 ### OpenAI
-- **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
+- **Models**: `gpt-5`, `gpt-5-mini`, `gpt-4.1`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
 - **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
 - **Best for**: Comprehensive error analysis with excellent reasoning
@@ -140,14 +140,73 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
-- **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
+- **Endpoint**: Leave empty for official Google AI API
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### Anthropic Claude
+- **Models**: `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-5-haiku`, `claude-3-opus`, etc.
+- **API Key**: Get from [Anthropic Console](https://console.anthropic.com/)
+- **Endpoint**: Leave empty for official Anthropic API
+- **Best for**: Detailed, thorough error analysis with high accuracy
+- **Configuration Example**:
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      anthropic:
+        apiKey: "${AI_API_KEY}"
+        model: "claude-3-5-sonnet-20241022"
+    enableExplanation: true
+```
+
+### Azure OpenAI
+- **Models**: Your Azure deployment names (e.g., `gpt-5`, `gpt-4.1`)
+- **API Key**: Get from Azure Portal
+- **Endpoint**: **Required** - Your Azure OpenAI endpoint (e.g., `https://your-resource.openai.azure.com`)
+- **Best for**: Enterprise environments requiring Azure integration and compliance
+- **Configuration Example**:
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      azureOpenai:
+        apiKey: "${AZURE_API_KEY}"
+        url: "https://your-resource.openai.azure.com"
+        model: "your-deployment-name"
+    enableExplanation: true
+```
+
+### DeepSeek
+- **Models**: `deepseek-chat`, `deepseek-coder`, `deepseek-reasoner`
+- **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
+- **Endpoint**: Leave empty for official DeepSeek API (default: https://api.deepseek.com)
+- **Best for**: Cost-effective analysis, competitive performance at lower costs
+- **Configuration Example**:
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      deepseek:
+        apiKey: "${AI_API_KEY}"
+        model: "deepseek-chat"
+    enableExplanation: true
+```
 
 ### Ollama (Local/Private LLM)
 - **Models**: `gemma3:1b`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
 - **API Key**: Not required by default (unless your Ollama server is secured)
 - **Endpoint**: `http://localhost:11434` (or your Ollama server URL)
 - **Best for**: Private, local, or open-source LLMs; no external API usage or cost
+- **Configuration Example**:
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      ollama:
+        model: "gemma3:1b"
+        url: "http://localhost:11434"
+    enableExplanation: true
+```
 
 ## Usage
 

@@ -155,4 +155,157 @@ class ProviderTest {
 
         assertEquals("The provider is not properly configured.", result.getMessage());
     }
+
+    // ============= Anthropic Provider Tests =============
+
+    @Test
+    void testAnthropicWithNullApiKey() {
+        BaseAIProvider provider = new AnthropicProvider(null, "claude-3-5-sonnet-20241022", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicWithEmptyApiKey() {
+        BaseAIProvider provider = new AnthropicProvider(null, "claude-3-5-sonnet-20241022", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicWithNullModel() {
+        BaseAIProvider provider = new AnthropicProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicWithEmptyModel() {
+        BaseAIProvider provider = new AnthropicProvider(null, "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicProviderCreation() {
+        BaseAIProvider provider = new AnthropicProvider(null, "claude-3-5-sonnet-20241022", Secret.fromString("test-key"));
+        assertEquals("claude-3-5-sonnet-20241022", provider.getModel());
+        assertEquals(null, provider.getUrl());
+    }
+
+    @Test
+    void testAnthropicProviderWithCustomUrl() {
+        BaseAIProvider provider = new AnthropicProvider("https://custom-anthropic.example.com", "claude-3-5-sonnet-20241022", Secret.fromString("test-key"));
+        assertEquals("claude-3-5-sonnet-20241022", provider.getModel());
+        assertEquals("https://custom-anthropic.example.com", provider.getUrl());
+    }
+
+    // ============= Azure OpenAI Provider Tests =============
+
+    @Test
+    void testAzureOpenAIWithNullApiKey() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://test.openai.azure.com", "gpt-4.1", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAIWithEmptyApiKey() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://test.openai.azure.com", "gpt-4.1", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAIWithNullEndpoint() {
+        BaseAIProvider provider = new AzureOpenAIProvider(null, "gpt-4.1", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAIWithEmptyEndpoint() {
+        BaseAIProvider provider = new AzureOpenAIProvider("", "gpt-4.1", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAIWithNullDeployment() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://test.openai.azure.com", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAIWithEmptyDeployment() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://test.openai.azure.com", "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAIProviderCreation() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://test.openai.azure.com", "my-deployment", Secret.fromString("test-key"));
+        assertEquals("my-deployment", provider.getModel());
+        assertEquals("https://test.openai.azure.com", provider.getUrl());
+    }
+
+    // ============= DeepSeek Provider Tests =============
+
+    @Test
+    void testDeepSeekWithNullApiKey() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "deepseek-chat", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithEmptyApiKey() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "deepseek-chat", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithNullModel() {
+        BaseAIProvider provider = new DeepSeekProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithEmptyModel() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekProviderCreation() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "deepseek-chat", Secret.fromString("test-key"));
+        assertEquals("deepseek-chat", provider.getModel());
+        assertEquals(null, provider.getUrl());
+    }
+
+    @Test
+    void testDeepSeekProviderWithCustomUrl() {
+        BaseAIProvider provider = new DeepSeekProvider("https://custom-deepseek.example.com", "deepseek-coder", Secret.fromString("test-key"));
+        assertEquals("deepseek-coder", provider.getModel());
+        assertEquals("https://custom-deepseek.example.com", provider.getUrl());
+    }
 }
