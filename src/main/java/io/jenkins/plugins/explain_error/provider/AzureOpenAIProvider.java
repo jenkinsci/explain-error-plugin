@@ -47,6 +47,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 .deploymentName(getModel()) // In Azure, this is the deployment name
                 .temperature(0.3)
                 .responseFormat(ResponseFormat.JSON)
+                .strictJsonSchema(true)
                 .build();
 
         return AiServices.create(Assistant.class, model);
