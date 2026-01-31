@@ -47,6 +47,7 @@ public class AnthropicProvider extends BaseAIProvider {
                 .temperature(0.3)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
+                .responseFormat(ResponseFormat.JSON)
                 .build();
 
         return AiServices.create(Assistant.class, model);
