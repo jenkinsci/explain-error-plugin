@@ -85,6 +85,7 @@ public class AnthropicProvider extends BaseAIProvider {
             return "Anthropic (Claude)";
         }
 
+        @Override
         public String getDefaultModel() {
             return "claude-3-5-sonnet-20241022";
         }
