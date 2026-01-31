@@ -90,6 +90,7 @@ public class DeepSeekProvider extends BaseAIProvider {
             return "DeepSeek";
         }
 
+        @Override
         public String getDefaultModel() {
             return "deepseek-chat";
         }
