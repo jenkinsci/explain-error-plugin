@@ -1,0 +1,8 @@
+unclassified:
+  explainError:
+    aiProvider:
+      azureOpenai:
+        apiKey: "test-azure-key"
+        url: "https://test-resource.openai.azure.com"
+        model: "gpt-4.1-deployment"
+    enableExplanation: true

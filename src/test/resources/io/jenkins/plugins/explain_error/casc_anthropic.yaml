@@ -1,0 +1,7 @@
+unclassified:
+  explainError:
+    aiProvider:
+      anthropic:
+        apiKey: "test-anthropic-key"
+        model: "claude-3-5-sonnet-20241022"
+    enableExplanation: true
