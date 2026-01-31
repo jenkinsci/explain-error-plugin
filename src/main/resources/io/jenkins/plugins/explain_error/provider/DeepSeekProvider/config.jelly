@@ -1,0 +1,18 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core"  xmlns:f="/lib/form">
+  <f:entry title="API Key" field="apiKey">
+    <f:password clazz="required"/>
+  </f:entry>
+
+  <f:entry title="URL" field="url" description="Optional. Leave empty to use default DeepSeek endpoint (https://api.deepseek.com).">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="Model" field="model" description="Model name (e.g., deepseek-chat, deepseek-coder)">
+    <f:textbox clazz="required" default="${descriptor.defaultModel}" autoCompleteUrl="${rootURL}/${descriptor.descriptorFullUrl}/autoCompleteModel"/>
+  </f:entry>
+
+  <f:validateButton title="Test Configuration" progress="Testing..."
+                    method="testConfiguration" with="apiKey,url,model" />
+
+</j:jelly>
