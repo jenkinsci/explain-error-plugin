@@ -88,6 +88,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             return "Azure OpenAI";
         }
 
+        @Override
         public String getDefaultModel() {
             return "gpt-4.1";
         }
