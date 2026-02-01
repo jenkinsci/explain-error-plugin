@@ -57,7 +57,8 @@ public class AnthropicProvider extends BaseAIProvider {
         if (listener != null) {
             if (Util.fixEmptyAndTrim(Secret.toString(getApiKey())) == null) {
                 listener.getLogger().println("No Api key configured for Anthropic.");
-            } else if (Util.fixEmptyAndTrim(getModel()) == null) {
+            }
+            if (Util.fixEmptyAndTrim(getModel()) == null) {
                 listener.getLogger().println("No Model configured for Anthropic.");
             }
         }
@@ -94,7 +95,7 @@ public class AnthropicProvider extends BaseAIProvider {
         public AutoCompletionCandidates doAutoCompleteModel(@QueryParameter String value) {
             AutoCompletionCandidates c = new AutoCompletionCandidates();
             for (String model : MODELS) {
-                if (model.toLowerCase().contains(value.toLowerCase())) {
+                if (model.toLowerCase().startsWith(value.toLowerCase())) {
                     c.add(model);
                 }
             }

@@ -59,7 +59,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             if (Util.fixEmptyAndTrim(Secret.toString(getApiKey())) == null) {
                 listener.getLogger().println("No Api key configured for Azure OpenAI.");
             } else if (Util.fixEmptyAndTrim(getUrl()) == null) {
-                listener.getLogger().println("No API key configured for Azure OpenAI.");
+                listener.getLogger().println("No Endpoint configured for Azure OpenAI.");
             } else if (Util.fixEmptyAndTrim(getModel()) == null) {
                 listener.getLogger().println("No Deployment Name configured for Azure OpenAI.");
             }
@@ -73,7 +73,9 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     @Symbol("azureOpenai")
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
-        private static final String[] COMMON_MODELS = new String[]{
+        // Common deployment name examples users might create in Azure OpenAI
+        // Note: These are example deployment names, not model names
+        private static final String[] COMMON_DEPLOYMENT_NAMES = new String[]{
                 "gpt-5",
                 "gpt-5-mini",
                 "gpt-4.1",
@@ -97,8 +99,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public AutoCompletionCandidates doAutoCompleteModel(@QueryParameter String value) {
             AutoCompletionCandidates c = new AutoCompletionCandidates();
-            for (String model : COMMON_MODELS) {
-                if (model.toLowerCase().contains(value.toLowerCase())) {
+            for (String model : COMMON_DEPLOYMENT_NAMES) {
+                if (model.toLowerCase().startsWith(value.toLowerCase())) {
                     c.add(model);
                 }
             }

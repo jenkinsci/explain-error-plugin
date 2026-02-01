@@ -100,7 +100,7 @@ public class DeepSeekProvider extends BaseAIProvider {
         public AutoCompletionCandidates doAutoCompleteModel(@QueryParameter String value) {
             AutoCompletionCandidates c = new AutoCompletionCandidates();
             for (String model : MODELS) {
-                if (model.toLowerCase().contains(value.toLowerCase())) {
+                if (model.toLowerCase().startsWith(value.toLowerCase())) {
                     c.add(model);
                 }
             }
