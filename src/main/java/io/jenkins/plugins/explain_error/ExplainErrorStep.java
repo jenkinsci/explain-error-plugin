@@ -20,6 +20,7 @@ public class ExplainErrorStep extends Step {
     private String logPattern;
     private int maxLines;
     private String language;
+    private String customContext;
 
     @DataBoundConstructor
     public ExplainErrorStep() {
@@ -53,6 +54,15 @@ public class ExplainErrorStep extends Step {
     @DataBoundSetter
     public void setLanguage(String language) {
         this.language = language != null ? language : "";
+    }
+
+    public String getCustomContext() {
+        return customContext;
+    }
+
+    @DataBoundSetter
+    public void setCustomContext(String customContext) {
+        this.customContext = customContext != null ? customContext : "";
     }
 
     @Override
@@ -95,7 +105,7 @@ public class ExplainErrorStep extends Step {
             TaskListener listener = getContext().get(TaskListener.class);
 
             ErrorExplainer explainer = new ErrorExplainer();
-            String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(), step.getLanguage());
+            String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(), step.getLanguage(), step.getCustomContext());
 
             return explanation;
         }
