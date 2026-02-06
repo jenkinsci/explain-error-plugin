@@ -77,6 +77,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OpenAI-compatible services and air-gapped environments. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
+| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
@@ -97,6 +98,11 @@ unclassified:
         model: "gpt-5"
         # url: "" # Optional, leave empty for default
     enableExplanation: true
+    customContext: |
+      Consider these additional instructions:
+      - If the error is from Sonarqube Scanner, link to: https://example.org/sonarqube-kb
+      - If a Kubernetes manifest failed, remind about cluster-specific requirements
+      - Check if the error might be caused by a builder crash and suggest restarting the pipeline
 ```
 
 **Environment Variable Example:**
@@ -206,12 +212,19 @@ post {
 | **maxLines** | Max log lines to analyze (trims from the end)          | `100`              |
 | **logPattern** | Regex pattern to filter relevant log lines          | `''` (no filtering) |
 | **language** | Language for the explanation                          | `'English'`         |
+| **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 
 ```groovy
 explainError(
   maxLines: 500,
   logPattern: '(?i)(error|failed|exception)',
-  language: 'English' // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
+  language: 'English', // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
+  customContext: '''
+    Additional context for this specific job:
+    - This is a payment service build
+    - Check PCI compliance requirements if deployment fails
+    - Contact security team for certificate issues
+  '''
 )
 ```
 

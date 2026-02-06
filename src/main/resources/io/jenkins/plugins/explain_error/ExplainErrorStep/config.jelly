@@ -14,4 +14,9 @@
              description="Preferred response language (e.g., English, 中文, 日本語, Español, etc). Leave empty for English.">
         <f:textbox />
     </f:entry>
+    
+    <f:entry title="Custom Context" field="customContext"
+             description="Additional instructions or context for the AI. Overrides the global custom context if specified. Leave empty to use global configuration.">
+        <f:textarea />
+    </f:entry>
 </j:jelly>

@@ -27,10 +27,14 @@ public class ErrorExplainer {
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
-        return explainError(run, listener, logPattern, maxLines, null);
+        return explainError(run, listener, logPattern, maxLines, null, null);
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language) {
+        return explainError(run, listener, logPattern, maxLines, language, null);
+    }
+
+    public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language, String customContext) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         try {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
@@ -45,9 +49,12 @@ public class ErrorExplainer {
             // Extract error logs
             String errorLogs = extractErrorLogs(run, logPattern, maxLines);
 
+            // Use step-level customContext if provided, otherwise fallback to global
+            String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : config.getCustomContext();
+
             // Get AI explanation
             try {
-                String explanation = provider.explainError(errorLogs, listener, language);
+                String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
 
                 // Store explanation in build action
@@ -102,8 +109,8 @@ public class ErrorExplainer {
 
         BaseAIProvider provider = config.getAiProvider();
 
-        // Get AI explanation
-        String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE));
+        // Get AI explanation with global custom context
+        String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, config.getCustomContext());
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
         LOGGER.finer("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
