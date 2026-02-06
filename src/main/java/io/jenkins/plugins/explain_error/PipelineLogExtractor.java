@@ -40,7 +40,7 @@ import java.util.List;
 public class PipelineLogExtractor {
 
     private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
-    public static final String URL_NAME = "pipeline-overview";
+    public static final String URL_NAME = "stages";
     private boolean isGraphViewPluginAvailable = false;
     private transient String url;
     private transient Run<?, ?> run;
