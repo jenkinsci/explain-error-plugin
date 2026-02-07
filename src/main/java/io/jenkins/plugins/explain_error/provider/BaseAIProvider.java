@@ -93,7 +93,9 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         }
 
         String responseLanguage = StringUtils.isBlank(language) ? "English" : language.trim();
-        String additionalContext = StringUtils.isBlank(customContext) ? "" : customContext.trim();
+        String additionalContext = StringUtils.isBlank(customContext) 
+            ? "" 
+            : "\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\n" + customContext.trim();
         try {
             return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {
@@ -121,10 +123,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             ERROR LOGS:
             {{errorLogs}}
             
-            {{#customContext}}
-            ADDITIONAL CONTEXT AND INSTRUCTIONS:
             {{customContext}}
-            {{/customContext}}
             """)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
