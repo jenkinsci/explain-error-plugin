@@ -93,7 +93,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         }
 
         String responseLanguage = StringUtils.isBlank(language) ? "English" : language.trim();
-        String additionalContext = StringUtils.isBlank(customContext) ? null : customContext.trim();
+        String additionalContext = StringUtils.isBlank(customContext) ? "" : customContext.trim();
         try {
             return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {
