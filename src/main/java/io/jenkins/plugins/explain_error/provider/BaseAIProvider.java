@@ -96,6 +96,12 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         String additionalContext = StringUtils.isBlank(customContext)
             ? "" 
             : "\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\n" + customContext.trim();
+        
+        LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length());
+        if (!additionalContext.isEmpty()) {
+            LOGGER.fine("Custom context content: " + additionalContext);
+        }
+        
         try {
             return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {
@@ -112,18 +118,19 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public interface Assistant {
         @SystemMessage("""
             You are an expert Jenkins administrator and software engineer.
-            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
-            This includes: error summaries, resolution steps, best practices, and any other text.
+            You MUST follow ALL instructions provided by the user, including any additional context or requirements.
             """)
         @UserMessage("""
             Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
             
-            IMPORTANT: Your ENTIRE response must be in {{language}}, including all field values.
-
+            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
+            This includes: error summaries, resolution steps, best practices, and any other text.
+            
             ERROR LOGS:
             {{errorLogs}}
-            
             {{customContext}}
+            
+            Remember: Your ENTIRE response must be in {{language}}, including all field values.
             """)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
