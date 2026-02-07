@@ -124,7 +124,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setCustomContext(String customContext) {
         this.customContext = customContext;
-        save();
+
     }
 
     @Override
