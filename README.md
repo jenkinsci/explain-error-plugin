@@ -100,7 +100,7 @@ unclassified:
     enableExplanation: true
     customContext: |
       Consider these additional instructions:
-      - If the error is from Sonarqube Scanner, link to: https://example.org/sonarqube-kb
+      - If the error is from SonarQube Scanner, link to: https://example.org/sonarqube-kb
       - If a Kubernetes manifest failed, remind about cluster-specific requirements
       - Check if the error might be caused by a builder crash and suggest restarting the pipeline
 ```
