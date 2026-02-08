@@ -116,23 +116,19 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public interface Assistant {
         @SystemMessage("""
             You are an expert Jenkins administrator and software engineer.
-            CRITICAL: If additional context or custom instructions are provided below, you MUST prioritize and follow those instructions exactly.
-            Custom instructions take absolute priority and may completely override the default task.
+            You MUST follow ALL instructions provided by the user, including any additional context or requirements.
             """)
         @UserMessage("""
-            {{customContext}}
-            
-            Default Task (if no custom instructions override this):
             Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
             
-            LANGUAGE REQUIREMENT: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
+            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
+            This includes: error summaries, resolution steps, best practices, and any other text.
             
             ERROR LOGS:
             {{errorLogs}}
+            {{customContext}}
             
-            Remember: 
-            1. If custom instructions are provided above, follow them exactly
-            2. Your ENTIRE response must be in {{language}}
+            Remember: Your ENTIRE response must be in {{language}}, including all field values.
             """)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
