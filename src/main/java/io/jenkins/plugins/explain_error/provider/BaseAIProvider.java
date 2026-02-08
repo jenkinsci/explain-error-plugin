@@ -70,6 +70,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     /**
      * Explain error logs using the configured AI provider.
      * @param errorLogs the error logs to explain
+     * @param listener the task listener for logging
      * @param language the preferred response language
      * @param customContext additional custom context/instructions for the AI
      * @return the AI explanation
