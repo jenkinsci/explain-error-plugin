@@ -98,10 +98,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             : "\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\n" + customContext.trim();
         
         LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length());
-        if (!additionalContext.isEmpty()) {
-            LOGGER.fine("Custom context content: " + additionalContext);
-        }
-        
+
         try {
             return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {

@@ -112,7 +112,7 @@ public class ErrorExplainer {
         // Get AI explanation with global custom context
         String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, config.getCustomContext());
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
-        LOGGER.finer("Explanation length: " + explanation.length());
+        LOGGER.fine("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
         ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText, provider.getProviderName());
         run.addOrReplaceAction(action);
