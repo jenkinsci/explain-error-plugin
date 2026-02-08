@@ -19,6 +19,7 @@ class CustomContextTest {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         TestProvider provider = new TestProvider();
         config.setAiProvider(provider);
+        config.setEnableExplanation(true);
         config.setCustomContext("Global custom instructions");
 
         // Create a test pipeline job
@@ -35,8 +36,11 @@ class CustomContextTest {
         ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
         assertNotNull(action);
         
-        // Verify custom context is used
-        assertEquals("Global custom instructions", config.getCustomContext());
+        // Verify custom context was actually passed to the AI provider
+        assertNotNull(provider.getLastCustomContext(), "Custom context should have been passed to AI provider");
+        assertEquals("\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\nGlobal custom instructions", 
+                     provider.getLastCustomContext(), 
+                     "Global custom context should be passed to AI provider with proper formatting");
     }
 
     @Test
@@ -44,6 +48,7 @@ class CustomContextTest {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         TestProvider provider = new TestProvider();
         config.setAiProvider(provider);
+        config.setEnableExplanation(true);
         config.setCustomContext("Global custom instructions");
 
         // Create a test pipeline job
@@ -59,6 +64,12 @@ class CustomContextTest {
         WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
         ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
         assertNotNull(action);
+        
+        // Verify step-level custom context overrides global
+        assertNotNull(provider.getLastCustomContext(), "Custom context should have been passed to AI provider");
+        assertEquals("\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\nStep-level custom context", 
+                     provider.getLastCustomContext(), 
+                     "Step-level custom context should override global context");
     }
 
     @Test
@@ -66,6 +77,7 @@ class CustomContextTest {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         TestProvider provider = new TestProvider();
         config.setAiProvider(provider);
+        config.setEnableExplanation(true);
 
         // Create a test pipeline job
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-combined-params");
@@ -84,5 +96,11 @@ class CustomContextTest {
         WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
         ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
         assertNotNull(action);
+        
+        // Verify all parameters were passed correctly
+        assertEquals("Spanish", provider.getLastLanguage(), "Language parameter should be passed to AI provider");
+        assertEquals("\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\nThis is a payment service. Check PCI compliance.", 
+                     provider.getLastCustomContext(), 
+                     "Custom context should be passed with other parameters");
     }
 }

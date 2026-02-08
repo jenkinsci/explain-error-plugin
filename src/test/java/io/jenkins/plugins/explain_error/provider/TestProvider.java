@@ -14,6 +14,11 @@ public class TestProvider extends OpenAIProvider {
     private JenkinsLogAnalysis answerMessage = new JenkinsLogAnalysis(
         "Request was successful", null, null, null);
     private int callCount = 0;
+    
+    // Captured parameters from last analyzeLogs call
+    private String lastErrorLogs;
+    private String lastLanguage;
+    private String lastCustomContext;
 
     @DataBoundConstructor
     public TestProvider() {
@@ -28,6 +33,10 @@ public class TestProvider extends OpenAIProvider {
                 if (throwError) {
                     throw new RuntimeException("Request failed.");
                 }
+                // Capture parameters for test verification
+                lastErrorLogs = errorLogs;
+                lastLanguage = language;
+                lastCustomContext = customContext;
                 callCount++;
                 return answerMessage;
             }
@@ -52,6 +61,18 @@ public class TestProvider extends OpenAIProvider {
 
     public int getCallCount() {
         return callCount;
+    }
+    
+    public String getLastErrorLogs() {
+        return lastErrorLogs;
+    }
+    
+    public String getLastLanguage() {
+        return lastLanguage;
+    }
+    
+    public String getLastCustomContext() {
+        return lastCustomContext;
     }
 
     @Extension
