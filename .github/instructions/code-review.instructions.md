@@ -2,7 +2,7 @@
 applyTo: "**/*.java, **/*.xml, **/*.jelly, **/*.js"
 ---
 
-# Code Review Instuctions for Explain Error Plugin
+# Code Review Instructions for Explain Error Plugin
 
 This document outlines code review standards and best practices for the Explain Error Plugin, based on feedback from Jenkins community reviewers and hosting requirements.
 
@@ -43,7 +43,7 @@ LOGGER.info("Using FOLDER-LEVEL AI provider: " + providerName + ", Model: " + mo
 ```
 
 **Best Practices**:
-- Use `FINE` or higher for debugging/tracing
+- Use `FINE`, `FINER`, or `FINEST` for debugging/tracing
 - Use `INFO` only for significant operational events
 - Use `WARNING` only when action may be needed
 - Avoid duplicate logging (e.g., logging to both Jenkins logs and build console)
@@ -276,7 +276,7 @@ public class ConsoleExplainErrorActionFactory extends TransientActionFactory<Run
 
 #### ❌ DON'T: Create Custom UI Components
 
-```java
+```jelly
 // BAD: Custom styling that breaks with themes
 <div style="background-color: white; color: black; padding: 10px;">
     ${content}
