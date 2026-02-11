@@ -1,7 +1,9 @@
 package io.jenkins.plugins.explain_error;
 
+import com.cloudbees.hudson.plugins.folder.AbstractFolder;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.model.ItemGroup;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.LogTaskListener;
@@ -154,23 +156,57 @@ public class ErrorExplainer {
 
     /**
      * Check if error explanation is enabled.
-     * Checks both folder-level and global configuration.
+     * Folder-level configuration takes precedence over global configuration.
+     * If no folder-level configuration exists, falls back to global configuration.
      * 
      * @param run the build run to check
      * @return true if explanation is enabled, false otherwise
      */
     private boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
-        // Check folder-level setting
         if (run != null) {
-            boolean folderEnabled = ExplainErrorFolderProperty.isFolderExplanationEnabled(run.getParent().getParent());
-            if (!folderEnabled) {
-                LOGGER.fine("Error explanation disabled at folder level for " + run.getParent().getFullName());
-                return false;
+            // Check if there's an explicit folder-level property defined
+            ExplainErrorFolderProperty folderProperty = findFolderProperty(run.getParent().getParent());
+            if (folderProperty != null) {
+                // Folder-level configuration exists, use it (overrides global)
+                boolean folderEnabled = folderProperty.isEnableExplanation();
+                if (!folderEnabled) {
+                    LOGGER.fine("Error explanation disabled at folder level for " + run.getParent().getFullName());
+                } else {
+                    LOGGER.fine("Error explanation enabled at folder level for " + run.getParent().getFullName());
+                }
+                return folderEnabled;
             }
         }
 
-        // Check global setting
+        // No folder-level configuration, fall back to global
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         return config.isEnableExplanation();
+    }
+
+    /**
+     * Find folder property by walking up the folder hierarchy.
+     * 
+     * @param itemGroup the item group to search from
+     * @return the folder property if found, null otherwise
+     */
+    @CheckForNull
+    private ExplainErrorFolderProperty findFolderProperty(@CheckForNull ItemGroup<?> itemGroup) {
+        if (itemGroup == null) {
+            return null;
+        }
+
+        if (itemGroup instanceof AbstractFolder) {
+            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
+            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
+            
+            if (property != null) {
+                return property;
+            }
+            
+            // Recursively check parent folder
+            return findFolderProperty(folder.getParent());
+        }
+
+        return null;
     }
 }

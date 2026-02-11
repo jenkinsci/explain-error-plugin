@@ -192,6 +192,35 @@ class ErrorExplainerTest {
     }
 
     @Test
+    void testFolderLevelEnabledOverridesGlobalDisabled(JenkinsRule jenkins) throws Exception {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+
+        // Setup global configuration as DISABLED
+        config.setEnableExplanation(false);
+        TestProvider globalProvider = new TestProvider();
+        config.setAiProvider(globalProvider);
+
+        // Create a folder with ENABLED explanation (should override global disabled)
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "enabled-folder-override");
+        ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
+        folderProperty.setEnableExplanation(true);
+        TestProvider folderProvider = new TestProvider();
+        folderProvider.setProviderName("Folder Override Provider");
+        folderProperty.setAiProvider(folderProvider);
+        folder.addProperty(folderProperty);
+
+        // Create a project in the folder
+        FreeStyleProject project = folder.createProject(FreeStyleProject.class, "test-project-override");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        // Explain error SHOULD run (folder-level enabled overrides global disabled)
+        ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", "", build);
+        assertNotNull(action);
+        assertEquals("Folder Override Provider", action.getProviderName());
+    }
+
+    @Test
     void testNestedFolderProviderResolution(JenkinsRule jenkins) throws Exception {
         ErrorExplainer errorExplainer = new ErrorExplainer();
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
