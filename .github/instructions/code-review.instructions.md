@@ -277,7 +277,7 @@ public class ConsoleExplainErrorActionFactory extends TransientActionFactory<Run
 #### ❌ DON'T: Create Custom UI Components
 
 ```jelly
-// BAD: Custom styling that breaks with themes
+<!-- BAD: Custom styling that breaks with themes -->
 <div style="background-color: white; color: black; padding: 10px;">
     ${content}
 </div>
