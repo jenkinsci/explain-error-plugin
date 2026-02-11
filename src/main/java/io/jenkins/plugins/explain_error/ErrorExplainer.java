@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -33,14 +34,18 @@ public class ErrorExplainer {
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         try {
-            GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-
-            if (!config.isEnableExplanation()) {
-                listener.getLogger().println("AI error explanation is disabled in global configuration.");
+            // Check if explanation is enabled (folder-level or global)
+            if (!isExplanationEnabled(run)) {
+                listener.getLogger().println("AI error explanation is disabled.");
                 return null;
             }
 
-            BaseAIProvider provider = config.getAiProvider();
+            // Resolve provider (folder-level first, then global)
+            BaseAIProvider provider = resolveProvider(run);
+            if (provider == null) {
+                listener.getLogger().println("No AI provider configured.");
+                return null;
+            }
 
             // Extract error logs
             String errorLogs = extractErrorLogs(run, logPattern, maxLines);
@@ -98,9 +103,11 @@ public class ErrorExplainer {
     public ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull  Run<?, ?> run) throws IOException, ExplanationException {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
 
-        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-
-        BaseAIProvider provider = config.getAiProvider();
+        // Resolve provider (folder-level first, then global)
+        BaseAIProvider provider = resolveProvider(run);
+        if (provider == null) {
+            throw new ExplanationException("error", "No AI provider configured.");
+        }
 
         // Get AI explanation
         String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE));
@@ -112,5 +119,58 @@ public class ErrorExplainer {
         run.save();
 
         return action;
+    }
+
+    /**
+     * Resolve the AI provider to use for error explanation.
+     * Resolution order:
+     * 1. Folder-level configuration (if defined)
+     * 2. Global configuration (fallback)
+     * 
+     * @param run the build run to resolve configuration for
+     * @return the resolved AI provider, or null if not configured
+     */
+    @CheckForNull
+    private BaseAIProvider resolveProvider(@CheckForNull Run<?, ?> run) {
+        if (run != null) {
+            // Try folder-level configuration first
+            BaseAIProvider folderProvider = ExplainErrorFolderProperty.findFolderProvider(run.getParent().getParent());
+            if (folderProvider != null) {
+                String jobInfo = "[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
+                LOGGER.info(jobInfo + " Using FOLDER-LEVEL AI provider: " + folderProvider.getProviderName() + ", Model: " + folderProvider.getModel());
+                return folderProvider;
+            }
+        }
+
+        // Fallback to global configuration
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider globalProvider = config.getAiProvider();
+        if (globalProvider != null) {
+            String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
+            LOGGER.info(jobInfo + " Using GLOBAL AI provider: " + globalProvider.getProviderName() + ", Model: " + globalProvider.getModel());
+        }
+        return globalProvider;
+    }
+
+    /**
+     * Check if error explanation is enabled.
+     * Checks both folder-level and global configuration.
+     * 
+     * @param run the build run to check
+     * @return true if explanation is enabled, false otherwise
+     */
+    private boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
+        // Check folder-level setting
+        if (run != null) {
+            boolean folderEnabled = ExplainErrorFolderProperty.isFolderExplanationEnabled(run.getParent().getParent());
+            if (!folderEnabled) {
+                LOGGER.fine("Error explanation disabled at folder level for " + run.getParent().getFullName());
+                return false;
+            }
+        }
+
+        // Check global setting
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        return config.isEnableExplanation();
     }
 }
