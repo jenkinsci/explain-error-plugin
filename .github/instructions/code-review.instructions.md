@@ -483,13 +483,13 @@ public String explainError(String log) throws ExplanationException {
 #### ✅ DO: Let BOM Manage Versions
 
 ```xml
-<!-- GOOD: Version managed by BOM -->
+<!-- GOOD: Version managed by BOM (keep in sync with pom.xml) -->
 <dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.jenkins.tools.bom</groupId>
-            <artifactId>bom-2.479.x</artifactId>
-            <version>3567.vde0a_f88e1222</version>
+            <artifactId>bom-${jenkins.baseline}.x</artifactId>
+            <version><!-- Use the same BOM version as defined in the root pom.xml --></version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -609,7 +609,7 @@ public void testMigrationFromEnumConfig() throws Exception {
     
     // Verify migration to new format
     assertNotNull(config.getAiProvider());
-    assertEquals("openai", config.getAiProvider().getDescriptor().getSymbol());
+    assertTrue(config.getAiProvider().getDescriptor() instanceof OpenAIProvider.DescriptorImpl);
 }
 ```
 
