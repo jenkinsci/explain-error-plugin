@@ -53,11 +53,16 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     /**
      * Set whether error explanation is enabled for this folder.
+     * When disabled, also clears the AI provider to ensure fallback to global configuration.
      * @param enableExplanation true to enable, false to disable
      */
     @DataBoundSetter
     public void setEnableExplanation(boolean enableExplanation) {
         this.enableExplanation = enableExplanation;
+        // Clear provider when disabled to ensure fallback to global
+        if (!enableExplanation) {
+            this.aiProvider = null;
+        }
     }
 
     /**
