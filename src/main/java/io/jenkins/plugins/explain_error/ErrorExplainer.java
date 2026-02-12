@@ -105,6 +105,10 @@ public class ErrorExplainer {
     public ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull  Run<?, ?> run) throws IOException, ExplanationException {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
 
+        // Check if explanation is enabled (folder-level or global)
+        if (!isExplanationEnabled(run)) {
+            throw new ExplanationException("error", "AI error explanation is disabled.");
+        }
         // Resolve provider (folder-level first, then global)
         BaseAIProvider provider = resolveProvider(run);
         if (provider == null) {
@@ -149,7 +153,7 @@ public class ErrorExplainer {
         BaseAIProvider globalProvider = config.getAiProvider();
         if (globalProvider != null) {
             String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
-            LOGGER.info(jobInfo + " Using GLOBAL AI provider: " + globalProvider.getProviderName() + ", Model: " + globalProvider.getModel());
+            LOGGER.fine(jobInfo + " Using GLOBAL AI provider: " + globalProvider.getProviderName() + ", Model: " + globalProvider.getModel());
         }
         return globalProvider;
     }
