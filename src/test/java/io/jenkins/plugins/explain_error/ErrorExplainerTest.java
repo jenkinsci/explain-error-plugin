@@ -173,12 +173,16 @@ class ErrorExplainerTest {
         // Setup global configuration as enabled
         config.setEnableExplanation(true);
         TestProvider globalProvider = new TestProvider();
+        globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
-        // Create a folder with disabled explanation
+        // Create a folder with disabled explanation AND configured provider (explicit disable)
         Folder folder = jenkins.jenkins.createProject(Folder.class, "disabled-folder");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(false);
+        TestProvider folderProvider = new TestProvider();
+        folderProvider.setProviderName("Folder Provider");
+        folderProperty.setAiProvider(folderProvider);  // Provider configured but disabled
         folder.addProperty(folderProperty);
 
         // Create a project in the folder
@@ -186,9 +190,37 @@ class ErrorExplainerTest {
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
         TaskListener listener = jenkins.createTaskListener();
 
-        // Explain error should not run (disabled at folder level)
+        // Explain error should not run (explicitly disabled at folder level with configured provider)
         String result = errorExplainer.explainError(build, listener, "ERROR", 100);
         assertEquals(null, result);
+    }
+
+    @Test
+    void testFolderLevelDisabledWithoutProviderFallbackToGlobal(JenkinsRule jenkins) throws Exception {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+
+        // Setup global configuration as enabled
+        config.setEnableExplanation(true);
+        TestProvider globalProvider = new TestProvider();
+        globalProvider.setProviderName("Global Provider");
+        config.setAiProvider(globalProvider);
+
+        // Create a folder with disabled explanation but NO provider configured
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "disabled-no-provider-folder");
+        ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
+        folderProperty.setEnableExplanation(false);
+        // No provider configured at folder level
+        folder.addProperty(folderProperty);
+
+        // Create a project in the folder
+        FreeStyleProject project = folder.createProject(FreeStyleProject.class, "test-project-fallback");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        // Should fallback to global provider (folder only has enableExplanation=false but no provider)
+        ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", "", build);
+        assertNotNull(action);
+        assertEquals("Global Provider", action.getProviderName());
     }
 
     @Test

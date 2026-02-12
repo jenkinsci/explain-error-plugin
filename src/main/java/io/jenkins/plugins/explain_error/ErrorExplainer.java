@@ -168,13 +168,13 @@ public class ErrorExplainer {
      */
     private boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
         if (run != null) {
-            // Check if there's an explicit folder-level property defined
-            ExplainErrorFolderProperty folderProperty = findFolderProperty(run.getParent().getParent());
+            // Check if there's an explicit folder-level property with configured provider
+            ExplainErrorFolderProperty folderProperty = findFolderPropertyWithProvider(run.getParent().getParent());
             if (folderProperty != null) {
-                // Folder-level configuration exists, use it (overrides global)
+                // Folder-level provider is configured, use its enableExplanation setting
                 boolean folderEnabled = folderProperty.isEnableExplanation();
                 if (!folderEnabled) {
-                    LOGGER.fine("Error explanation disabled at folder level for " + run.getParent().getFullName());
+                    LOGGER.fine("Error explanation explicitly disabled at folder level for " + run.getParent().getFullName());
                 } else {
                     LOGGER.fine("Error explanation enabled at folder level for " + run.getParent().getFullName());
                 }
@@ -182,19 +182,20 @@ public class ErrorExplainer {
             }
         }
 
-        // No folder-level configuration, fall back to global
+        // No folder-level provider configured, fall back to global
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         return config.isEnableExplanation();
     }
 
     /**
-     * Find folder property by walking up the folder hierarchy.
+     * Find folder property with configured provider by walking up the folder hierarchy.
+     * Only returns a property if it has an AI provider configured.
      * 
      * @param itemGroup the item group to search from
-     * @return the folder property if found, null otherwise
+     * @return the folder property with provider if found, null otherwise
      */
     @CheckForNull
-    private ExplainErrorFolderProperty findFolderProperty(@CheckForNull ItemGroup<?> itemGroup) {
+    private ExplainErrorFolderProperty findFolderPropertyWithProvider(@CheckForNull ItemGroup<?> itemGroup) {
         if (itemGroup == null) {
             return null;
         }
@@ -203,12 +204,13 @@ public class ErrorExplainer {
             AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
             ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
             
-            if (property != null) {
+            // Only return property if it has a provider configured
+            if (property != null && property.getAiProvider() != null) {
                 return property;
             }
             
             // Recursively check parent folder
-            return findFolderProperty(folder.getParent());
+            return findFolderPropertyWithProvider(folder.getParent());
         }
 
         return null;

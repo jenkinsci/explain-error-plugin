@@ -79,16 +79,18 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
             ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
 
             if (property != null) {
-                // Explicitly disabled at this folder level: override parent configuration
-                if (!property.isEnableExplanation()) {
+                BaseAIProvider provider = property.getAiProvider();
+                
+                // If provider is configured, respect the enableExplanation flag
+                if (provider != null) {
+                    // Provider configured and enabled: use it
+                    if (property.isEnableExplanation()) {
+                        return provider;
+                    }
+                    // Provider configured but disabled: explicitly disable (return null and stop searching)
                     return null;
                 }
-
-                BaseAIProvider provider = property.getAiProvider();
-                if (provider != null) {
-                    return provider;
-                }
-                // If enabled but no provider is configured, fall through to parent
+                // No provider configured at this level, continue to parent/global even if enableExplanation is false
             }
 
             // Recursively check parent folder
