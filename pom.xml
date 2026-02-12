@@ -102,7 +102,7 @@
       <artifactId>commons-lang3-api</artifactId>
     </dependency>
 
-    <!-- Required dependency for pipeline log extraction and error analysis -->
+    <!-- Required for link error to pipeline graph view -->
     <dependency>
       <groupId>io.jenkins.plugins</groupId>
       <artifactId>pipeline-graph-view</artifactId>
