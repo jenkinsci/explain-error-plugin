@@ -174,17 +174,21 @@ public class ErrorExplainer {
                 // Folder-level provider is configured, use its enableExplanation setting
                 boolean folderEnabled = folderProperty.isEnableExplanation();
                 if (!folderEnabled) {
-                    LOGGER.fine("Error explanation explicitly disabled at folder level for " + run.getParent().getFullName());
+                    LOGGER.info("Error explanation explicitly disabled at folder level for " + run.getParent().getFullName());
                 } else {
-                    LOGGER.fine("Error explanation enabled at folder level for " + run.getParent().getFullName());
+                    LOGGER.info("Error explanation enabled at folder level for " + run.getParent().getFullName());
                 }
                 return folderEnabled;
+            } else {
+                LOGGER.info("No folder-level provider found for " + run.getParent().getFullName() + ", falling back to global configuration");
             }
         }
 
         // No folder-level provider configured, fall back to global
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        return config.isEnableExplanation();
+        boolean globalEnabled = config.isEnableExplanation();
+        LOGGER.info("Global configuration enabled: " + globalEnabled);
+        return globalEnabled;
     }
 
     /**
@@ -204,8 +208,15 @@ public class ErrorExplainer {
             AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
             ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
             
+            if (property != null) {
+                LOGGER.info("Found folder property for " + folder.getFullName() + 
+                           ", enableExplanation=" + property.isEnableExplanation() + 
+                           ", hasProvider=" + (property.getAiProvider() != null));
+            }
+            
             // Only return property if it has a provider configured
             if (property != null && property.getAiProvider() != null) {
+                LOGGER.info("Using folder-level provider from " + folder.getFullName());
                 return property;
             }
             
