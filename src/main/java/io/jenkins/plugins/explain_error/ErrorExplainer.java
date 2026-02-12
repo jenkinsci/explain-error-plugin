@@ -174,20 +174,20 @@ public class ErrorExplainer {
                 // Folder-level provider is configured, use its enableExplanation setting
                 boolean folderEnabled = folderProperty.isEnableExplanation();
                 if (!folderEnabled) {
-                    LOGGER.info("Error explanation explicitly disabled at folder level for " + run.getParent().getFullName());
+                    LOGGER.fine("Error explanation explicitly disabled at folder level for " + run.getParent().getFullName());
                 } else {
-                    LOGGER.info("Error explanation enabled at folder level for " + run.getParent().getFullName());
+                    LOGGER.fine("Error explanation enabled at folder level for " + run.getParent().getFullName());
                 }
                 return folderEnabled;
             } else {
-                LOGGER.info("No folder-level provider found for " + run.getParent().getFullName() + ", falling back to global configuration");
+                LOGGER.fine("No folder-level provider found for " + run.getParent().getFullName() + ", falling back to global configuration");
             }
         }
 
         // No folder-level provider configured, fall back to global
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         boolean globalEnabled = config.isEnableExplanation();
-        LOGGER.info("Global configuration enabled: " + globalEnabled);
+        LOGGER.fine("Global configuration enabled: " + globalEnabled);
         return globalEnabled;
     }
 
@@ -210,7 +210,7 @@ public class ErrorExplainer {
             ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
             
             if (property != null) {
-                LOGGER.info("Found folder property for " + folder.getFullName() + 
+                LOGGER.fine("Found folder property for " + folder.getFullName() + 
                            ", enableExplanation=" + property.isEnableExplanation() + 
                            ", hasProvider=" + (property.getAiProvider() != null));
             }
@@ -218,7 +218,7 @@ public class ErrorExplainer {
             // Only return property if it has a provider configured AND is enabled
             // If disabled at folder level, continue searching parent folders or fallback to global
             if (property != null && property.getAiProvider() != null && property.isEnableExplanation()) {
-                LOGGER.info("Using folder-level provider from " + folder.getFullName());
+                LOGGER.fine("Using folder-level provider from " + folder.getFullName());
                 return property;
             }
             
