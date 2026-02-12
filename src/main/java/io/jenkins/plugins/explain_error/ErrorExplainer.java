@@ -193,10 +193,11 @@ public class ErrorExplainer {
 
     /**
      * Find folder property with configured provider by walking up the folder hierarchy.
-     * Only returns a property if it has an AI provider configured.
+     * Only returns a property if it has an AI provider configured AND explanation is enabled.
+     * If a folder has a provider but explanation is disabled, it continues searching parent folders.
      * 
      * @param itemGroup the item group to search from
-     * @return the folder property with provider if found, null otherwise
+     * @return the folder property with provider if found and enabled, null otherwise
      */
     @CheckForNull
     private ExplainErrorFolderProperty findFolderPropertyWithProvider(@CheckForNull ItemGroup<?> itemGroup) {
@@ -214,8 +215,9 @@ public class ErrorExplainer {
                            ", hasProvider=" + (property.getAiProvider() != null));
             }
             
-            // Only return property if it has a provider configured
-            if (property != null && property.getAiProvider() != null) {
+            // Only return property if it has a provider configured AND is enabled
+            // If disabled at folder level, continue searching parent folders or fallback to global
+            if (property != null && property.getAiProvider() != null && property.isEnableExplanation()) {
                 LOGGER.info("Using folder-level provider from " + folder.getFullName());
                 return property;
             }

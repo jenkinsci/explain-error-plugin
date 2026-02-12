@@ -170,29 +170,29 @@ class ErrorExplainerTest {
         ErrorExplainer errorExplainer = new ErrorExplainer();
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
-        // Setup global configuration as enabled
-        config.setEnableExplanation(true);
+        // Setup global configuration as disabled
+        config.setEnableExplanation(false);
         TestProvider globalProvider = new TestProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
-        // Create a folder with disabled explanation AND configured provider (explicit disable)
+        // Create a folder with provider configured (would normally enable it)
         Folder folder = jenkins.jenkins.createProject(Folder.class, "disabled-folder");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
-        folderProperty.setEnableExplanation(false);
+        folderProperty.setEnableExplanation(true);
         TestProvider folderProvider = new TestProvider();
         folderProvider.setProviderName("Folder Provider");
-        folderProperty.setAiProvider(folderProvider);  // Provider configured but disabled
+        folderProperty.setAiProvider(folderProvider);  // Provider configured and enabled at folder level
         folder.addProperty(folderProperty);
 
         // Create a project in the folder
         FreeStyleProject project = folder.createProject(FreeStyleProject.class, "test-project-3");
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
-        TaskListener listener = jenkins.createTaskListener();
 
-        // Explain error should not run (explicitly disabled at folder level with configured provider)
-        String result = errorExplainer.explainError(build, listener, "ERROR", 100);
-        assertEquals(null, result);
+        // Should use folder-level provider even though global is disabled
+        ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", "", build);
+        assertNotNull(action);
+        assertEquals("Folder Provider", action.getProviderName());
     }
 
     @Test
