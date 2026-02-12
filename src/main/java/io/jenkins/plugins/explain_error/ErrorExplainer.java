@@ -143,7 +143,7 @@ public class ErrorExplainer {
             BaseAIProvider folderProvider = ExplainErrorFolderProperty.findFolderProvider(run.getParent().getParent());
             if (folderProvider != null) {
                 String jobInfo = "[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
-                LOGGER.info(jobInfo + " Using FOLDER-LEVEL AI provider: " + folderProvider.getProviderName() + ", Model: " + folderProvider.getModel());
+                LOGGER.fine(jobInfo + " Using FOLDER-LEVEL AI provider: " + folderProvider.getProviderName() + ", Model: " + folderProvider.getModel());
                 return folderProvider;
             }
         }
