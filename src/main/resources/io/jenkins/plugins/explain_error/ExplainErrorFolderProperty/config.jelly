@@ -3,7 +3,7 @@
     <f:optionalBlock field="enableExplanation" title="Enable AI Error Explanation" checked="${instance.enableExplanation}" inline="true">
         <f:dropdownDescriptorSelector title="AI Provider" field="aiProvider"/>
         <f:block>
-            <p style="margin-top: 1em; color: #666;">
+            <p class="jenkins-!-margin-top-3">
                 <strong>Note:</strong> Folder-level configuration takes precedence over global configuration.
                 If not configured here, the plugin will use the global configuration.
             </p>
