@@ -14,6 +14,7 @@ public class TestProvider extends OpenAIProvider {
     private JenkinsLogAnalysis answerMessage = new JenkinsLogAnalysis(
         "Request was successful", null, null, null);
     private int callCount = 0;
+    private String providerName = "Test";
     
     // Captured parameters from last analyzeLogs call
     private String lastErrorLogs;
@@ -73,6 +74,15 @@ public class TestProvider extends OpenAIProvider {
     
     public String getLastCustomContext() {
         return lastCustomContext;
+    }
+
+    public void setProviderName(String providerName) {
+        this.providerName = providerName;
+    }
+
+    @Override
+    public String getProviderName() {
+        return providerName;
     }
 
     @Extension
