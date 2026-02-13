@@ -38,7 +38,7 @@ class CustomContextTest {
         
         // Verify custom context was actually passed to the AI provider
         assertNotNull(provider.getLastCustomContext(), "Custom context should have been passed to AI provider");
-        assertEquals("\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\nGlobal custom instructions", 
+        assertEquals("\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\nGlobal custom instructions", 
                      provider.getLastCustomContext(), 
                      "Global custom context should be passed to AI provider with proper formatting");
     }
@@ -67,7 +67,7 @@ class CustomContextTest {
         
         // Verify step-level custom context overrides global
         assertNotNull(provider.getLastCustomContext(), "Custom context should have been passed to AI provider");
-        assertEquals("\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\nStep-level custom context", 
+        assertEquals("\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\nStep-level custom context", 
                      provider.getLastCustomContext(), 
                      "Step-level custom context should override global context");
     }
@@ -99,7 +99,7 @@ class CustomContextTest {
         
         // Verify all parameters were passed correctly
         assertEquals("Spanish", provider.getLastLanguage(), "Language parameter should be passed to AI provider");
-        assertEquals("\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\nThis is a payment service. Check PCI compliance.", 
+        assertEquals("\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\nThis is a payment service. Check PCI compliance.", 
                      provider.getLastCustomContext(), 
                      "Custom context should be passed with other parameters");
     }

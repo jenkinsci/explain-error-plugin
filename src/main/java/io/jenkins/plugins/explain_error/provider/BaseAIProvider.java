@@ -96,7 +96,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         String responseLanguage = StringUtils.isBlank(language) ? "English" : language.trim();
         String additionalContext = StringUtils.isBlank(customContext)
             ? "" 
-            : "\n\nADDITIONAL CONTEXT AND INSTRUCTIONS:\n" + customContext.trim();
+            : "\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\n" + customContext.trim();
         
         LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length());
 
@@ -117,6 +117,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         @SystemMessage("""
             You are an expert Jenkins administrator and software engineer.
             You MUST follow ALL instructions provided by the user, including any additional context or requirements.
+            When additional instructions are provided, you MUST incorporate them into your analysis fields,
+            especially in errorSummary and resolutionSteps.
             """)
         @UserMessage("""
             Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
@@ -129,6 +131,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             {{errorLogs}}
             
             Remember: Your ENTIRE response must be in {{language}}, including all field values.
+            If additional instructions were provided above, you MUST address them in your errorSummary or resolutionSteps.
             """)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
