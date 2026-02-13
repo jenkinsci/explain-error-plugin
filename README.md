@@ -40,6 +40,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
+* **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
 
@@ -82,6 +83,15 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 5. Save the configuration
 
 ![Configuration](docs/images/configuration.png)
+
+### Folder-Level Configuration
+
+Support for folder-level overrides allows different teams to use their own AI providers and models.
+
+1. Click **Configure** on any folder
+2. Set a custom **AI Provider** in **"Explain Error Configuration"**
+
+*Inherits from parent folders, overrides global defaults.*
 
 ### Configuration as Code (CasC)
 
