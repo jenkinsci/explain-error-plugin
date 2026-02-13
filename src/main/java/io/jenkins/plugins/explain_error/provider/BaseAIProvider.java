@@ -123,10 +123,10 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             
             CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
             This includes: error summaries, resolution steps, best practices, and any other text.
+            {{customContext}}
             
             ERROR LOGS:
             {{errorLogs}}
-            {{customContext}}
             
             Remember: Your ENTIRE response must be in {{language}}, including all field values.
             """)
