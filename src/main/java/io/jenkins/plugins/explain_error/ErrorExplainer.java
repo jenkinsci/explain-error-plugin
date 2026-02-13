@@ -57,7 +57,7 @@ public class ErrorExplainer {
             String errorLogs = extractErrorLogs(run, logPattern, maxLines);
 
             // Use step-level customContext if provided, otherwise fallback to global
-            String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : config.getCustomContext();
+            String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
 
             // Get AI explanation
             try {
@@ -123,7 +123,7 @@ public class ErrorExplainer {
         }
 
         // Get AI explanation with global custom context
-        String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, config.getCustomContext());
+        String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, GlobalConfigurationImpl.get().getCustomContext());
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
         LOGGER.fine("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
