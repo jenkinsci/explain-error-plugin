@@ -39,8 +39,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
-* **AI-powered explanations** via OpenAI, Google Gemini, Anthropic Claude, Azure OpenAI, DeepSeek, or local Ollama
-* **Smart provider management** — LangChain4j handles 6+ providers automatically
+* **AI-powered explanations** via OpenAI GPT models, Google Gemini, local Ollama models and more
+* **Folder-level configuration** so teams can use project-specific settings
+* **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
 
 [^1]: *Enterprise-ready API endpoints support custom URLs for OpenAI-compatible services (LocalAI, DeepSeek), air-gapped environments.*
@@ -77,11 +78,21 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **API Key** | Your AI provider API key | Get from provider's platform |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini, Anthropic). **Required** for Azure OpenAI endpoint and Ollama. **Optional** for custom/self-hosted services. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
+| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
 
 ![Configuration](docs/images/configuration.png)
+
+### Folder-Level Configuration
+
+Support for folder-level overrides allows different teams to use their own AI providers and models.
+
+1. Click **Configure** on any folder
+2. Set a custom **AI Provider** in **"Explain Error Configuration"**
+
+*Inherits from parent folders, overrides global defaults.*
 
 ### Configuration as Code (CasC)
 
@@ -97,6 +108,11 @@ unclassified:
         model: "gpt-5"
         # url: "" # Optional, leave empty for default
     enableExplanation: true
+    customContext: |
+      Consider these additional instructions:
+      - If the error is from SonarQube Scanner, link to: https://example.org/sonarqube-kb
+      - If a Kubernetes manifest failed, remind about cluster-specific requirements
+      - Check if the error might be caused by a builder crash and suggest restarting the pipeline
 ```
 
 **Environment Variable Example:**
@@ -265,12 +281,19 @@ post {
 | **maxLines** | Max log lines to analyze (trims from the end)          | `100`              |
 | **logPattern** | Regex pattern to filter relevant log lines          | `''` (no filtering) |
 | **language** | Language for the explanation                          | `'English'`         |
+| **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 
 ```groovy
 explainError(
   maxLines: 500,
   logPattern: '(?i)(error|failed|exception)',
-  language: 'English' // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
+  language: 'English', // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
+  customContext: '''
+    Additional context for this specific job:
+    - This is a payment service build
+    - Check PCI compliance requirements if deployment fails
+    - Contact security team for certificate issues
+  '''
 )
 ```
 

@@ -212,3 +212,4 @@ Enable debug logging:
 5. **Testing**: Test with real Jenkins instances and AI providers
 6. **Security**: Always validate inputs and handle secrets properly
 7. **Performance**: Consider API rate limits and response times
+8. **Language**: Use English for code, comments, and documentation

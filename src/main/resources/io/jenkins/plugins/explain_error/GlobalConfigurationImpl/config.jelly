@@ -3,6 +3,11 @@
     <f:section title="Explain Error Plugin Configuration">
       <f:optionalBlock field="enableExplanation" title="Enable AI Error Explanation" checked="${it.enableExplanation}" inline="true">
         <f:dropdownDescriptorSelector title="AI Provider" field="aiProvider"/>
+        
+        <f:entry title="Custom Context" field="customContext"
+                 description="Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). This can be overridden at the job level.">
+          <f:textarea />
+        </f:entry>
       </f:optionalBlock>
     </f:section>
 </j:jelly>

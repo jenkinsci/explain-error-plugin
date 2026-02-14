@@ -1,0 +1,25 @@
+{
+  "name": "Jenkins Explain Error Plugin Development",
+  "image": "mcr.microsoft.com/devcontainers/java:17",
+
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installMaven": "true"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack"
+      ]
+    }
+  },
+
+  "postCreateCommand": "mvn clean verify -DskipTests",
+
+  "forwardPorts": [8080],
+
+  "remoteUser": "vscode"
+}

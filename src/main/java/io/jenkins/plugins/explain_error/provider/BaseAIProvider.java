@@ -53,7 +53,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      * @throws ExplanationException if there's a communication error
      */
     public final String explainError(String errorLogs, TaskListener listener) throws ExplanationException {
-        return explainError(errorLogs, listener, null);
+        return explainError(errorLogs, listener, null, null);
     }
 
     /**
@@ -64,6 +64,19 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      * @throws ExplanationException if there's a communication error
      */
     public final String explainError(String errorLogs, TaskListener listener, String language) throws ExplanationException {
+        return explainError(errorLogs, listener, language, null);
+    }
+
+    /**
+     * Explain error logs using the configured AI provider.
+     * @param errorLogs the error logs to explain
+     * @param listener the task listener for logging
+     * @param language the preferred response language
+     * @param customContext additional custom context/instructions for the AI
+     * @return the AI explanation
+     * @throws ExplanationException if there's a communication error
+     */
+    public final String explainError(String errorLogs, TaskListener listener, String language, String customContext) throws ExplanationException {
         Assistant assistant;
 
         if (StringUtils.isBlank(errorLogs)) {
@@ -81,8 +94,14 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         }
 
         String responseLanguage = StringUtils.isBlank(language) ? "English" : language.trim();
+        String additionalContext = StringUtils.isBlank(customContext)
+            ? "" 
+            : "\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\n" + customContext.trim();
+        
+        LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length());
+
         try {
-            return assistant.analyzeLogs(errorLogs, responseLanguage).toString();
+            return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {
             LOGGER.severe("AI API request failed: " + e.getMessage());
             throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);
@@ -97,18 +116,24 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public interface Assistant {
         @SystemMessage("""
             You are an expert Jenkins administrator and software engineer.
-            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
-            This includes: error summaries, resolution steps, best practices, and any other text.
+            You MUST follow ALL instructions provided by the user, including any additional context or requirements.
+            When additional instructions are provided, you MUST incorporate them into your analysis fields,
+            especially in errorSummary and resolutionSteps.
             """)
         @UserMessage("""
             Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
             
-            IMPORTANT: Your ENTIRE response must be in {{language}}, including all field values.
-
+            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
+            This includes: error summaries, resolution steps, best practices, and any other text.
+            {{customContext}}
+            
             ERROR LOGS:
             {{errorLogs}}
+            
+            Remember: Your ENTIRE response must be in {{language}}, including all field values.
+            If additional instructions were provided above, you MUST address them in your errorSummary or resolutionSteps.
             """)
-        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language);
+        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
 
     public String getProviderName() {

@@ -24,6 +24,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     private transient String apiUrl;
     private transient String model;
     private boolean enableExplanation = true;
+    private String customContext;
 
     private BaseAIProvider aiProvider;
 
@@ -114,6 +115,16 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setEnableExplanation(boolean enableExplanation) {
         this.enableExplanation = enableExplanation;
+    }
+
+    public String getCustomContext() {
+        return customContext;
+    }
+
+    @DataBoundSetter
+    public void setCustomContext(String customContext) {
+        this.customContext = customContext;
+
     }
 
     @Override
