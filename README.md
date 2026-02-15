@@ -132,6 +132,30 @@ unclassified:
     enableExplanation: true
 ```
 
+**Anthropic Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      anthropic:
+        apiKey: "${AI_API_KEY}"
+        model: "claude-3-5-sonnet-20241022"
+        # url: "" # Optional, leave empty for default
+    enableExplanation: true
+```
+
+**DeepSeek Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      deepseek:
+        apiKey: "${AI_API_KEY}"
+        model: "deepseek-chat"
+        # url: "" # Optional, leave empty for default (https://api.deepseek.com)
+    enableExplanation: true
+```
+
 **Ollama Configuration:**
 ```yaml
 unclassified:
@@ -158,6 +182,18 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### Anthropic
+- **Models**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`, etc.
+- **API Key**: Get from [Anthropic Console](https://console.anthropic.com/)
+- **Endpoint**: Leave empty for official Anthropic API, or specify custom URL for Claude-compatible services
+- **Best for**: Advanced reasoning, complex error analysis with Claude models
+
+### DeepSeek
+- **Models**: `deepseek-chat`, `deepseek-coder`, `deepseek-reasoner`
+- **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
+- **Endpoint**: Leave empty for official DeepSeek API (`https://api.deepseek.com`), or specify custom URL
+- **Best for**: Cost-effective, coding-focused analysis
 
 ### Ollama (Local/Private LLM)
 - **Models**: `gemma3:1b`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance

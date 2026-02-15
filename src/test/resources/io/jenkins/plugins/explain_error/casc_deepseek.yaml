@@ -1,0 +1,8 @@
+unclassified:
+  explainError:
+    aiProvider:
+      deepseek:
+        apiKey: "test-deepseek-api-key"
+        model: "deepseek-chat"
+        url: "https://api.deepseek.com"
+    enableExplanation: true

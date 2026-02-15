@@ -155,4 +155,68 @@ class ProviderTest {
 
         assertEquals("The provider is not properly configured.", result.getMessage());
     }
+
+    @Test
+    void testAnthropicWithNullApiKey() {
+        BaseAIProvider provider = new AnthropicProvider(null, "test-model", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicWithEmptyApiKey() {
+        BaseAIProvider provider = new AnthropicProvider(null, "test-model", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicWithNullModel() {
+        BaseAIProvider provider = new AnthropicProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicWithEmptyModel() {
+        BaseAIProvider provider = new AnthropicProvider(null, "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithNullApiKey() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "test-model", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithEmptyApiKey() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "test-model", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithNullModel() {
+        BaseAIProvider provider = new DeepSeekProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekWithEmptyModel() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
 }

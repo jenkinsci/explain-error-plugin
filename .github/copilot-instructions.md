@@ -10,7 +10,7 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 
 - **GlobalConfigurationImpl**: Main plugin configuration class with `@Symbol("explainError")` for Configuration as Code support, handles migration from legacy enum-based configuration
 - **BaseAIProvider**: Abstract base class for AI provider implementations with nested `Assistant` interface and `BaseProviderDescriptor` for extensibility
-- **OpenAIProvider** / **GeminiProvider** / **OllamaProvider**: LangChain4j-based AI service implementations with provider-specific configurations
+- **OpenAIProvider** / **GeminiProvider** / **AnthropicProvider** / **DeepSeekProvider** / **OllamaProvider**: LangChain4j-based AI service implementations with provider-specific configurations
 - **ExplainErrorStep**: Pipeline step implementation for `explainError()` function
 - **ConsoleExplainErrorAction**: Adds "Explain Error" button to console output for manual triggering
 - **ConsoleExplainErrorActionFactory**: TransientActionFactory that dynamically injects ConsoleExplainErrorAction into all runs (new and existing)
@@ -39,6 +39,8 @@ src/main/java/io/jenkins/plugins/explain_error/
     ├── BaseAIProvider.java                  # Abstract AI service with Assistant interface
     ├── OpenAIProvider.java                  # OpenAI/LangChain4j implementation
     ├── GeminiProvider.java                  # Google Gemini/LangChain4j implementation
+    ├── AnthropicProvider.java               # Anthropic Claude/LangChain4j implementation
+    ├── DeepSeekProvider.java                # DeepSeek/LangChain4j implementation
     └── OllamaProvider.java                  # Ollama/LangChain4j implementation
 ```
 
