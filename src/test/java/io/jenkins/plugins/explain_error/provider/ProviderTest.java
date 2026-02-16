@@ -155,4 +155,20 @@ class ProviderTest {
 
         assertEquals("The provider is not properly configured.", result.getMessage());
     }
+
+    @Test
+    void testBedrockNullModel() {
+        BaseAIProvider provider = new BedrockProvider(null, null, "eu-west-1");
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testBedrockEmptyModel() {
+        BaseAIProvider provider = new BedrockProvider(null, "", "eu-west-1");
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
 }
