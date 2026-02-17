@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanations for build failures and pipeline errors. It integrates with multiple AI providers (OpenAI, Google Gemini, Ollama) to analyze error logs and provide human-readable insights to help developers understand and resolve build issues.
+The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanations for build failures and pipeline errors. It integrates with multiple AI providers (OpenAI, Google Gemini, AWS Bedrock, Ollama) to analyze error logs and provide human-readable insights to help developers understand and resolve build issues.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 
 - **GlobalConfigurationImpl**: Main plugin configuration class with `@Symbol("explainError")` for Configuration as Code support, handles migration from legacy enum-based configuration
 - **BaseAIProvider**: Abstract base class for AI provider implementations with nested `Assistant` interface and `BaseProviderDescriptor` for extensibility
-- **OpenAIProvider** / **GeminiProvider** / **OllamaProvider**: LangChain4j-based AI service implementations with provider-specific configurations
+- **OpenAIProvider** / **GeminiProvider** / **BedrockProvider** / **OllamaProvider**: LangChain4j-based AI service implementations with provider-specific configurations
 - **ExplainErrorStep**: Pipeline step implementation for `explainError()` function
 - **ConsoleExplainErrorAction**: Adds "Explain Error" button to console output for manual triggering
 - **ConsoleExplainErrorActionFactory**: TransientActionFactory that dynamically injects ConsoleExplainErrorAction into all runs (new and existing)
@@ -39,6 +39,7 @@ src/main/java/io/jenkins/plugins/explain_error/
     ├── BaseAIProvider.java                  # Abstract AI service with Assistant interface
     ├── OpenAIProvider.java                  # OpenAI/LangChain4j implementation
     ├── GeminiProvider.java                  # Google Gemini/LangChain4j implementation
+    ├── BedrockProvider.java                 # AWS Bedrock/LangChain4j implementation
     └── OllamaProvider.java                  # Ollama/LangChain4j implementation
 ```
 
@@ -60,7 +61,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 
 ### AI Service Integration
 - All AI services extend `BaseAIProvider` and implement `ExtensionPoint`
-- LangChain4j integration (v1.9.1) for OpenAI, Gemini, and Ollama providers
+- LangChain4j integration (v1.9.1) for OpenAI, Gemini, AWS Bedrock, and Ollama providers
 - Structured output parsing using `JenkinsLogAnalysis` record with `@Description` annotations
 - Each provider implements `createAssistant()` to build LangChain4j assistants
 - Provider descriptors extend `BaseProviderDescriptor` with `@Symbol` annotations for CasC
@@ -87,7 +88,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 ### Maven Configuration
 - Jenkins baseline: 2.479.3
 - Java 17+ required
-- LangChain4j: v1.9.1 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-ollama)
+- LangChain4j: v1.9.1 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-bedrock, langchain4j-ollama)
 - Key Jenkins dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 - SLF4J and Jackson exclusions to avoid conflicts with Jenkins core
 - Test dependencies: `workflow-cps`, `workflow-job`, `workflow-durable-task-step`, `workflow-basic-steps`, `test-harness`

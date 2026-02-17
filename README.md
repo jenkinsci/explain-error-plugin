@@ -74,7 +74,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, or Ollama  | `OpenAI` |
+| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, or Ollama  | `OpenAI` |
 | **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OpenAI-compatible services and air-gapped environments. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
@@ -143,6 +143,17 @@ unclassified:
     enableExplanation: true
 ```
 
+**AWS Bedrock Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      bedrock:
+        model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+        region: "us-east-1" # Optional, uses AWS SDK default if not specified
+    enableExplanation: true
+```
+
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
 ## Supported AI Providers
@@ -158,6 +169,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### AWS Bedrock
+- **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
+- **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
+- **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
+- **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
 
 ### Ollama (Local/Private LLM)
 - **Models**: `gemma3:1b`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
