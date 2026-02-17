@@ -159,7 +159,11 @@ class ProviderTest {
     @Test
     void testAnthropicWithNullApiKey() {
         BaseAIProvider provider = new AnthropicProvider(null, "test-model", null);
-      
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
     @Test
     void testBedrockNullModel() {
         BaseAIProvider provider = new BedrockProvider(null, null, "eu-west-1");
@@ -219,7 +223,11 @@ class ProviderTest {
     @Test
     void testDeepSeekWithEmptyModel() {
         BaseAIProvider provider = new DeepSeekProvider(null, "", Secret.fromString("test-key"));
-      
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
     @Test
     void testBedrockEmptyModel() {
         BaseAIProvider provider = new BedrockProvider(null, "", "eu-west-1");
