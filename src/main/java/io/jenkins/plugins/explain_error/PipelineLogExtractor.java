@@ -101,6 +101,10 @@ public class PipelineLogExtractor {
 
         if (this.run instanceof WorkflowRun) {
             FlowExecution execution = ((WorkflowRun) this.run).getExecution();
+            if (execution == null) {
+                setUrl("0");
+                return run.getLog(maxLines);
+            }
 
             FlowGraphWalker walker = new FlowGraphWalker(execution);
             for (FlowNode node : walker) {
