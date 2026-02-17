@@ -3,7 +3,6 @@ package io.jenkins.plugins.explain_error.provider;
 import dev.langchain4j.model.bedrock.BedrockChatModel;
 import dev.langchain4j.model.bedrock.BedrockChatRequestParameters;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -45,7 +44,6 @@ public class BedrockProvider extends BaseAIProvider {
                 .defaultRequestParameters(
                         BedrockChatRequestParameters.builder()
                                 .temperature(0.3)
-                                .responseFormat(ResponseFormat.JSON)
                                 .build())
                 .timeout(Duration.ofSeconds(180))
                 .logRequests(LOGGER.isLoggable(Level.FINE))
