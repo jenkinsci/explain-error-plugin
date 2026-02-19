@@ -173,14 +173,13 @@ public class PipelineLogExtractor {
      * Extracts the log output of the step(s) that caused the pipeline failure,
      * combining results from multiple strategies so that parallel failures
      * (e.g. both a Rspec test failure and a RuboCop offense) are all captured.
-     * <p>
      * <ol>
      *   <li><b>Strategy 1 — ErrorAction multi-collect:</b> walks the FlowGraph and collects
      *       logs from <em>all</em> nodes with {@link ErrorAction} and an associated
      *       {@link LogAction} (explicit uncaught exceptions). Unlike the original single-return
      *       approach, this accumulates logs from every failing step up to {@code maxLines}
      *       total, covering parallel failures such as multiple Rspec pod crashes.</li>
-     *   <li><b>Strategy 2 — Error pattern scan (always runs as supplement):</b> reads the
+     *   <li><b>Strategy 3 — Error pattern scan (always runs as supplement):</b> reads the
      *       full build console log and appends lines matching common error patterns (with
      *       surrounding context) that were not already captured by Strategy 1.
      *       This fills the gap left by {@code catchError + sh(returnStatus:true) + error()}
@@ -212,7 +211,7 @@ public class PipelineLogExtractor {
                     if (remainingLines <= 0) break;
                     ErrorAction errorAction = node.getAction(ErrorAction.class);
                     if (errorAction == null) continue;
-                    FlowNode origin = ErrorAction.findOrigin(errorAction.getError(), execution);
+                    FlowNode origin = resolveOrigin(errorAction.getError(), execution);
                     if (origin == null || seenOriginIds.contains(origin.getId())) continue;
                     LogAction logAction = origin.getAction(LogAction.class);
                     if (logAction == null) continue;
@@ -234,17 +233,14 @@ public class PipelineLogExtractor {
         if (budget > 0) {
             List<String> patternLines = getErrorPatternLines();
             if (!patternLines.isEmpty()) {
-                // Only dedupe against lines already collected by Strategies 1/2; do not add
-                // to the set inside the loop so repeated occurrences of the same line (e.g.
-                // retries) are preserved when they appear in different contexts.
+                // Only dedupe against lines already collected by Strategy 1; do not add
+                // to the set inside the stream so repeated occurrences of the same line
+                // (e.g. retries) are preserved when they appear in different contexts.
                 Set<String> existingLines = new HashSet<>(accumulated);
-                for (String line : patternLines) {
-                    if (budget <= 0) break;
-                    if (!existingLines.contains(line)) {
-                        accumulated.add(line);
-                        budget--;
-                    }
-                }
+                patternLines.stream()
+                        .filter(line -> !existingLines.contains(line))
+                        .limit(budget)
+                        .forEach(accumulated::add);
                 LOGGER.fine("Strategy 3 scan complete: " + accumulated.size() + " total lines accumulated");
             }
         }
@@ -257,6 +253,21 @@ public class PipelineLogExtractor {
         // Final fallback: last N lines of the full build console log
         setUrl("0");
         return run.getLog(maxLines);
+    }
+
+    /**
+     * Finds the {@link FlowNode} that originally threw the given error within the given execution.
+     * <p>
+     * Delegates to {@link ErrorAction#findOrigin}. Package-private to allow overriding in unit
+     * tests via Mockito {@code spy}, so that the null-origin and duplicate-origin branches of
+     * the Strategy 1 loop can be exercised without depending on specific Jenkins CPS behaviour.
+     *
+     * @param error     the throwable stored in the node's {@link ErrorAction}
+     * @param execution the current flow execution to search
+     * @return the origin {@link FlowNode}, or {@code null} if not found
+     */
+    FlowNode resolveOrigin(Throwable error, FlowExecution execution) {
+        return ErrorAction.findOrigin(error, execution);
     }
 
     private void setUrl(String node)

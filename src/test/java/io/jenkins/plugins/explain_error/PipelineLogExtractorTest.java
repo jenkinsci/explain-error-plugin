@@ -5,16 +5,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import hudson.console.AnnotatedLargeText;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import org.jenkinsci.plugins.workflow.actions.LogAction;
+import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -484,9 +492,9 @@ class PipelineLogExtractorTest {
     }
 
     /**
-     * Strategy 3 — budget break in dedup loop: when patternLines contains more entries than
-     * the remaining budget, the loop hits {@code if (budget <= 0) break} before exhausting
-     * patternLines, exercising that branch.
+     * Strategy 3 — stream dedup cap: when patternLines contains more entries than the remaining
+     * budget, {@code stream().filter().limit(budget)} stops after {@code budget} items, capping
+     * the result at maxLines without requiring an explicit break statement.
      * Expected: result is capped at maxLines.
      */
     @Test
@@ -506,6 +514,100 @@ class PipelineLogExtractorTest {
         PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 5);
         List<String> lines = extractor.getFailedStepLog();
 
-        assertEquals(5, lines.size(), "Result must be capped at maxLines=5 when budget break fires");
+        assertEquals(5, lines.size(), "Result must be capped at maxLines=5 by stream limit");
+    }
+
+    /**
+     * Strategy 1 — {@code resolveOrigin} returns null: exercises the {@code origin == null}
+     * branch of L216. When the resolved origin is null for all ErrorAction nodes, Strategy 1
+     * skips every node and Strategy 3 fills the result from the console log.
+     * Expected: no exception; Strategy 3 finds the echo output via the error pattern.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void strategy1_resolveOriginNull_originNullBranchCovered(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-origin-null");
+        job.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"fatal: origin null test\" && exit 1' }", true));
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE,
+                job.scheduleBuild2(0));
+
+        // Override resolveOrigin to always return null → exercises origin == null branch
+        PipelineLogExtractor extractor = spy(new PipelineLogExtractor(run, 200));
+        doReturn(null).when(extractor).resolveOrigin(any(Throwable.class), any(FlowExecution.class));
+
+        List<String> lines = assertDoesNotThrow(() -> extractor.getFailedStepLog());
+        assertNotNull(lines);
+        assertFalse(lines.isEmpty(), "Strategy 3 should find the echo output from the console log");
+    }
+
+    /**
+     * Strategy 1 — same origin seen twice: exercises the {@code seenOriginIds.contains()}
+     * branch of L216. When two or more FlowNodes with ErrorAction resolve to the same mock
+     * origin, the second visit finds the origin already in seenOriginIds and skips.
+     * A two-branch parallel ensures at least two ErrorAction nodes are present.
+     * Expected: no exception; deduplication branch fires on the second visit.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void strategy1_sameOriginVisitedTwice_seenOriginIdsBranchCovered(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-seen-origin-dedup");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    parallel(\n"
+                + "        'a': { sh 'echo \"error in branch A\" && exit 1' },\n"
+                + "        'b': { sh 'echo \"error in branch B\" && exit 1' }\n"
+                + "    )\n"
+                + "}",
+                true));
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE,
+                job.scheduleBuild2(0));
+
+        // Mock origin with empty but non-null log so the first visit adds to seenOriginIds
+        FlowNode mockOrigin = mock(FlowNode.class);
+        when(mockOrigin.getId()).thenReturn("shared-origin");
+        LogAction mockLogAction = mock(LogAction.class);
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        AnnotatedLargeText mockLog = mock(AnnotatedLargeText.class);
+        when(mockLog.writeLogTo(anyLong(), any(java.io.Writer.class))).thenReturn(0L);
+        // doReturn avoids the wildcard-capture type mismatch that thenReturn() would cause
+        doReturn(mockLog).when(mockLogAction).getLogText();
+        when(mockOrigin.getAction(LogAction.class)).thenReturn(mockLogAction);
+
+        // All resolveOrigin calls return the same mock origin:
+        // first visit → not in seen → add to seenOriginIds
+        // second visit → seenOriginIds.contains("shared-origin") → true → L216 fires
+        PipelineLogExtractor extractor = spy(new PipelineLogExtractor(run, 200));
+        doReturn(mockOrigin).when(extractor).resolveOrigin(any(Throwable.class), any(FlowExecution.class));
+
+        assertDoesNotThrow(() -> extractor.getFailedStepLog());
+    }
+
+    /**
+     * Strategy 1 — origin has no LogAction: exercises the {@code logAction == null} branch
+     * of L218. When the resolved origin node carries no {@link LogAction}, Strategy 1 skips
+     * the node and Strategy 3 handles the fallback via the console log pattern scan.
+     * Expected: no exception; Strategy 3 finds the echo output via the error pattern.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void strategy1_originWithoutLogAction_logNullBranchCovered(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-no-logaction");
+        job.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"fatal: logaction null test\" && exit 1' }", true));
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE,
+                job.scheduleBuild2(0));
+
+        // Mock origin with null LogAction → exercises logAction == null branch (L218)
+        FlowNode mockOrigin = mock(FlowNode.class);
+        when(mockOrigin.getId()).thenReturn("no-log-origin");
+        when(mockOrigin.getAction(LogAction.class)).thenReturn(null);
+
+        PipelineLogExtractor extractor = spy(new PipelineLogExtractor(run, 200));
+        doReturn(mockOrigin).when(extractor).resolveOrigin(any(Throwable.class), any(FlowExecution.class));
+
+        List<String> lines = assertDoesNotThrow(() -> extractor.getFailedStepLog());
+        assertNotNull(lines);
+        assertFalse(lines.isEmpty(), "Strategy 3 should find the echo output from the console log");
     }
 }
