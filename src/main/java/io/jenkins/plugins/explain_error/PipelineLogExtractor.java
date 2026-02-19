@@ -53,10 +53,10 @@ public class PipelineLogExtractor {
 
     /**
      * Pattern to detect error-related content in build logs.
-     * Matches common error indicators: error, exception, failed, fatal (case-insensitive).
+     * Matches common error indicators: error(s), exception(s), failed, fatal (case-insensitive).
      */
     private static final Pattern ERROR_PATTERN = Pattern.compile(
-            "(?i)\\b(error|exception|failed|fatal)\\b",
+            "(?i)\\b(errors?|exceptions?|failed|fatal)\\b",
             Pattern.MULTILINE
     );
 

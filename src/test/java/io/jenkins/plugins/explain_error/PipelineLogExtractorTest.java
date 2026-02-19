@@ -226,6 +226,42 @@ class PipelineLogExtractorTest {
     }
 
     /**
+     * Strategy 2: WarningAction walk — direct sh failure inside a catchError block
+     * that carries {@code stageResult: 'FAILURE'}.
+     * <p>
+     * When catchError uses {@code buildResult: 'FAILURE', stageResult: 'FAILURE'}
+     * and the enclosed step fails directly (not via returnStatus), the catchError
+     * BlockStartNode receives a WarningAction worse than SUCCESS. Depending on
+     * Jenkins CPS internals, either Strategy 1 (sh has ErrorAction+LogAction) or
+     * Strategy 2 (WarningAction walk finds the sh LogAction enclosed by the block)
+     * extracts the content. Either way, the log from inside catchError must be found.
+     * Expected: extracted log contains the sh step output.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void strategy2_catchErrorWithWarningAction_extractsStepLog(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-strategy2");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"STRATEGY2_MARKER error: violation A\" && "
+                + "echo \"STRATEGY2_MARKER error: violation B\" && exit 1'\n"
+                + "    }\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        List<String> lines = extractor.getFailedStepLog();
+
+        String log = String.join("\n", lines);
+        assertTrue(log.contains("STRATEGY2_MARKER"),
+                "Strategy 1 or 2 should capture the sh log from inside catchError with WarningAction."
+                + "\nActual log:\n" + log);
+    }
+
+    /**
      * End-to-end test: verify that with a catchError pipeline, the AI provider receives
      * the error content from inside the catchError block (not just archiving warnings).
      * Uses TestProvider to capture what gets sent to the AI model.
