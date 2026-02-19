@@ -17,6 +17,8 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
@@ -88,6 +90,7 @@ class PipelineLogExtractorTest {
      * Expected: extracted log contains the error output from the failing step.
      */
     @Test
+    @EnabledOnOs(OS.UNIX)
     void strategy1_standardFailure_extractsErrorStepLog(JenkinsRule jenkins) throws Exception {
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-strategy1");
         job.setDefinition(new CpsFlowDefinition(
@@ -120,6 +123,7 @@ class PipelineLogExtractorTest {
      * Expected: extracted log contains the sh step output from inside the catchError block.
      */
     @Test
+    @EnabledOnOs(OS.UNIX)
     void strategy3_catchErrorWithReturnStatusPattern_extractsErrorLines(JenkinsRule jenkins) throws Exception {
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-catcherror-returnstatus");
         job.setDefinition(new CpsFlowDefinition(
@@ -153,6 +157,7 @@ class PipelineLogExtractorTest {
      * Expected: extracted log contains the early error-like line.
      */
     @Test
+    @EnabledOnOs(OS.UNIX)
     void strategy3_earlyErrorInLargeLog_extractsEarlyErrorLines(JenkinsRule jenkins) throws Exception {
         StringBuilder script = new StringBuilder();
         script.append("node {\n");
@@ -192,6 +197,7 @@ class PipelineLogExtractorTest {
      * Expected: the combined result contains output from both failing steps.
      */
     @Test
+    @EnabledOnOs(OS.UNIX)
     void multiError_catchErrorAndDirectFailure_capturesBothErrors(JenkinsRule jenkins) throws Exception {
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-multi-error");
         job.setDefinition(new CpsFlowDefinition(
@@ -225,6 +231,7 @@ class PipelineLogExtractorTest {
      * Uses TestProvider to capture what gets sent to the AI model.
      */
     @Test
+    @EnabledOnOs(OS.UNIX)
     void endToEnd_catchErrorWithExplainError_aiReceivesInnerError(JenkinsRule jenkins) throws Exception {
         TestProvider testProvider = new TestProvider();
         GlobalConfigurationImpl.get().setAiProvider(testProvider);

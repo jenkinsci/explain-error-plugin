@@ -129,42 +129,46 @@ public class PipelineLogExtractor {
      *         or an empty list if no patterns are found or the log cannot be read
      */
     private List<String> getErrorPatternLines() {
-        List<String> allLines = new ArrayList<>();
+        List<String> result = new ArrayList<>();
+        LinkedList<String> contextBuffer = new LinkedList<>();
+        int futureContextRemaining = 0;
 
         try (InputStream inputStream = run.getLogInputStream();
              BufferedReader reader = new BufferedReader(
                      new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                allLines.add(ConsoleNote.removeNotes(line));
+            String rawLine;
+            while ((rawLine = reader.readLine()) != null) {
+                if (result.size() >= maxLines) {
+                    break;
+                }
+                String line = ConsoleNote.removeNotes(rawLine);
+                boolean isErrorLine = ERROR_PATTERN.matcher(line).find();
+
+                if (isErrorLine) {
+                    // Flush accumulated pre-context lines before adding the error line
+                    while (!contextBuffer.isEmpty() && result.size() < maxLines) {
+                        result.add(contextBuffer.removeFirst());
+                    }
+                    contextBuffer.clear();
+                    if (result.size() < maxLines) {
+                        result.add(line);
+                    }
+                    futureContextRemaining = ERROR_CONTEXT_LINES;
+                } else if (futureContextRemaining > 0) {
+                    if (result.size() < maxLines) {
+                        result.add(line);
+                    }
+                    futureContextRemaining--;
+                } else {
+                    contextBuffer.add(line);
+                    if (contextBuffer.size() > ERROR_CONTEXT_LINES) {
+                        contextBuffer.removeFirst();
+                    }
+                }
             }
         } catch (IOException e) {
             LOGGER.warning("Could not read full log for error pattern scan: " + e.getMessage());
             return Collections.emptyList();
-        }
-
-        if (allLines.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // Mark lines to include: error-pattern matches and surrounding context
-        boolean[] include = new boolean[allLines.size()];
-        for (int i = 0; i < allLines.size(); i++) {
-            if (ERROR_PATTERN.matcher(allLines.get(i)).find()) {
-                int start = Math.max(0, i - ERROR_CONTEXT_LINES);
-                int end = Math.min(allLines.size() - 1, i + ERROR_CONTEXT_LINES);
-                for (int j = start; j <= end; j++) {
-                    include[j] = true;
-                }
-            }
-        }
-
-        // Collect included lines up to maxLines, preserving original order
-        List<String> result = new ArrayList<>();
-        for (int i = 0; i < allLines.size() && result.size() < maxLines; i++) {
-            if (include[i]) {
-                result.add(allLines.get(i));
-            }
         }
 
         return result;
@@ -214,13 +218,15 @@ public class PipelineLogExtractor {
                 Set<String> seenOriginIds = new HashSet<>();
                 FlowGraphWalker walker = new FlowGraphWalker(execution);
                 for (FlowNode node : walker) {
+                    int remainingLines = this.maxLines - accumulated.size();
+                    if (remainingLines <= 0) break;
                     ErrorAction errorAction = node.getAction(ErrorAction.class);
                     if (errorAction == null) continue;
                     FlowNode origin = ErrorAction.findOrigin(errorAction.getError(), execution);
                     if (origin == null || seenOriginIds.contains(origin.getId())) continue;
                     LogAction logAction = origin.getAction(LogAction.class);
                     if (logAction == null) continue;
-                    List<String> stepLog = readLimitedLog(logAction.getLogText(), this.maxLines);
+                    List<String> stepLog = readLimitedLog(logAction.getLogText(), remainingLines);
                     if (stepLog == null || stepLog.isEmpty()) continue;
                     seenOriginIds.add(origin.getId());
                     if (primaryNodeId == null) primaryNodeId = origin.getId();
@@ -276,15 +282,18 @@ public class PipelineLogExtractor {
         if (budget > 0) {
             List<String> patternLines = getErrorPatternLines();
             if (!patternLines.isEmpty()) {
+                // Only dedupe against lines already collected by Strategies 1/2; do not add
+                // to the set inside the loop so repeated occurrences of the same line (e.g.
+                // retries) are preserved when they appear in different contexts.
                 Set<String> existingLines = new HashSet<>(accumulated);
                 for (String line : patternLines) {
                     if (budget <= 0) break;
-                    if (existingLines.add(line)) {
+                    if (!existingLines.contains(line)) {
                         accumulated.add(line);
                         budget--;
                     }
                 }
-                LOGGER.info("Strategy 3 scan complete: " + accumulated.size() + " total lines accumulated");
+                LOGGER.fine("Strategy 3 scan complete: " + accumulated.size() + " total lines accumulated");
             }
         }
 
