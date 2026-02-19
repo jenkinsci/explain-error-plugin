@@ -131,12 +131,18 @@ public class PipelineLogExtractor {
     private List<String> getErrorPatternLines() {
         List<String> allLines = new ArrayList<>();
 
-        try (InputStream inputStream = run.getLogInputStream();
-             BufferedReader reader = new BufferedReader(
-                     new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                allLines.add(ConsoleNote.removeNotes(line));
+        try {
+            InputStream rawStream = run.getLogInputStream();
+            if (rawStream == null) {
+                return Collections.emptyList();
+            }
+            try (InputStream inputStream = rawStream;
+                 BufferedReader reader = new BufferedReader(
+                         new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    allLines.add(ConsoleNote.removeNotes(line));
+                }
             }
         } catch (IOException e) {
             LOGGER.warning("Could not read full log for error pattern scan: " + e.getMessage());

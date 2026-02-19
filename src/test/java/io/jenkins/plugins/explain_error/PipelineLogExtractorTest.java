@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
+import java.io.InputStream;
 import java.util.List;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -44,6 +45,7 @@ class PipelineLogExtractorTest {
         WorkflowRun mockRun = mock(WorkflowRun.class);
         when(mockRun.getExecution()).thenReturn(null);
         when(mockRun.getLog(100)).thenReturn(List.of("Build started", "ERROR: Something failed"));
+        when(mockRun.getLogInputStream()).thenReturn(InputStream.nullInputStream());
         when(mockRun.getUrl()).thenReturn("job/test/1/");
 
         PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
