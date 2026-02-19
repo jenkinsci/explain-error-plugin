@@ -233,11 +233,6 @@ public class PipelineLogExtractor {
                     accumulated.addAll(stepLog);
                 }
 
-                // Trim to maxLines (walker is reverse-chronological, so most recent errors first)
-                if (accumulated.size() > this.maxLines) {
-                    accumulated = new ArrayList<>(accumulated.subList(0, this.maxLines));
-                }
-
                 // Strategy 2: WarningAction walk — only when Strategy 1 found nothing.
                 // Handles pipeline variants where the catchError BlockStartNode carries a
                 // WarningAction (e.g. stageResult:'FAILURE' with a direct sh that exits non-zero).
