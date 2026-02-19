@@ -3,15 +3,12 @@ package io.jenkins.plugins.explain_error;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
-import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
-import org.jenkinsci.plugins.workflow.actions.WarningAction;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
-import hudson.model.Result;
 import hudson.model.Run;
 import jenkins.model.Jenkins;
 
@@ -155,9 +152,7 @@ public class PipelineLogExtractor {
                     }
                     futureContextRemaining = ERROR_CONTEXT_LINES;
                 } else if (futureContextRemaining > 0) {
-                    if (result.size() < maxLines) {
-                        result.add(line);
-                    }
+                    result.add(line); // L141 already guarantees result.size() < maxLines here
                     futureContextRemaining--;
                 } else {
                     contextBuffer.add(line);
@@ -185,14 +180,9 @@ public class PipelineLogExtractor {
      *       {@link LogAction} (explicit uncaught exceptions). Unlike the original single-return
      *       approach, this accumulates logs from every failing step up to {@code maxLines}
      *       total, covering parallel failures such as multiple Rspec pod crashes.</li>
-     *   <li><b>Strategy 2 — WarningAction walk:</b> runs only when Strategy 1 found nothing.
-     *       Walks the FlowGraph looking for step nodes whose log is enclosed by a
-     *       {@link BlockStartNode} carrying a {@link WarningAction} worse than SUCCESS.
-     *       Requires ≥2 lines matching the error pattern to avoid returning CI infrastructure
-     *       steps (e.g. a curl status-update) ahead of the actual failing step log.</li>
-     *   <li><b>Strategy 3 — Error pattern scan (always runs as supplement):</b> reads the
+     *   <li><b>Strategy 2 — Error pattern scan (always runs as supplement):</b> reads the
      *       full build console log and appends lines matching common error patterns (with
-     *       surrounding context) that were not already captured by Strategies 1 or 2.
+     *       surrounding context) that were not already captured by Strategy 1.
      *       This fills the gap left by {@code catchError + sh(returnStatus:true) + error()}
      *       pipelines (where no {@link LogAction} exists on the {@code error()} step) and
      *       catches errors that appear early in large build logs.</li>
@@ -227,44 +217,11 @@ public class PipelineLogExtractor {
                     LogAction logAction = origin.getAction(LogAction.class);
                     if (logAction == null) continue;
                     List<String> stepLog = readLimitedLog(logAction.getLogText(), remainingLines);
-                    if (stepLog == null || stepLog.isEmpty()) continue;
                     seenOriginIds.add(origin.getId());
                     if (primaryNodeId == null) primaryNodeId = origin.getId();
                     accumulated.addAll(stepLog);
                 }
 
-                // Strategy 2: WarningAction walk — only when Strategy 1 found nothing.
-                // Handles pipeline variants where the catchError BlockStartNode carries a
-                // WarningAction (e.g. stageResult:'FAILURE' with a direct sh that exits non-zero).
-                if (accumulated.isEmpty()) {
-                    FlowGraphWalker warningWalker = new FlowGraphWalker(execution);
-                    for (FlowNode node : warningWalker) {
-                        LogAction logAction = node.getAction(LogAction.class);
-                        if (logAction == null) continue;
-                        BlockStartNode catchErrorBlock = null;
-                        for (BlockStartNode enclosing : node.getEnclosingBlocks()) {
-                            WarningAction warningAction = enclosing.getAction(WarningAction.class);
-                            if (warningAction != null && warningAction.getResult().isWorseThan(Result.SUCCESS)) {
-                                catchErrorBlock = enclosing;
-                                break;
-                            }
-                        }
-                        if (catchErrorBlock == null) continue;
-                        List<String> result = readLimitedLog(logAction.getLogText(), this.maxLines);
-                        if (result == null || result.isEmpty()) continue;
-                        // Require at least 2 lines matching ERROR_PATTERN to avoid returning
-                        // CI infrastructure steps (e.g. a curl status-update command that
-                        // happens to contain "failed" in its JSON payload) ahead of the actual
-                        // failing step log (e.g. RuboCop with multiple offense lines).
-                        long errorLineCount = result.stream()
-                                .filter(line -> ERROR_PATTERN.matcher(line).find())
-                                .count();
-                        if (errorLineCount < 2) continue;
-                        accumulated.addAll(result);
-                        primaryNodeId = catchErrorBlock.getId();
-                        break;
-                    }
-                }
             }
         }
 

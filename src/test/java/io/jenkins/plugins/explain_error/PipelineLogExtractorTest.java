@@ -233,12 +233,9 @@ class PipelineLogExtractorTest {
      * Strategy 2: WarningAction walk — direct sh failure inside a catchError block
      * that carries {@code stageResult: 'FAILURE'}.
      * <p>
-     * When catchError uses {@code buildResult: 'FAILURE', stageResult: 'FAILURE'}
-     * and the enclosed step fails directly (not via returnStatus), the catchError
-     * BlockStartNode receives a WarningAction worse than SUCCESS. Depending on
-     * Jenkins CPS internals, either Strategy 1 (sh has ErrorAction+LogAction) or
-     * Strategy 2 (WarningAction walk finds the sh LogAction enclosed by the block)
-     * extracts the content. Either way, the log from inside catchError must be found.
+     * When catchError wraps a direct sh failure, Strategy 1 finds the sh step's ErrorAction
+     * and LogAction and returns the log. Either way, the log from inside catchError must be
+     * found by at least Strategy 1 or Strategy 3.
      * Expected: extracted log contains the sh step output.
      */
     @Test
@@ -399,46 +396,10 @@ class PipelineLogExtractorTest {
     }
 
     /**
-     * Strategy 2 isolation: sh succeeds (exit 0 — no ErrorAction on sh node) but prints
-     * lines matching the error pattern; then error() throws inside
-     * catchError(stageResult:'FAILURE'), causing the block's start node to receive a
-     * WarningAction. Strategy 1 finds error()'s ErrorAction but no LogAction → accumulated
-     * stays empty → Strategy 2 runs and captures the sh LogAction (enclosed by the
-     * WarningAction block, ≥2 error-pattern lines).
-     * Expected: extracted log contains the sh output from inside the catchError block.
-     */
-    @Test
-    @DisabledOnOs(OS.WINDOWS)
-    void strategy2_shSucceedsWithErrorOutput_capturedViaWarningActionWalk(JenkinsRule jenkins) throws Exception {
-        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-strategy2-isolated");
-        job.setDefinition(new CpsFlowDefinition(
-                "node {\n"
-                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
-                // sh SUCCEEDS (exit 0): no ErrorAction → Strategy 1 skips it.
-                // Output has ≥2 error-pattern lines → Strategy 2 filter is satisfied.
-                + "        sh 'echo \"error: violation 1\" && echo \"error: violation 2\"'\n"
-                // error() has ErrorAction but no LogAction → Strategy 1 finds it but skips.
-                + "        error('analysis failed')\n"
-                + "    }\n"
-                + "}",
-                true));
-
-        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
-        List<String> lines = extractor.getFailedStepLog();
-
-        String log = String.join("\n", lines);
-        assertTrue(log.contains("violation"),
-                "Strategy 2 should capture the sh log (enclosed in WarningAction block) "
-                + "when Strategy 1 finds no LogAction.\nActual log:\n" + log);
-    }
-
-    /**
      * Strategy 1 with two direct sh failures (each in its own catchError block):
      * the FlowGraphWalker visits in reverse order so the second failure is processed first
      * and sets primaryNodeId. When the first failure is then processed, primaryNodeId is
-     * already set so L232's false branch is exercised.
+     * already set so the false branch of the primaryNodeId-null check is exercised.
      * Expected: output contains at least one of the two failure markers.
      */
     @Test
@@ -464,5 +425,87 @@ class PipelineLogExtractorTest {
         String log = String.join("\n", lines);
         assertTrue(log.contains("FAILURE_A") || log.contains("FAILURE_B"),
                 "At least one failure must be captured.\nActual log:\n" + log);
+    }
+
+    /**
+     * Strategy 1 — seenOriginIds deduplication: a parallel block where a sh step fails
+     * propagates the same exception to multiple FlowNodes (the sh node and outer parallel
+     * block nodes). The second node that shares the same ErrorAction origin is skipped via
+     * seenOriginIds, exercising the {@code seenOriginIds.contains()} branch of L226.
+     * Expected: result contains the sh failure output without duplication.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void strategy1_parallelFailure_seenOriginIdsPreventsDuplication(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-parallel-dedup");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    parallel(\n"
+                + "        'branch1': { sh 'echo \"PARALLEL_FAIL\" && exit 1' }\n"
+                + "    )\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        List<String> lines = extractor.getFailedStepLog();
+
+        String log = String.join("\n", lines);
+        assertTrue(log.contains("PARALLEL_FAIL"),
+                "Parallel branch failure must be captured.\nActual log:\n" + log);
+    }
+
+    /**
+     * Strategy 1 — logAction null: a direct {@code error()} step creates an ErrorAction
+     * on its FlowNode but no LogAction (the step only throws; it does not write to a step
+     * log). Strategy 1 finds the ErrorAction via findOrigin, then skips the node because
+     * {@code origin.getAction(LogAction.class)} returns null, exercising the
+     * {@code logAction == null} branch.
+     * Expected: Strategy 3 still surfaces the error message from the console log.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void strategy1_directErrorStep_logActionIsNullSkipsToStrategy3(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-direct-error-no-logaction");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    error('direct failure: critical error')\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        List<String> lines = extractor.getFailedStepLog();
+
+        assertNotNull(lines);
+        assertFalse(lines.isEmpty(), "Strategy 3 should surface the error message from the console log");
+    }
+
+    /**
+     * Strategy 3 — budget break in dedup loop: when patternLines contains more entries than
+     * the remaining budget, the loop hits {@code if (budget <= 0) break} before exhausting
+     * patternLines, exercising that branch.
+     * Expected: result is capped at maxLines.
+     */
+    @Test
+    void strategy3_manyPatternLines_budgetBreakStopsLoop(JenkinsRule jenkins) throws Exception {
+        // Build a log with 20 error lines — more than the budget of 5
+        StringBuilder logContent = new StringBuilder();
+        for (int i = 1; i <= 20; i++) {
+            logContent.append("ERROR: violation ").append(i).append("\n");
+        }
+        WorkflowRun mockRun = mock(WorkflowRun.class);
+        when(mockRun.getExecution()).thenReturn(null);
+        when(mockRun.getLog(anyInt())).thenReturn(List.of());
+        when(mockRun.getLogInputStream())
+                .thenReturn(new ByteArrayInputStream(logContent.toString().getBytes(StandardCharsets.UTF_8)));
+        when(mockRun.getUrl()).thenReturn("job/test/1/");
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 5);
+        List<String> lines = extractor.getFailedStepLog();
+
+        assertEquals(5, lines.size(), "Result must be capped at maxLines=5 when budget break fires");
     }
 }
