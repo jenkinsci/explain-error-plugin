@@ -193,7 +193,6 @@ pipeline {
 ## File Overview
 
 - `CONTRIBUTING.md` - Developer contribution guidelines and workflow
-- `AGENT.md` - AI coding agent workflow guide (build commands, test patterns, provider checklist)
 - `pom.xml` - Maven project configuration with LangChain4j dependencies
 - `src/main/resources/index.jelly` - Plugin metadata for Jenkins UI
 - `src/main/resources/io/jenkins/plugins/explain_error/` - Jelly UI templates for configuration
