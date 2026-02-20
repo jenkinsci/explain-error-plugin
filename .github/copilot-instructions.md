@@ -232,7 +232,7 @@ public class AnthropicProvider extends BaseAIProvider {
     @Extension
     @Symbol("anthropic")
     public static class DescriptorImpl extends BaseProviderDescriptor {
-        @Override public String getDisplayName() { return "Anthropic (Claude)"; }
+        @Override public @NonNull String getDisplayName() { return "Anthropic (Claude)"; }
         @Override public String getDefaultModel() { return "claude-3-5-sonnet-20241022"; }
     }
 }
