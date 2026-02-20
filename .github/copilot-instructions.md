@@ -200,7 +200,6 @@ pipeline {
 - `docs/images/` - Documentation screenshots and diagrams
 - `.github/copilot-instructions.md` - This file - AI assistant guidance for development
 - `.github/instructions/code-review.instructions.md` - Detailed code review checklist and anti-patterns
-- `.github/instructions/testing.instructions.md` - Testing patterns and conventions
 
 ## How to Add a New AI Provider
 
