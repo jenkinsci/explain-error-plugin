@@ -138,6 +138,38 @@ public FormValidation doTestConnection(@QueryParameter String apiKey) {
 
 **Note**: Use `@RequirePOST` for all state-changing or security-sensitive operations.
 
+### Nullability Annotations
+
+#### ✅ DO: Annotate Public Methods with `@NonNull` / `@CheckForNull`
+
+```java
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
+
+// GOOD: Clearly documents nullability contract
+@CheckForNull
+public BaseAIProvider getAiProvider() {
+    return aiProvider;
+}
+
+@NonNull
+@Override
+public Collection<? extends Action> createFor(@NonNull Run target) {
+    return Collections.singleton(new ConsoleExplainErrorAction(target));
+}
+```
+
+#### ❌ DON'T: Leave Nullability Undocumented
+
+```java
+// BAD: Caller doesn't know if null is possible
+public BaseAIProvider getAiProvider() {
+    return aiProvider;
+}
+```
+
+**Why**: Jenkins plugin reviewers require nullability annotations on public API surface. They are also checked at compile time by SpotBugs.
+
 ---
 
 ## Code Architecture
@@ -593,6 +625,60 @@ public void testInvalidConfiguration() throws Exception {
 }
 ```
 
+### Use TestProvider Instead of Mocking AI APIs
+
+#### ❌ DON'T: Mock LangChain4j or HTTP Clients Directly
+
+```java
+// BAD: Brittle, tightly coupled to LangChain4j internals
+@Mock
+private ChatLanguageModel mockModel;
+
+@Test
+void testExplain() {
+    when(mockModel.generate(any())).thenReturn(...);
+    // ...
+}
+```
+
+#### ✅ DO: Use TestProvider to Control AI Behavior
+
+```java
+// GOOD: Self-contained, no network, no mocking framework needed
+public class TestProvider extends OpenAIProvider {
+    private boolean throwError = false;
+    private String lastCustomContext;
+
+    @DataBoundConstructor
+    public TestProvider() {
+        super("https://localhost:1234", "test-model", Secret.fromString("test-api-key"));
+    }
+
+    @Override
+    public Assistant createAssistant() {
+        return (errorLogs, language, customContext) -> {
+            if (throwError) throw new RuntimeException("Request failed.");
+            lastCustomContext = customContext;
+            return new JenkinsLogAnalysis("mock summary", null, null, null);
+        };
+    }
+
+    public void setThrowError(boolean throwError) { this.throwError = throwError; }
+    public String getLastCustomContext() { return lastCustomContext; }
+}
+
+// In test:
+@Test
+void testExplanationWithCustomContext(JenkinsRule jenkins) throws Exception {
+    TestProvider provider = new TestProvider();
+    GlobalConfigurationImpl.get().setAiProvider(provider);
+    // ... run build ...
+    assertEquals("expected context", provider.getLastCustomContext());
+}
+```
+
+**Benefits**: No network calls, controllable errors, assertions on what was actually sent to the AI.
+
 ### Configuration Migration Tests
 
 #### ✅ DO: Test Backward Compatibility
@@ -855,7 +941,9 @@ Use this checklist when reviewing code:
 - [ ] `@Symbol` annotation on all descriptors for CasC
 - [ ] `@DataBoundConstructor` on configuration classes (no-args preferred)
 - [ ] `@DataBoundSetter` for optional/mutable fields
+- [ ] `@NonNull` / `@CheckForNull` annotations on all public method signatures
 - [ ] Exception handling uses custom exceptions, not error strings
+- [ ] `addOrReplaceAction` used instead of `addAction` for build actions
 - [ ] UI components use Jenkins design library
 - [ ] Dark theme compatibility (no hard-coded colors)
 - [ ] No inline JavaScript (CSP compliant)
@@ -863,6 +951,7 @@ Use this checklist when reviewing code:
 - [ ] Handles non-root context paths
 - [ ] Dependencies use BOM for version management
 - [ ] API plugins used for common libraries
+- [ ] Tests use `TestProvider` (never mock AI APIs directly)
 - [ ] Tests cover success and failure scenarios
 - [ ] Migration tests for configuration changes
 - [ ] README documentation is complete and accurate
