@@ -102,6 +102,14 @@
       <artifactId>commons-lang3-api</artifactId>
     </dependency>
 
+    <!-- Apache HttpClient 4.x API plugin - required by AWS SDK (langchain4j-bedrock)
+         which uses Apache HTTP client internally. Using the Jenkins API plugin avoids
+         bundling the library and prevents classpath conflicts. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>apache-httpcomponents-client-4-api</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>io.jenkins.plugins</groupId>
       <artifactId>pipeline-graph-view</artifactId>
