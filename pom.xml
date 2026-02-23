@@ -227,6 +227,16 @@
           <groupId>com.fasterxml.jackson.core</groupId>
           <artifactId>*</artifactId>
         </exclusion>
+        <!-- Exclude AWS SDK HTTP clients pulled in transitively via bedrockruntime.
+             See sts exclusion below for full explanation. -->
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>apache-client</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>netty-nio-client</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
 
@@ -236,6 +246,31 @@
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sts</artifactId>
+      <version>2.33.5</version>
+      <exclusions>
+        <!-- apache-client and netty-nio-client are pulled in transitively by sts but their
+             runtime dependencies (org.apache.httpcomponents:httpclient, Netty) are not
+             bundled in the HPI and are not guaranteed to be available in the Jenkins
+             classloader. This causes NoClassDefFoundError for HttpRoutePlanner at runtime
+             unless the apache-httpcomponents-client-4-api Jenkins plugin is also installed.
+             Use url-connection-client (JDK built-in HttpURLConnection) instead — no
+             external dependencies, fully compatible with Jenkins classloading. -->
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>apache-client</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>netty-nio-client</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Explicit sync HTTP client for the AWS SDK v2. Uses JDK HttpURLConnection —
+         no external dependencies, works without additional Jenkins plugins. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>url-connection-client</artifactId>
       <version>2.33.5</version>
     </dependency>
 
