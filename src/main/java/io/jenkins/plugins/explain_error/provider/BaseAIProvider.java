@@ -1,7 +1,18 @@
 package io.jenkins.plugins.explain_error.provider;
 
-import dev.langchain4j.model.input.Prompt;
-import dev.langchain4j.model.input.PromptTemplate;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.logging.Logger;
+
+import org.apache.commons.lang3.StringUtils;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
+
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.ExtensionPoint;
 import hudson.model.AbstractDescribableImpl;
@@ -9,16 +20,7 @@ import hudson.model.Descriptor;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Logger;
-import org.apache.commons.lang3.StringUtils;
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.POST;
+import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 
 public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvider> implements ExtensionPoint {
 
@@ -51,6 +53,30 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      * @throws ExplanationException if there's a communication error
      */
     public final String explainError(String errorLogs, TaskListener listener) throws ExplanationException {
+        return explainError(errorLogs, listener, null, null);
+    }
+
+    /**
+     * Explain error logs using the configured AI provider.
+     * @param errorLogs the error logs to explain
+     * @param language the preferred response language
+     * @return the AI explanation
+     * @throws ExplanationException if there's a communication error
+     */
+    public final String explainError(String errorLogs, TaskListener listener, String language) throws ExplanationException {
+        return explainError(errorLogs, listener, language, null);
+    }
+
+    /**
+     * Explain error logs using the configured AI provider.
+     * @param errorLogs the error logs to explain
+     * @param listener the task listener for logging
+     * @param language the preferred response language
+     * @param customContext additional custom context/instructions for the AI
+     * @return the AI explanation
+     * @throws ExplanationException if there's a communication error
+     */
+    public final String explainError(String errorLogs, TaskListener listener, String language, String customContext) throws ExplanationException {
         Assistant assistant;
 
         if (StringUtils.isBlank(errorLogs)) {
@@ -67,26 +93,15 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             throw new ExplanationException("error", "Failed to create assistant", e);
         }
 
-        // Use PromptTemplate for dynamic prompt creation
-        PromptTemplate promptTemplate = PromptTemplate.from(
-                "You are an expert Jenkins administrator and software engineer. "
-                        + "Please analyze the following Jenkins build error logs and provide a clear, "
-                        + "actionable explanation of what went wrong and how to fix it:\n\n"
-                        + "ERROR LOGS:\n"
-                        + "{{errorLogs}}\n\n" + "Please provide:\n"
-                        + "1. A summary of what caused the error\n"
-                        + "2. Specific steps to resolve the issue\n"
-                        + "3. Any relevant best practices to prevent similar issues\n\n"
-                        + "Keep your response concise and focused on actionable solutions. "
-                        + "Use plain text formatting only - no markdown, bold text, italic text, or special symbols for formatting."
-        );
-
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("errorLogs", errorLogs);
-        Prompt prompt = promptTemplate.apply(variables);
+        String responseLanguage = StringUtils.isBlank(language) ? "English" : language.trim();
+        String additionalContext = StringUtils.isBlank(customContext)
+            ? "" 
+            : "\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\n" + customContext.trim();
+        
+        LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length());
 
         try {
-            return assistant.chat(prompt.text());
+            return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {
             LOGGER.severe("AI API request failed: " + e.getMessage());
             throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);
@@ -99,7 +114,26 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     }
 
     public interface Assistant {
-        String chat(String message);
+        @SystemMessage("""
+            You are an expert Jenkins administrator and software engineer.
+            You MUST follow ALL instructions provided by the user, including any additional context or requirements.
+            When additional instructions are provided, you MUST incorporate them into your analysis fields,
+            especially in errorSummary and resolutionSteps.
+            """)
+        @UserMessage("""
+            Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
+            
+            CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
+            This includes: error summaries, resolution steps, best practices, and any other text.
+            {{customContext}}
+            
+            ERROR LOGS:
+            {{errorLogs}}
+            
+            Remember: Your ENTIRE response must be in {{language}}, including all field values.
+            If additional instructions were provided above, you MUST address them in your errorSummary or resolutionSteps.
+            """)
+        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
 
     public String getProviderName() {

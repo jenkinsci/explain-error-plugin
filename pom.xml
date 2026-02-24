@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>5.26</version>
+    <version>5.2102.v5f5fe09fccf1</version>
     <relativePath/>
   </parent>
 
@@ -86,22 +86,43 @@
       <artifactId>workflow-step-api</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-job</artifactId>
+    </dependency>
+
     <!-- Commons Lang3 API -->
     <dependency>
       <groupId>io.jenkins.plugins</groupId>
       <artifactId>commons-lang3-api</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>pipeline-graph-view</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <dependency>
+      <groupId>io.jenkins.plugins</groupId>
+      <artifactId>ionicons-api</artifactId>
+    </dependency>
+
+    <!-- Folder plugin for folder-level configuration -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>cloudbees-folder</artifactId>
+    </dependency>
+
     <!-- Needed only for testing -->
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
       <artifactId>workflow-cps</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.jenkins-ci.plugins.workflow</groupId>
-      <artifactId>workflow-job</artifactId>
       <scope>test</scope>
     </dependency>
 
@@ -120,6 +141,12 @@
     <dependency>
       <groupId>io.jenkins.configuration-as-code</groupId>
       <artifactId>test-harness</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
 
@@ -185,6 +212,66 @@
           <artifactId>*</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>dev.langchain4j</groupId>
+      <artifactId>langchain4j-bedrock</artifactId>
+      <version>${langchain4j.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <!-- Exclude AWS SDK HTTP clients pulled in transitively via bedrockruntime.
+             See sts exclusion below for full explanation. -->
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>apache-client</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>netty-nio-client</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Required for IRSA (IAM Roles for Service Accounts) in EKS environments.
+         Without this, DefaultCredentialsProvider cannot perform AssumeRoleWithWebIdentity
+         and falls back to EC2 instance metadata (node role). -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sts</artifactId>
+      <version>2.33.5</version>
+      <exclusions>
+        <!-- apache-client and netty-nio-client are pulled in transitively by sts but their
+             runtime dependencies (org.apache.httpcomponents:httpclient, Netty) are not
+             bundled in the HPI and are not guaranteed to be available in the Jenkins
+             classloader. This causes NoClassDefFoundError for HttpRoutePlanner at runtime
+             unless the apache-httpcomponents-client-4-api Jenkins plugin is also installed.
+             Use url-connection-client (JDK built-in HttpURLConnection) instead — no
+             external dependencies, fully compatible with Jenkins classloading. -->
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>apache-client</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>netty-nio-client</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- Explicit sync HTTP client for the AWS SDK v2. Uses JDK HttpURLConnection —
+         no external dependencies, works without additional Jenkins plugins. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>url-connection-client</artifactId>
+      <version>2.33.5</version>
     </dependency>
 
   </dependencies>

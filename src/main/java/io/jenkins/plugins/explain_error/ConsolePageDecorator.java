@@ -5,7 +5,6 @@ import hudson.model.PageDecorator;
 import hudson.model.Run;
 import org.kohsuke.stapler.Ancestor;
 import org.kohsuke.stapler.Stapler;
-import org.kohsuke.stapler.StaplerRequest2;
 
 /**
  * Page decorator to add "Explain Error" functionality to console output pages.

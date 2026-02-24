@@ -40,6 +40,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
+* **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
 
@@ -73,15 +74,25 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, or Ollama  | `OpenAI` |
+| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, or Ollama  | `OpenAI` |
 | **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OpenAI-compatible services and air-gapped environments. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
+| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
 
 ![Configuration](docs/images/configuration.png)
+
+### Folder-Level Configuration
+
+Support for folder-level overrides allows different teams to use their own AI providers and models.
+
+1. Click **Configure** on any folder
+2. Set a custom **AI Provider** in **"Explain Error Configuration"**
+
+*Inherits from parent folders, overrides global defaults.*
 
 ### Configuration as Code (CasC)
 
@@ -97,6 +108,11 @@ unclassified:
         model: "gpt-5"
         # url: "" # Optional, leave empty for default
     enableExplanation: true
+    customContext: |
+      Consider these additional instructions:
+      - If the error is from SonarQube Scanner, link to: https://example.org/sonarqube-kb
+      - If a Kubernetes manifest failed, remind about cluster-specific requirements
+      - Check if the error might be caused by a builder crash and suggest restarting the pipeline
 ```
 
 **Environment Variable Example:**
@@ -127,6 +143,17 @@ unclassified:
     enableExplanation: true
 ```
 
+**AWS Bedrock Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      bedrock:
+        model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+        region: "us-east-1" # Optional, uses AWS SDK default if not specified
+    enableExplanation: true
+```
+
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
 ## Supported AI Providers
@@ -142,6 +169,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### AWS Bedrock
+- **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
+- **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
+- **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
+- **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
 
 ### Ollama (Local/Private LLM)
 - **Models**: `gemma3:1b`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
@@ -177,14 +210,51 @@ pipeline {
 }
 ```
 
-Optional parameters:
+**✨ NEW: Return Value Support** - The step now returns the AI explanation as a string, enabling integration with notifications and alerting:
+
+```groovy
+post {
+    failure {
+        script {
+            // Capture the AI explanation
+            def explanation = explainError()
+            
+            // Use it in notifications
+            slackSend(
+                color: 'danger',
+                message: "Build Failed!\n\nAI Analysis:\n${explanation}"
+            )
+            
+            // Or send to email, webhook, etc.
+            emailext body: "Error Analysis:\n${explanation}"
+        }
+    }
+}
+```
+
+#### Optional parameters:
+
+| Parameter    | Description                                         | Default               |
+|--------------|-----------------------------------------------------|-----------------------|
+| **maxLines** | Max log lines to analyze (trims from the end)          | `100`              |
+| **logPattern** | Regex pattern to filter relevant log lines          | `''` (no filtering) |
+| **language** | Language for the explanation                          | `'English'`         |
+| **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 
 ```groovy
 explainError(
   maxLines: 500,
-  logPattern: '(?i)(error|failed|exception)'
+  logPattern: '(?i)(error|failed|exception)',
+  language: 'English', // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
+  customContext: '''
+    Additional context for this specific job:
+    - This is a payment service build
+    - Check PCI compliance requirements if deployment fails
+    - Contact security team for certificate issues
+  '''
 )
 ```
+
 Output appears in the sidebar of the failed job.
 
 ![Side Panel - AI Error Explanation](docs/images/side-panel.png)

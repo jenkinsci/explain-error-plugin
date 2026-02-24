@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -42,6 +43,7 @@ public class GeminiProvider extends BaseAIProvider {
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())
                 .temperature(0.3)
+                .responseFormat(ResponseFormat.JSON)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
                 .build();

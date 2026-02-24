@@ -47,7 +47,7 @@ class ProviderTest {
         String result = provider.explainError(complexErrorLogs, null);
 
         // Should not return the "no error logs" message for valid input
-        assertEquals("Request was successful", result);
+        assertEquals("Summary: Request was successful\n", result);
     }
 
     @Test
@@ -151,6 +151,22 @@ class ProviderTest {
     @Test
     void testOllamaNullUrl() {
         BaseAIProvider provider = new OllamaProvider(null, "test-model");
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testBedrockNullModel() {
+        BaseAIProvider provider = new BedrockProvider(null, null, "eu-west-1");
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testBedrockEmptyModel() {
+        BaseAIProvider provider = new BedrockProvider(null, "", "eu-west-1");
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());

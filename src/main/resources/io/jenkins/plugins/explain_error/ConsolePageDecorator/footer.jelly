@@ -1,5 +1,5 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
     <j:set var="active" value="${it.pluginActive}" />
     <j:if test="${active}">
       <j:set var="enabled" value="${it.explainErrorEnabled}" />
@@ -24,6 +24,12 @@
               <l:spinner text="Analyzing error logs..."/>
             </div>
             <pre id="explain-error-content" class="jenkins-!-margin-bottom-0 ${hasExplanation?'':'jenkins-hidden'}">${hasExplanation ? existingExplanation.explanation : ''}</pre>
+            <div class="jenkins-!-margin-top-3">
+              <a id="explain-error-url" href="${hasExplanation ? existingExplanation.urlString: ''}" class="jenkins-button jenkins-!-destructive-color  ${hasExplanation?'':'jenkins-hidden'}" target="_self" >
+                <l:icon src="symbol-warning-outline plugin-ionicons-api" class="icon-md" />
+                View failure output
+              </a>
+            </div>
           </l:card>
         </div>
       </j:if>

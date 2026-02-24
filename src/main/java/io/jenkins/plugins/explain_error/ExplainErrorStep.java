@@ -19,11 +19,14 @@ public class ExplainErrorStep extends Step {
 
     private String logPattern;
     private int maxLines;
+    private String language;
+    private String customContext;
 
     @DataBoundConstructor
     public ExplainErrorStep() {
         this.logPattern = "";
         this.maxLines = 100;
+        this.language = "";
     }
 
     public String getLogPattern() {
@@ -42,6 +45,24 @@ public class ExplainErrorStep extends Step {
     @DataBoundSetter
     public void setMaxLines(int maxLines) {
         this.maxLines = maxLines > 0 ? maxLines : 100;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    @DataBoundSetter
+    public void setLanguage(String language) {
+        this.language = language != null ? language : "";
+    }
+
+    public String getCustomContext() {
+        return customContext;
+    }
+
+    @DataBoundSetter
+    public void setCustomContext(String customContext) {
+        this.customContext = customContext != null ? customContext : "";
     }
 
     @Override
@@ -68,7 +89,7 @@ public class ExplainErrorStep extends Step {
         }
     }
 
-    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<Void> {
+    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<String> {
 
         private static final long serialVersionUID = 1L;
         private final transient ExplainErrorStep step;
@@ -79,14 +100,14 @@ public class ExplainErrorStep extends Step {
         }
 
         @Override
-        protected Void run() throws Exception {
+        protected String run() throws Exception {
             Run<?, ?> run = getContext().get(Run.class);
             TaskListener listener = getContext().get(TaskListener.class);
 
             ErrorExplainer explainer = new ErrorExplainer();
-            explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines());
+            String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(), step.getLanguage(), step.getCustomContext());
 
-            return null;
+            return explanation;
         }
     }
 }

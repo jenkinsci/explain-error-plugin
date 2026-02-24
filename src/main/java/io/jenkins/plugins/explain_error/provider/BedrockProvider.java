@@ -1,8 +1,8 @@
 package io.jenkins.plugins.explain_error.provider;
 
+import dev.langchain4j.model.bedrock.BedrockChatModel;
+import dev.langchain4j.model.bedrock.BedrockChatRequestParameters;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ResponseFormat;
-import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -19,64 +19,70 @@ import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
+import software.amazon.awssdk.regions.Region;
 
-public class OllamaProvider extends BaseAIProvider {
+public class BedrockProvider extends BaseAIProvider {
 
-    private static final Logger LOGGER = Logger.getLogger(OllamaProvider.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(BedrockProvider.class.getName());
+
+    private String region;
 
     @DataBoundConstructor
-    public OllamaProvider(String url, String model) {
+    public BedrockProvider(String url, String model, String region) {
         super(url, model);
+        this.region = Util.fixEmptyAndTrim(region);
+    }
+
+    public String getRegion() {
+        return region;
     }
 
     @Override
     public Assistant createAssistant() {
-        ChatModel model = OllamaChatModel.builder()
-                .baseUrl(getUrl())
-                .modelName(getModel())
-                .temperature(0.3)
-                .responseFormat(ResponseFormat.JSON)
+        var builder = BedrockChatModel.builder()
+                .modelId(getModel())
+                .defaultRequestParameters(
+                        BedrockChatRequestParameters.builder()
+                                .temperature(0.3)
+                                .build())
                 .timeout(Duration.ofSeconds(180))
                 .logRequests(LOGGER.isLoggable(Level.FINE))
-                .logResponses(LOGGER.isLoggable(Level.FINE))
-                .build();
+                .logResponses(LOGGER.isLoggable(Level.FINE));
+
+        if (region != null) {
+            builder.region(Region.of(region));
+        }
+
+        ChatModel model = builder.build();
         return AiServices.create(Assistant.class, model);
     }
 
     @Override
     public boolean isNotValid(@CheckForNull TaskListener listener) {
         if (listener != null) {
-            if (Util.fixEmptyAndTrim(getUrl()) == null) {
-                listener.getLogger().println("No url configured for Ollama.");
-            } else if (Util.fixEmptyAndTrim(getModel()) == null) {
-                listener.getLogger().println("No Model configured for Ollama.");
+            if (Util.fixEmptyAndTrim(getModel()) == null) {
+                listener.getLogger().println("No Model configured for AWS Bedrock.");
             }
         }
-        return Util.fixEmptyAndTrim(getUrl()) == null ||
-                Util.fixEmptyAndTrim(getModel()) == null;
+        return Util.fixEmptyAndTrim(getModel()) == null;
     }
 
     @Extension
-    @Symbol("ollama")
+    @Symbol("bedrock")
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
         @NonNull
         @Override
         public String getDisplayName() {
-            return "Ollama";
+            return "AWS Bedrock";
         }
 
         public String getDefaultModel() {
-            return "gemma3:1b";
+            return "eu.anthropic.claude-3-5-sonnet-20240620-v1:0";
         }
 
-        @POST
-        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
-        public FormValidation doCheckUrl(@QueryParameter String value) {
-            if (value == null || value.isBlank()) {
-                return FormValidation.error("URL is required.");
-            }
-            return super.doCheckUrl(value);
+        public String getDefaultRegion() {
+            return "eu-west-1";
         }
 
         /**
@@ -84,14 +90,14 @@ public class OllamaProvider extends BaseAIProvider {
          * This is called when the "Test Configuration" button is clicked.
          */
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("url") String url,
-                                                  @QueryParameter("model") String model) throws ExplanationException {
+        public FormValidation doTestConfiguration(@QueryParameter("model") String model,
+                                                  @QueryParameter("region") String region) throws ExplanationException {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
-            OllamaProvider provider = new OllamaProvider(url, model);
+            BedrockProvider provider = new BedrockProvider(null, model, region);
             try {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
+                return FormValidation.ok("Configuration test successful! AWS Bedrock connection is working properly.");
             } catch (ExplanationException e) {
                 return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
             }
