@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.logging.Logger;
-import javax.servlet.ServletException;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.StaplerRequest2;
@@ -114,7 +113,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
      * Returns JSON with buildingStatus to determine if button should be shown. 0 - SUCCESS, 1 - RUNNING, 2 - FINISHED and FAILURE
      */
     @RequirePOST
-    public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) throws ServletException, IOException {
+    public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) {
         try {
             run.checkPermission(hudson.model.Item.READ);
 
