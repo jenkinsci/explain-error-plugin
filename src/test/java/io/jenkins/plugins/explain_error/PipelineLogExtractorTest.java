@@ -162,82 +162,6 @@ class PipelineLogExtractorTest {
     }
 
     /**
-     * Strategy 3: Error pattern scan for large logs where errors appear early.
-     * A pipeline runs many steps that succeed, with an error-like message early in the log.
-     * The build ultimately fails via error(). The last-N-lines fallback would miss the
-     * early error message — Strategy 3 (error pattern scan) should find it.
-     * Expected: extracted log contains the early error-like line.
-     */
-    @Test
-    @DisabledOnOs(OS.WINDOWS)
-    void strategy3_earlyErrorInLargeLog_extractsEarlyErrorLines(JenkinsRule jenkins) throws Exception {
-        StringBuilder script = new StringBuilder();
-        script.append("node {\n");
-        // Early error-like output (sh succeeds with exit 0, but output matches error pattern)
-        script.append("    sh 'echo \"critical error detected: 5 issues found\"'\n");
-        // Many successful steps to push the error to the beginning of the log
-        for (int i = 0; i < 50; i++) {
-            script.append("    sh 'echo \"Step ").append(i).append(" completed successfully\"'\n");
-        }
-        // Final failure - this creates an ErrorAction, but its log is minimal
-        script.append("    error('Build failed due to quality issues')\n");
-        script.append("}");
-
-        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-large-log");
-        job.setDefinition(new CpsFlowDefinition(script.toString(), true));
-
-        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
-
-        // Use a small maxLines to force Strategy 3 (last 10 lines won't include the early error)
-        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 10);
-        List<String> lines = extractor.getFailedStepLog();
-
-        String log = String.join("\n", lines);
-        // Strategy 1 finds error() step but its log just contains the error message
-        // Strategy 3 scans full log and finds "critical error detected" even though it's early
-        assertTrue(log.contains("critical error detected") || log.contains("issues found"),
-                "Strategy 3 should find the early error-pattern line even in a large log.\nActual log:\n" + log);
-    }
-
-    /**
-     * Multi-error: both a direct sh failure (Strategy 1) and a
-     * catchError+sh(returnStatus:true)+error() failure (Strategy 3) occur in the same build.
-     * <p>
-     * Strategy 1 captures the direct sh failure log (ErrorAction + LogAction on the sh step).
-     * Strategy 3 supplements with the catchError sh output from the full console log
-     * (the error() step has ErrorAction but no LogAction, so Strategy 1 skips it).
-     * Expected: the combined result contains output from both failing steps.
-     */
-    @Test
-    @DisabledOnOs(OS.WINDOWS)
-    void multiError_catchErrorAndDirectFailure_capturesBothErrors(JenkinsRule jenkins) throws Exception {
-        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-multi-error");
-        job.setDefinition(new CpsFlowDefinition(
-                "node {\n"
-                // catchError + sh(returnStatus:true) + error() — no LogAction on error()
-                + "    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {\n"
-                + "        def exitCode = sh(returnStatus: true, script: '"
-                + "echo \"static analysis failed: 3 violations found\" && exit 1')\n"
-                + "        if (exitCode != 0) { error('Static analysis found violations') }\n"
-                + "    }\n"
-                // Direct sh failure — has both ErrorAction and LogAction
-                + "    sh 'echo \"DIRECT_FAILURE_MARKER\" && exit 1'\n"
-                + "}",
-                true));
-
-        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
-        List<String> lines = extractor.getFailedStepLog();
-
-        String log = String.join("\n", lines);
-        assertTrue(log.contains("DIRECT_FAILURE_MARKER"),
-                "Strategy 1 should capture the direct sh failure.\nActual log:\n" + log);
-        assertTrue(log.contains("static analysis failed") || log.contains("violations"),
-                "Strategy 3 should supplement with the catchError sh output.\nActual log:\n" + log);
-    }
-
-    /**
      * Strategy 2: WarningAction walk — direct sh failure inside a catchError block
      * that carries {@code stageResult: 'FAILURE'}.
      * <p>
@@ -300,78 +224,6 @@ class PipelineLogExtractorTest {
         assertTrue(sentLogs.contains("RUBOCOP_OFFENSE_C_78_METRICS"),
                 "AI provider should receive the error from inside catchError, not generic fallback.\n"
                 + "Sent logs:\n" + sentLogs);
-    }
-
-    /**
-     * Strategy 3 — context buffer eviction: when more than ERROR_CONTEXT_LINES (5) consecutive
-     * non-error lines appear before the first error line, the buffer evicts the oldest entries
-     * so only the nearest 5 lines are kept as pre-context.
-     * Expected: the 2 oldest non-error lines are absent; the 5 nearest are present.
-     */
-    @Test
-    void strategy3_contextBuffer_evictsOldestLinesWhenBufferFull(JenkinsRule jenkins) throws Exception {
-        // 7 non-error lines (> ERROR_CONTEXT_LINES=5) then an error line
-        String logContent = "ok1\nok2\nok3\nok4\nok5\nok6\nok7\nERROR: something failed\n";
-        WorkflowRun mockRun = mock(WorkflowRun.class);
-        when(mockRun.getExecution()).thenReturn(null);
-        when(mockRun.getLog(anyInt())).thenReturn(List.of());
-        when(mockRun.getLogInputStream())
-                .thenReturn(new ByteArrayInputStream(logContent.getBytes(StandardCharsets.UTF_8)));
-        when(mockRun.getUrl()).thenReturn("job/test/1/");
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
-        List<String> lines = extractor.getFailedStepLog();
-
-        assertTrue(lines.contains("ERROR: something failed"), "Error line must be present");
-        assertFalse(lines.contains("ok1"), "ok1 should be evicted (buffer capped at ERROR_CONTEXT_LINES=5)");
-        assertFalse(lines.contains("ok2"), "ok2 should be evicted");
-        assertTrue(lines.contains("ok3"), "ok3 should be within the 5-line pre-context window");
-    }
-
-    /**
-     * Strategy 3 — maxLines constraint during context flush: with maxLines=1 and 2 non-error
-     * lines buffered before an error line, the flush saturates the budget after the first line
-     * (L149 while-loop exits because result.size() >= maxLines) so the error line itself is
-     * never added (L153 false branch).
-     * Expected: exactly 1 line returned, the first pre-context line.
-     */
-    @Test
-    void strategy3_maxLines_contextFlushExhaustsBudgetBeforeErrorLine(JenkinsRule jenkins) throws Exception {
-        String logContent = "pre1\npre2\nERROR: hit\npost\n";
-        WorkflowRun mockRun = mock(WorkflowRun.class);
-        when(mockRun.getExecution()).thenReturn(null);
-        when(mockRun.getLog(anyInt())).thenReturn(List.of());
-        when(mockRun.getLogInputStream())
-                .thenReturn(new ByteArrayInputStream(logContent.getBytes(StandardCharsets.UTF_8)));
-        when(mockRun.getUrl()).thenReturn("job/test/1/");
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 1);
-        List<String> lines = extractor.getFailedStepLog();
-
-        assertEquals(1, lines.size(), "maxLines=1 must be respected");
-        assertEquals("pre1", lines.get(0));
-    }
-
-    /**
-     * Strategy 3 — IOException in getLogInputStream: when reading the full console log
-     * throws an IOException, the scan returns an empty list gracefully (exception is
-     * swallowed internally) and execution falls through to the final build-log fallback.
-     * Expected: no exception propagated; fallback returns run.getLog() content.
-     */
-    @Test
-    void strategy3_ioExceptionInGetLogInputStream_doesNotPropagate(JenkinsRule jenkins) throws Exception {
-        WorkflowRun mockRun = mock(WorkflowRun.class);
-        when(mockRun.getExecution()).thenReturn(null);
-        when(mockRun.getLog(anyInt())).thenReturn(List.of("fallback line"));
-        when(mockRun.getLogInputStream()).thenThrow(new IOException("simulated disk failure"));
-        when(mockRun.getUrl()).thenReturn("job/test/1/");
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
-        List<String> lines = assertDoesNotThrow(() -> extractor.getFailedStepLog());
-
-        assertNotNull(lines);
-        assertFalse(lines.isEmpty(), "Fallback must return content even when Strategy 3 I/O fails");
-        assertEquals("fallback line", lines.get(0));
     }
 
     /**
@@ -489,32 +341,6 @@ class PipelineLogExtractorTest {
 
         assertNotNull(lines);
         assertFalse(lines.isEmpty(), "Strategy 3 should surface the error message from the console log");
-    }
-
-    /**
-     * Strategy 3 — stream dedup cap: when patternLines contains more entries than the remaining
-     * budget, {@code stream().filter().limit(budget)} stops after {@code budget} items, capping
-     * the result at maxLines without requiring an explicit break statement.
-     * Expected: result is capped at maxLines.
-     */
-    @Test
-    void strategy3_manyPatternLines_budgetBreakStopsLoop(JenkinsRule jenkins) throws Exception {
-        // Build a log with 20 error lines — more than the budget of 5
-        StringBuilder logContent = new StringBuilder();
-        for (int i = 1; i <= 20; i++) {
-            logContent.append("ERROR: violation ").append(i).append("\n");
-        }
-        WorkflowRun mockRun = mock(WorkflowRun.class);
-        when(mockRun.getExecution()).thenReturn(null);
-        when(mockRun.getLog(anyInt())).thenReturn(List.of());
-        when(mockRun.getLogInputStream())
-                .thenReturn(new ByteArrayInputStream(logContent.toString().getBytes(StandardCharsets.UTF_8)));
-        when(mockRun.getUrl()).thenReturn("job/test/1/");
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 5);
-        List<String> lines = extractor.getFailedStepLog();
-
-        assertEquals(5, lines.size(), "Result must be capped at maxLines=5 by stream limit");
     }
 
     /**

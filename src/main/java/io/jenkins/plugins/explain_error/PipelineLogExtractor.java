@@ -110,66 +110,6 @@ public class PipelineLogExtractor {
     }
 
     /**
-     * Scans the full build console log for lines matching common error patterns
-     * and returns them with surrounding context lines, up to {@code maxLines} total.
-     * <p>
-     * This is used as a fallback when the FlowGraph walk fails to find a failed step
-     * with a log — for example when errors occur inside {@code catchError} blocks where
-     * the exception is swallowed and no {@code ErrorAction} is recorded on the FlowGraph,
-     * or when errors appear early in a large build log and would be missed by the
-     * last-N-lines approach.
-     * <p>
-     * Matched patterns include: {@code error}, {@code exception}, {@code failed}, and
-     * {@code fatal} (case-insensitive, word-boundary anchored).
-     *
-     * @return list of error-context lines (ordered as they appear in the log),
-     *         or an empty list if no patterns are found or the log cannot be read
-     */
-    private List<String> getErrorPatternLines() {
-        List<String> result = new ArrayList<>();
-        LinkedList<String> contextBuffer = new LinkedList<>();
-        int futureContextRemaining = 0;
-
-        try (InputStream inputStream = run.getLogInputStream();
-             BufferedReader reader = new BufferedReader(
-                     new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String rawLine;
-            while ((rawLine = reader.readLine()) != null) {
-                if (result.size() >= maxLines) {
-                    break;
-                }
-                String line = ConsoleNote.removeNotes(rawLine);
-                boolean isErrorLine = ERROR_PATTERN.matcher(line).find();
-
-                if (isErrorLine) {
-                    // Flush accumulated pre-context lines before adding the error line
-                    while (!contextBuffer.isEmpty() && result.size() < maxLines) {
-                        result.add(contextBuffer.removeFirst());
-                    }
-                    contextBuffer.clear();
-                    if (result.size() < maxLines) {
-                        result.add(line);
-                    }
-                    futureContextRemaining = ERROR_CONTEXT_LINES;
-                } else if (futureContextRemaining > 0) {
-                    result.add(line); // L141 already guarantees result.size() < maxLines here
-                    futureContextRemaining--;
-                } else {
-                    contextBuffer.add(line);
-                    if (contextBuffer.size() > ERROR_CONTEXT_LINES) {
-                        contextBuffer.removeFirst();
-                    }
-                }
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Could not read full log for error pattern scan: " + e.getMessage());
-            return Collections.emptyList();
-        }
-
-        return result;
-    }
-
-    /**
      * Extracts the log output of the step(s) that caused the pipeline failure,
      * combining results from multiple strategies so that parallel failures
      * (e.g. both a Rspec test failure and a RuboCop offense) are all captured.
@@ -179,12 +119,6 @@ public class PipelineLogExtractor {
      *       {@link LogAction} (explicit uncaught exceptions). Unlike the original single-return
      *       approach, this accumulates logs from every failing step up to {@code maxLines}
      *       total, covering parallel failures such as multiple Rspec pod crashes.</li>
-     *   <li><b>Strategy 3 — Error pattern scan (always runs as supplement):</b> reads the
-     *       full build console log and appends lines matching common error patterns (with
-     *       surrounding context) that were not already captured by Strategy 1.
-     *       This fills the gap left by {@code catchError + sh(returnStatus:true) + error()}
-     *       pipelines (where no {@link LogAction} exists on the {@code error()} step) and
-     *       catches errors that appear early in large build logs.</li>
      * </ol>
      * Falls back to {@code run.getLog(maxLines)} (last N lines of console) only if all
      * strategies produce no results.
@@ -221,27 +155,6 @@ public class PipelineLogExtractor {
                     accumulated.addAll(stepLog);
                 }
 
-            }
-        }
-
-        // Strategy 3: scan the full console log for error-pattern lines.
-        // Always runs as a supplement to fill gaps not covered by the FlowGraph walk —
-        // most importantly the catchError + sh(returnStatus:true) + error() pattern where
-        // the error() step has no LogAction, and errors that appear early in large build logs.
-        // Only lines not already present in the accumulated result are added.
-        int budget = this.maxLines - accumulated.size();
-        if (budget > 0) {
-            List<String> patternLines = getErrorPatternLines();
-            if (!patternLines.isEmpty()) {
-                // Only dedupe against lines already collected by Strategy 1; do not add
-                // to the set inside the stream so repeated occurrences of the same line
-                // (e.g. retries) are preserved when they appear in different contexts.
-                Set<String> existingLines = new HashSet<>(accumulated);
-                patternLines.stream()
-                        .filter(line -> !existingLines.contains(line))
-                        .limit(budget)
-                        .forEach(accumulated::add);
-                LOGGER.fine("Strategy 3 scan complete: " + accumulated.size() + " total lines accumulated");
             }
         }
 
