@@ -7,8 +7,11 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
+import org.jenkinsci.plugins.workflow.actions.WarningAction;
+
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
+import hudson.model.Result;
 import hudson.model.Run;
 import jenkins.model.Jenkins;
 
@@ -133,25 +136,51 @@ public class PipelineLogExtractor {
 
         if (this.run instanceof WorkflowRun) {
             FlowExecution execution = ((WorkflowRun) this.run).getExecution();
-
             if (execution != null) {
                 // Strategy 1: collect logs from ALL ErrorAction+LogAction nodes.
                 // Multi-collect instead of returning on first match so that parallel failures
                 // (e.g. multiple Rspec pods + a direct sh failure) are all captured.
                 Set<String> seenOriginIds = new HashSet<>();
+
                 FlowGraphWalker walker = new FlowGraphWalker(execution);
                 for (FlowNode node : walker) {
                     int remainingLines = this.maxLines - accumulated.size();
-                    if (remainingLines <= 0) break;
-                    ErrorAction errorAction = node.getAction(ErrorAction.class);
-                    if (errorAction == null) continue;
-                    FlowNode origin = resolveOrigin(errorAction.getError(), execution);
-                    if (origin == null || seenOriginIds.contains(origin.getId())) continue;
+                    if (remainingLines <= 0) {
+                        break;
+                    }
+                    ErrorAction errorAction = node.getError();
+                    FlowNode origin = null;
+                    if (errorAction == null) {
+                        WarningAction warn = node.getAction(WarningAction.class);
+                        if (warn != null) {
+                            var result = warn.getResult();
+                            if (result != Result.FAILURE) {
+                                continue;
+                            }
+                            origin = node;
+                        }
+                    } else {
+                        origin = resolveOrigin(errorAction.getError(), execution);
+                        if (origin == null || seenOriginIds.contains(origin.getId())) {
+                            continue;
+                        }
+                    }
+                    if (origin == null) {
+                        continue;
+                    }
                     LogAction logAction = origin.getAction(LogAction.class);
-                    if (logAction == null) continue;
-                    List<String> stepLog = readLimitedLog(logAction.getLogText(), remainingLines);
+                    if (logAction == null) {
+                        continue;
+                    }
                     seenOriginIds.add(origin.getId());
-                    if (primaryNodeId == null) primaryNodeId = origin.getId();
+                    List<String> stepLog = readLimitedLog(logAction.getLogText(), remainingLines);
+                    if (stepLog == null || stepLog.isEmpty()) {
+                        continue;
+                    }
+
+                    if (primaryNodeId == null) {
+                        primaryNodeId = origin.getId();
+                    }
                     accumulated.addAll(stepLog);
                 }
 
