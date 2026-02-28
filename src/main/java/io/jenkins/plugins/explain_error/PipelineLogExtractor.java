@@ -7,6 +7,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
+import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.actions.WarningAction;
 
 import hudson.console.AnnotatedLargeText;
@@ -22,8 +23,12 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.logging.Logger;
@@ -113,6 +118,36 @@ public class PipelineLogExtractor {
     }
 
     /**
+     * Prepends execution metadata (Node ID, Name, Start Time) and appends a closing tag
+     * to a list of log lines.
+     * <p>
+     * This structured bracketing establishes a temporal timeline and context boundary,
+     * making it easier for AI models or log parsers to distinguish this specific
+     * execution's output from other interleaved parallel executions.
+     *
+     * @param node The Jenkins FlowNode containing the execution context and timing.
+     * @param logs The existing list of log lines for this node. If null, a new list is initialized.
+     */
+    private void addHeaderLog(FlowNode node, List<String> logs) {
+        long startTimeMillis = TimingAction.getStartTime(node);
+        String formattedStart = "Unknown Start Time";
+
+        if (startTimeMillis > 0) {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+            formattedStart = sdf.format(new Date(startTimeMillis));
+        }
+
+        List<String> header = Arrays.asList(
+            "### Node ID: " + node.getId() + " ###",
+            "Node Name: " + node.getDisplayName(),
+            "Start Time: " + formattedStart,
+            "--- LOG CONTENT ---");
+
+        logs.addAll(0, header);
+        logs.add("### END OF LOG " + node.getId() + " ###");
+    }
+
+    /**
      * Extracts the log output of the step(s) that caused the pipeline failure,
      * combining results from multiple strategies so that parallel failures
      * (e.g. both a Rspec test failure and a RuboCop offense) are all captured.
@@ -181,9 +216,9 @@ public class PipelineLogExtractor {
                     if (primaryNodeId == null) {
                         primaryNodeId = origin.getId();
                     }
+                    addHeaderLog(origin, stepLog);
                     accumulated.addAll(stepLog);
                 }
-
             }
         }
 

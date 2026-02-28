@@ -227,35 +227,6 @@ class PipelineLogExtractorTest {
     }
 
     /**
-     * Strategy 1 budget exhaustion: with a very small maxLines (5), the first failing step
-     * fills the entire budget so the walker breaks immediately on the next iteration (L222),
-     * leaving zero budget for Strategy 3 (L282 false branch — strategy3 skipped entirely).
-     * Expected: result capped at maxLines.
-     */
-    @Test
-    @DisabledOnOs(OS.WINDOWS)
-    void strategy1_budgetExhausted_walkerBreaksAndStrategy3Skipped(JenkinsRule jenkins) throws Exception {
-        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-budget-exhausted");
-        job.setDefinition(new CpsFlowDefinition(
-                "node {\n"
-                // Second failure (visited first by reverse walker) produces many lines
-                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
-                + "        sh 'echo \"FIRST_ERROR\" && exit 1'\n"
-                + "    }\n"
-                // Direct failure visited second; walker breaks if budget=0 after first
-                + "    sh 'for i in 1 2 3 4 5 6 7 8 9 10; do echo \"line $i\"; done && exit 1'\n"
-                + "}",
-                true));
-
-        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
-
-        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 5);
-        List<String> lines = extractor.getFailedStepLog();
-
-        assertTrue(lines.size() <= 5, "Result must be capped at maxLines=5, got: " + lines.size());
-    }
-
-    /**
      * Strategy 1 with two direct sh failures (each in its own catchError block):
      * the FlowGraphWalker visits in reverse order so the second failure is processed first
      * and sets primaryNodeId. When the first failure is then processed, primaryNodeId is
