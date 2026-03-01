@@ -18,22 +18,20 @@ import jenkins.model.Jenkins;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.logging.Logger;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
@@ -72,8 +70,6 @@ public class PipelineLogExtractor {
     private transient String url;
     private transient Run<?, ?> run;
     private int maxLines;
-
-
 
     /**
      * Reads the provided log text and returns at most the last {@code maxLines} lines.
@@ -148,6 +144,74 @@ public class PipelineLogExtractor {
     }
 
     /**
+     * Finds the most recent (lowest) common ancestor for a given set of Jenkins Pipeline FlowNodes.
+     * <p>
+     * Jenkins pipeline execution forms a Directed Acyclic Graph (DAG). This method calculates the
+     * intersection of all upstream ancestors for the provided nodes. It then determines the "nearest"
+     * common ancestor by finding the node in that intersection with the highest integer ID,
+     * as Jenkins assigns monotonically increasing integer strings as IDs during pipeline execution.
+     * </p>
+     *
+     * @param nodes A {@link Set} of {@link FlowNode} objects for which to find the common ancestor.
+     * @return The {@link FlowNode} representing the nearest common ancestor, or {@code null} if
+     * the input set is null, empty, or if no common ancestor exists.
+     */
+    public FlowNode findCommonAncestor(Set<FlowNode> nodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return null;
+        }
+
+        Iterator<FlowNode> iterator = nodes.iterator();
+        Set<FlowNode> commonAncestors = getAncestors(iterator.next());
+
+        while (iterator.hasNext()) {
+            commonAncestors.retainAll(getAncestors(iterator.next()));
+        }
+
+        if (commonAncestors.isEmpty()) {
+            return null;
+        }
+
+        FlowNode nearestAncestor = null;
+        int highestId = -1;
+
+        for (FlowNode node : commonAncestors) {
+            int currentId = Integer.parseInt(node.getId());
+            if (currentId > highestId) {
+                highestId = currentId;
+                nearestAncestor = node;
+            }
+        }
+
+        return nearestAncestor;
+    }
+
+    /**
+     * Traverses the pipeline graph upstream to gather all parent nodes of a given FlowNode.
+    * <p>
+    * This method uses a Breadth-First Search (BFS) algorithm to safely navigate up the
+    * pipeline DAG without encountering stack overflow issues on deeply nested pipelines.
+    * </p>
+    *
+    * @param startNode The {@link FlowNode} from which to begin the upstream traversal.
+    * @return A {@link Set} containing the starting node and all of its upstream ancestors.
+    */
+    private Set<FlowNode> getAncestors(FlowNode startNode) {
+        Set<FlowNode> ancestors = new HashSet<>();
+        Queue<FlowNode> queue = new LinkedList<>();
+
+        queue.add(startNode);
+
+        while (!queue.isEmpty()) {
+            FlowNode current = queue.poll();
+            if (ancestors.add(current)) {
+                queue.addAll(current.getParents());
+            }
+        }
+        return ancestors;
+    }
+
+    /**
      * Extracts the log output of the step(s) that caused the pipeline failure,
      * combining results from multiple strategies so that parallel failures
      * (e.g. both a Rspec test failure and a RuboCop offense) are all captured.
@@ -167,6 +231,7 @@ public class PipelineLogExtractor {
      */
     public List<String> getFailedStepLog() throws IOException {
         List<String> accumulated = new ArrayList<>();
+        Set<FlowNode> nodes = new HashSet<>();
         String primaryNodeId = null;
 
         if (this.run instanceof WorkflowRun) {
@@ -216,9 +281,17 @@ public class PipelineLogExtractor {
                     if (primaryNodeId == null) {
                         primaryNodeId = origin.getId();
                     }
+                    nodes.add(origin);
                     addHeaderLog(origin, stepLog);
                     accumulated.addAll(stepLog);
                 }
+            }
+        }
+
+        if (nodes.size() > 1) {
+            FlowNode ancestor = findCommonAncestor(nodes);
+            if (ancestor != null) {
+                primaryNodeId = ancestor.getId();
             }
         }
 
