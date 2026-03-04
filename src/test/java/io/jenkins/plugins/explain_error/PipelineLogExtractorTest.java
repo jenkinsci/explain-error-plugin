@@ -158,6 +158,38 @@ class PipelineLogExtractorTest {
     }
 
     /**
+     * catchError + sh(returnStatus:true) + error() — FlowGraph traversal.
+     * <p>
+     * The error() step has ErrorAction but no LogAction. The sh step has LogAction but no
+     * ErrorAction. {@code findImmediateParentWithLog} checks the immediate parent of the
+     * error() node and returns it when it is the sole parent and carries a LogAction — the sh step.
+     * Expected: extracted log contains the sh step output from inside the catchError block.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void catchError_returnStatusPattern_immediateParentShLogExtracted(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-catcherror-sibling");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        def exitCode = sh(returnStatus: true, script: '"
+                + "echo \"CATCHERROR_SIBLING_MARKER\" && exit 1')\n"
+                + "        if (exitCode != 0) { error('Command failed') }\n"
+                + "    }\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        List<String> lines = extractor.getFailedStepLog();
+
+        String log = String.join("\n", lines);
+        assertTrue(log.contains("CATCHERROR_SIBLING_MARKER"),
+                "FlowGraph traversal should find the sh output inside the catchError block.\nActual log:\n" + log);
+    }
+
+    /**
      * Strategy 2: WarningAction walk — direct sh failure inside a catchError block
      * that carries {@code stageResult: 'FAILURE'}.
      * <p>
