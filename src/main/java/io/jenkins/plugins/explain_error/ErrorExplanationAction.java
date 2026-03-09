@@ -32,7 +32,7 @@ public class ErrorExplanationAction implements RunAction2 {
 
     @Override
     public String getIconFileName() {
-        return "symbol-cube";
+        return "symbol-sparkles-outline plugin-ionicons-api";
     }
 
     @Override
