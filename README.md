@@ -50,7 +50,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 ### Prerequisites
 
-- Jenkins 2.479.3+
+- Jenkins (2.528.3) or higher required
 - Java 17+
 - AI API Key (OpenAI or Google)
 
