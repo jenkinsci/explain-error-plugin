@@ -24,27 +24,28 @@ This guide will help you get started with development and contribution.
 
 2. **Build the plugin:**
 
-   ```bash
-   # Clean and compile
-   mvn clean compile
-   
-   # Package the plugin
-   mvn clean package
+   A `Makefile` is provided for convenience. Run `make help` to list all available targets.
 
-   # Package without running tests (useful for development)
+   ```bash
+   make build      # Compile the plugin
+   make package    # Build the .hpi file (skip tests)
+   make test       # Run unit tests
+   make verify     # Full CI check (compile + test + verify)
+   ```
+
+   Or using Maven directly:
+   ```bash
+   mvn clean compile
    mvn clean package -DskipTests
    ```
 
 3. **Run Jenkins locally with the plugin:**
    ```bash
-   # Start Jenkins on http://localhost:8080
-   mvn hpi:run
-   
-   # Or on a custom port
-   mvn hpi:run -Dport=5000
+   make run        # Start Jenkins on http://localhost:8080/jenkins
+   make debug      # Start Jenkins with remote debugger on port 8000
 
-   # check for code quality issues
-   mvn spotbugs:check
+   # Or on a custom port via Maven
+   mvn hpi:run -Dport=5000
    ```
 
 ### 2. Plugin Installation & Testing
@@ -53,7 +54,8 @@ This guide will help you get started with development and contribution.
 
 1. **Build the plugin:**
    ```bash
-   mvn clean package -DskipTests
+   make package
+   # or: mvn clean package -DskipTests
    ```
 
 2. **Install in Jenkins:**
@@ -89,13 +91,15 @@ This guide will help you get started with development and contribution.
 ### Running Tests
 
 ```bash
-# Run unit tests
+make test           # Run unit tests
+make verify         # Run unit tests + integration/verify phase
+make package        # Build .hpi skipping tests (dev shortcut)
+```
+
+Or using Maven directly:
+```bash
 mvn test
-
-# Run integration tests
 mvn verify
-
-# Skip tests during development (not recommended for PRs)
 mvn clean package -DskipTests
 ```
 
@@ -156,6 +160,11 @@ class AIServiceTest {
 - **Line length**: Maximum 120 characters
 - **Naming**: Use descriptive names for classes and methods
 
+To check for code quality issues:
+```bash
+make lint           # Checkstyle report + SpotBugs (non-blocking)
+```
+
 ### Architecture
 
 The plugin follows these patterns:
@@ -198,7 +207,9 @@ src/main/java/io/jenkins/plugins/explain_error/
 ## Pull Request Process
 
 1. **Before submitting:**
-   - ✅ All tests pass
+   - ✅ All tests pass (`make test`)
+   - ✅ Full verify passes (`make verify`)
+   - ✅ No new lint issues (`make lint`)
    - ✅ Code follows style guidelines
    - ✅ Documentation updated
 
