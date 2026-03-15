@@ -7,7 +7,10 @@
       "version": "17",
       "installMaven": "true"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
   },
 
   "customizations": {
@@ -18,7 +21,7 @@
     }
   },
 
-  "postCreateCommand": "mvn clean verify -DskipTests",
+  "postCreateCommand": "bash -c 'curl -fsSL https://gh.io/copilot-install | bash && curl -fsSL https://claude.ai/install.sh | bash && mvn clean verify -DskipTests'",
 
   "forwardPorts": [8080],
 
