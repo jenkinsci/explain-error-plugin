@@ -25,10 +25,10 @@ package-full: ## Build the .hpi plugin file (with tests)
 	mvn package
 
 run: ## Start Jenkins locally with the plugin (http://localhost:8080/jenkins)
-	mvn hpi:run
+	VSCODE_JDWP_ADAPTER_ENDPOINTS="" mvn hpi:run
 
-debug: ## Start Jenkins in debug mode (port 8000)
-	mvnDebug hpi:run
+debug: ## Start Jenkins with remote debugger on port 8000 (attach anytime, does not block)
+	VSCODE_JDWP_ADAPTER_ENDPOINTS="" mvn hpi:run -Ddebug="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=localhost:8000"
 
 lint: ## Run Checkstyle (report only) and SpotBugs static analysis
 	mvn checkstyle:checkstyle spotbugs:check
