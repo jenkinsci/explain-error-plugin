@@ -30,13 +30,6 @@ This guide will help you get started with development and contribution.
    make help
    ```
 
-   You can also invoke Maven directly if preferred:
-   ```bash
-   mvn clean compile
-   mvn clean package -DskipTests
-   mvn hpi:run
-   ```
-
 ### 2. Plugin Installation & Testing
 
 #### Manual Installation in Jenkins
@@ -44,7 +37,6 @@ This guide will help you get started with development and contribution.
 1. **Build the plugin:**
    ```bash
    make package
-   # or: mvn clean package -DskipTests
    ```
 
 2. **Install in Jenkins:**
@@ -81,13 +73,7 @@ This guide will help you get started with development and contribution.
 
 ### Running Tests
 
-Use `make help` to see available test-related targets. You can also invoke Maven directly:
-
-```bash
-mvn test
-mvn verify
-mvn clean package -DskipTests
-```
+Run `make help` to see all available test-related targets.
 
 ### Writing Tests
 
