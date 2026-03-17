@@ -24,28 +24,17 @@ This guide will help you get started with development and contribution.
 
 2. **Build the plugin:**
 
-   A `Makefile` is provided for convenience. Run `make help` to list all available targets.
+   A `Makefile` is provided for convenience. Run the following to see all available targets and their descriptions:
 
    ```bash
-   make build      # Compile the plugin
-   make package    # Build the .hpi file (skip tests)
-   make test       # Run unit tests
-   make verify     # Full CI check (compile + test + verify)
+   make help
    ```
 
-   Or using Maven directly:
+   You can also invoke Maven directly if preferred:
    ```bash
    mvn clean compile
    mvn clean package -DskipTests
-   ```
-
-3. **Run Jenkins locally with the plugin:**
-   ```bash
-   make run        # Start Jenkins on http://localhost:8080/jenkins
-   make debug      # Start Jenkins with remote debugger on port 8000
-
-   # Or on a custom port via Maven
-   mvn hpi:run -Dport=5000
+   mvn hpi:run
    ```
 
 ### 2. Plugin Installation & Testing
@@ -70,6 +59,8 @@ This guide will help you get started with development and contribution.
    # Restart Jenkins
    ```
 
+> **Tip:** Run `make help` anytime to see all available build, test, and run targets.
+
 #### Plugin Configuration for Development
 
 1. **Navigate to Jenkins configuration:**
@@ -90,13 +81,8 @@ This guide will help you get started with development and contribution.
 
 ### Running Tests
 
-```bash
-make test           # Run unit tests
-make verify         # Run unit tests + integration/verify phase
-make package        # Build .hpi skipping tests (dev shortcut)
-```
+Use `make help` to see available test-related targets. You can also invoke Maven directly:
 
-Or using Maven directly:
 ```bash
 mvn test
 mvn verify
@@ -160,10 +146,7 @@ class AIServiceTest {
 - **Line length**: Maximum 120 characters
 - **Naming**: Use descriptive names for classes and methods
 
-To check for code quality issues:
-```bash
-make lint           # Checkstyle report + SpotBugs (report only, non-blocking)
-```
+To check for code quality issues, run `make help` to find the lint target and execute it.
 
 ### Architecture
 
@@ -207,11 +190,13 @@ src/main/java/io/jenkins/plugins/explain_error/
 ## Pull Request Process
 
 1. **Before submitting:**
-   - ✅ All tests pass (`make test`)
-   - ✅ Full verify passes (`make verify`)
-   - ✅ No new lint issues (`make lint`)
+   - ✅ All tests pass
+   - ✅ Full verify passes
+   - ✅ No new lint issues
    - ✅ Code follows style guidelines
    - ✅ Documentation updated
+
+   Run `make help` to see the relevant targets for each of the above steps.
 
 2. **PR checklist:**
    - [ ] Descriptive title and description
