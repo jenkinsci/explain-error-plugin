@@ -1,4 +1,4 @@
-.PHONY: help build test verify clean package run debug lint
+.PHONY: help build test verify clean package package-full run debug lint reinstall
 
 # Default target
 .DEFAULT_GOAL := help
@@ -30,8 +30,8 @@ run: ## Start Jenkins locally with the plugin (http://localhost:8080/jenkins)
 debug: ## Start Jenkins with remote debugger on port 8000 (attach anytime, does not block)
 	VSCODE_JDWP_ADAPTER_ENDPOINTS="" mvn hpi:run -Ddebug="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=localhost:8000"
 
-lint: ## Run Checkstyle (report only) and SpotBugs static analysis
-	mvn checkstyle:checkstyle spotbugs:check
+lint: ## Run Checkstyle and SpotBugs static analysis (report only, non-blocking)
+	mvn checkstyle:checkstyle spotbugs:spotbugs
 
-reinstall: clean package ## Clean, rebuild, and install .hpi locally
-	mvn install -DskipTests
+reinstall: ## Clean, rebuild, and install .hpi locally
+	mvn clean install -DskipTests

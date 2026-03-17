@@ -135,17 +135,6 @@ Use `provider.setThrowError(true)` to simulate failures, `provider.getLastCustom
 
 A `Makefile` is provided for convenience — run `make help` to list all targets.
 
-| Make target | Maven equivalent | Purpose |
-|---|---|---|
-| `make build` | `mvn compile` | Compile the plugin |
-| `make test` | `mvn test` | Run unit tests |
-| `make verify` | `mvn verify` | Full CI check |
-| `make package` | `mvn package -DskipTests` | Build .hpi file |
-| `make run` | `mvn hpi:run` | Start Jenkins with plugin |
-| `make debug` | `mvnDebug hpi:run` | Start Jenkins with remote debugger |
-| `make lint` | `mvn checkstyle:checkstyle spotbugs:check` | Static analysis (non-blocking) |
-| `make reinstall` | `mvn clean package install -DskipTests` | Clean rebuild + local install |
-
 ## Configuration & Usage
 
 ### Global Configuration

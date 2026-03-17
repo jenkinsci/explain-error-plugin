@@ -162,7 +162,7 @@ class AIServiceTest {
 
 To check for code quality issues:
 ```bash
-make lint           # Checkstyle report + SpotBugs (non-blocking)
+make lint           # Checkstyle report + SpotBugs (report only, non-blocking)
 ```
 
 ### Architecture
