@@ -23,7 +23,8 @@ class ExplainErrorStepConfigTest {
                 "    echo 'This is a test build'\n" +
                 "    echo 'ERROR: Something went wrong'\n" +
                 "    echo 'FAILED: Build failed'\n" +
-                "    explainError logPattern: 'ERROR|FAILED', maxLines: 50\n" +
+                "    explainError logPattern: 'ERROR|FAILED', maxLines: 50, "
+                + "collectDownstreamLogs: true, downstreamJobPattern: 'team/.+'\n" +
                 "}";
 
         job.setDefinition(new CpsFlowDefinition(pipelineScript, true));

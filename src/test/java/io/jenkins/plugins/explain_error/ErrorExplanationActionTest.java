@@ -34,7 +34,7 @@ class ErrorExplanationActionTest {
 
     @Test
     void testGetIconFileName() {
-        assertEquals("symbol-cube", action.getIconFileName());
+        assertEquals("symbol-sparkles-outline plugin-ionicons-api", action.getIconFileName());
     }
 
     @Test

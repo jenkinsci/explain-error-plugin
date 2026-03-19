@@ -1,0 +1,14 @@
+Regular expression matched against downstream job <strong>full names</strong>.
+<br/>
+<br/>
+This field is used only when <strong>Collect Downstream Logs</strong> is enabled.
+Jobs that do not match the pattern are skipped.
+<br/>
+<br/>
+Examples:
+<ul>
+  <li><code>team-folder/.*/deploy-.*</code> matches nested deploy jobs inside <code>team-folder</code></li>
+  <li><code>release-pipeline|hotfix-pipeline</code> matches either job name exactly</li>
+  <li><code>.*</code> matches all downstream jobs (use with caution)</li>
+</ul>
+Leave empty to collect no downstream jobs.

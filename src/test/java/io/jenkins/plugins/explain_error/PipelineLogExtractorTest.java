@@ -13,22 +13,38 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import hudson.console.AnnotatedLargeText;
+import hudson.model.Cause;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.Item;
+import hudson.model.Result;
+import hudson.model.Run;
+import hudson.model.User;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import jenkins.model.CauseOfInterruption;
+import jenkins.model.InterruptedBuildAction;
+import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
-import java.util.List;
-import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.jvnet.hudson.test.FailureBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.springframework.security.core.Authentication;
 
 /**
  * Integration tests for {@link PipelineLogExtractor}.
@@ -434,5 +450,456 @@ class PipelineLogExtractorTest {
         List<String> lines = assertDoesNotThrow(() -> extractor.getFailedStepLog());
         assertNotNull(lines);
         assertFalse(lines.isEmpty(), "Strategy 3 should find the echo output from the console log");
+    }
+
+    // -------------------------------------------------------------------------
+    // isAbortedByFailFast unit tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * isAbortedByFailFast — non-ABORTED result returns false immediately.
+     * A FAILURE build should never be considered a fail-fast abort regardless of
+     * any InterruptedBuildAction that might be attached.
+     */
+    @Test
+    void isAbortedByFailFast_nonAbortedResult_returnsFalse(JenkinsRule jenkins) {
+        @SuppressWarnings("unchecked")
+        Run<?, ?> mockRun = mock(Run.class);
+        when(mockRun.getResult()).thenReturn(Result.FAILURE);
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
+        assertFalse(extractor.isAbortedByFailFast(mockRun),
+                "A FAILURE build must not be treated as a fail-fast abort");
+    }
+
+    /**
+     * isAbortedByFailFast — ABORTED build with a cause whose description contains
+     * "fail fast" (case-insensitive) returns true.
+     */
+    @Test
+    void isAbortedByFailFast_abortedWithFailFastCause_returnsTrue(JenkinsRule jenkins) {
+        @SuppressWarnings("unchecked")
+        Run<?, ?> mockRun = mock(Run.class);
+        when(mockRun.getResult()).thenReturn(Result.ABORTED);
+
+        CauseOfInterruption failFastCause = mock(CauseOfInterruption.class);
+        when(failFastCause.getShortDescription()).thenReturn("Fail Fast: sibling branch failed");
+
+        InterruptedBuildAction action = new InterruptedBuildAction(List.of(failFastCause));
+        when(mockRun.getActions(InterruptedBuildAction.class)).thenReturn(List.of(action));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
+        assertTrue(extractor.isAbortedByFailFast(mockRun),
+                "An ABORTED build with a 'fail fast' cause description must return true");
+    }
+
+    /**
+     * isAbortedByFailFast — ABORTED build whose InterruptedBuildAction cause description
+     * does NOT contain "fail fast" returns false (e.g. a manual user abort).
+     */
+    @Test
+    void isAbortedByFailFast_abortedWithNonFailFastCause_returnsFalse(JenkinsRule jenkins) {
+        @SuppressWarnings("unchecked")
+        Run<?, ?> mockRun = mock(Run.class);
+        when(mockRun.getResult()).thenReturn(Result.ABORTED);
+
+        CauseOfInterruption userCause = mock(CauseOfInterruption.class);
+        when(userCause.getShortDescription()).thenReturn("Aborted by user admin");
+
+        InterruptedBuildAction action = new InterruptedBuildAction(List.of(userCause));
+        when(mockRun.getActions(InterruptedBuildAction.class)).thenReturn(List.of(action));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
+        assertFalse(extractor.isAbortedByFailFast(mockRun),
+                "A user-aborted build must not be treated as a fail-fast abort");
+    }
+
+    // -------------------------------------------------------------------------
+    // Downstream sub-job integration tests
+    // -------------------------------------------------------------------------
+
+    /**
+     * Downstream collection is opt-in: when the parent triggers a failing sub-job but
+     * downstream collection is not explicitly enabled, the sub-job's log must not appear.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_defaultOff_subJobFailureNotIncluded(JenkinsRule jenkins) throws Exception {
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-job-default-off");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"DEFAULT_OFF_MARKER\" && exit 1' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-default-off");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-job-default-off', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500);
+        List<String> lines = extractor.getFailedStepLog();
+        String log = String.join("\n", lines);
+
+        assertFalse(log.contains("DEFAULT_OFF_MARKER"),
+                "Downstream logs must be excluded unless explicitly enabled.\nActual log:\n" + log);
+        assertFalse(log.contains("### Downstream Job: sub-job-default-off"),
+                "No downstream section should be present when downstream collection is disabled.\nActual log:\n" + log);
+    }
+
+    /**
+     * Downstream sub-job FAILURE: when a parent pipeline triggers a sub-job via the
+     * {@code build} step and that sub-job fails, the parent's extracted log must contain
+     * a downstream section with {@code Result: FAILURE} and the sub-job's error output.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_subJobFailure_logIncludedWithFailureHeader(JenkinsRule jenkins) throws Exception {
+        // Create the sub-job that will fail
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-job-failure");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"SUB_JOB_ERROR_MARKER\" && exit 1' }", true));
+
+        // Create the parent pipeline that triggers the sub-job
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-triggers-failing-sub");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-job-failure', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-job-failure");
+        List<String> lines = extractor.getFailedStepLog();
+        String log = String.join("\n", lines);
+
+        assertTrue(log.contains("### Downstream Job: sub-job-failure"),
+                "Log must contain a downstream section header.\nActual log:\n" + log);
+        assertTrue(log.contains("Result: FAILURE"),
+                "Downstream section must be labelled Result: FAILURE.\nActual log:\n" + log);
+        assertTrue(log.contains("SUB_JOB_ERROR_MARKER"),
+                "Downstream section must include the sub-job's error output.\nActual log:\n" + log);
+    }
+
+    /**
+     * Downstream sub-job SUCCESS: when the triggered sub-job succeeds, no downstream
+     * section should be appended to the parent's extracted log.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_subJobSuccess_logNotIncluded(JenkinsRule jenkins) throws Exception {
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-job-success");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { echo 'SUB_JOB_SUCCESS_MARKER' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-triggers-passing-sub");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-job-success'\n"
+                + "sh 'echo \"PARENT_FAILURE\" && exit 1'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-job-success");
+        List<String> lines = extractor.getFailedStepLog();
+        String log = String.join("\n", lines);
+
+        assertFalse(log.contains("### Downstream Job: sub-job-success"),
+                "Successful sub-job must not produce a downstream section.\nActual log:\n" + log);
+    }
+
+    // -------------------------------------------------------------------------
+    // collectDownstreamLogs unit tests (depth guard, deduplication)
+    // -------------------------------------------------------------------------
+
+    /**
+     * MAX_DOWNSTREAM_DEPTH guard: when a PipelineLogExtractor is constructed at depth 5
+     * (the maximum), {@code collectDownstreamLogs} must return immediately without
+     * appending anything to the accumulated list.
+     */
+    @Test
+    void collectDownstreamLogs_atMaxDepth_appendsNothing(JenkinsRule jenkins) throws Exception {
+        // Use a real (successful) FreeStyleBuild so Jenkins.get() is available
+        FreeStyleProject project = jenkins.createFreeStyleProject("depth-guard-project");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        // Construct at depth = MAX (5) to verify the guard in collectDownstreamLogs
+        PipelineLogExtractor extractor = new PipelineLogExtractor(build, 200, 5);
+
+        List<String> accumulated = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        extractor.collectDownstreamLogs(accumulated, visited);
+
+        assertTrue(accumulated.isEmpty(),
+                "collectDownstreamLogs at MAX_DOWNSTREAM_DEPTH must not append any lines");
+    }
+
+    /**
+     * visitedRunIds deduplication: if a downstream run ID is already in the visited set,
+     * {@code collectDownstreamLogs} must not append its log a second time.
+     * <p>
+     * Verified by pre-populating visitedRunIds with the sub-job's ID before the parent
+     * run's extraction, then asserting the downstream section does not appear.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void collectDownstreamLogs_alreadyVisitedRunId_notAppendedTwice(JenkinsRule jenkins) throws Exception {
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-dedup");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"DEDUP_MARKER\" && exit 1' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-dedup");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-dedup', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        // Find the sub-job run that was triggered
+        WorkflowRun subRun = subJob.getLastBuild();
+        assertNotNull(subRun, "Sub-job must have been triggered");
+
+        // Pre-populate visitedRunIds with the sub-job's ID so it is treated as already seen
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-dedup");
+        // Call collectDownstreamLogs with a visited set that already contains both the parent
+        // and the sub-job → no downstream section should be added for the sub-job.
+        List<String> accumulated = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        visited.add(parentRun.getParent().getFullName() + "#" + parentRun.getNumber());
+        visited.add(subRun.getParent().getFullName() + "#" + subRun.getNumber());
+
+        extractor.collectDownstreamLogs(accumulated, visited);
+
+        String log = String.join("\n", accumulated);
+        assertFalse(log.contains("DEDUP_MARKER"),
+                "Already-visited sub-job must not be appended again.\nActual log:\n" + log);
+    }
+
+    /**
+     * Capacity guard: when {@code accumulated} has already reached {@code maxLines},
+     * {@code collectDownstreamLogs} must return immediately instead of scanning jobs/builds.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void collectDownstreamLogs_atCapacity_skipsDownstreamScan(JenkinsRule jenkins) throws Exception {
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-capacity-guard");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"CAPACITY_GUARD_MARKER\" && exit 1' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-capacity-guard");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-capacity-guard', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 1, true, "sub-capacity-guard");
+        List<String> accumulated = new ArrayList<>();
+        accumulated.add("already full");
+        Set<String> visited = new HashSet<>();
+        visited.add(parentRun.getParent().getFullName() + "#" + parentRun.getNumber());
+
+        extractor.collectDownstreamLogs(accumulated, visited);
+
+        assertEquals(List.of("already full"), accumulated,
+                "No downstream content should be appended after maxLines is already reached");
+    }
+
+    // -------------------------------------------------------------------------
+    // Fast-path: reuse ErrorExplanationAction from sub-job
+    // -------------------------------------------------------------------------
+
+    /**
+     * Fast path — sub-job has ErrorExplanationAction: when the downstream run already
+     * carries an {@link ErrorExplanationAction} (i.e. it called {@code explainError()}),
+     * the parent's extracted log must contain the pre-computed explanation text wrapped in
+     * the "[AI explanation from sub-job]" marker, and must NOT contain raw log lines from
+     * the sub-job (no redundant log extraction).
+     * <p>
+     * Strategy: run the parent pipeline first (which triggers the sub-job), then attach an
+     * {@link ErrorExplanationAction} to the sub-job run that was actually triggered, and
+     * finally re-run {@link PipelineLogExtractor} on the parent run to verify the fast path.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_subJobHasExplanationAction_explanationReusedInsteadOfRawLog(JenkinsRule jenkins) throws Exception {
+        // Sub-job: fails but does NOT call explainError() yet
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-with-explanation");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"RAW_SUB_LOG_SHOULD_NOT_APPEAR\" && exit 1' }", true));
+
+        // Parent pipeline: triggers the sub-job
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-reuses-explanation");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-with-explanation', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        // Find the sub-job run that was triggered by the parent
+        WorkflowRun subRun = subJob.getLastBuild();
+        assertNotNull(subRun, "Sub-job must have been triggered");
+
+        // Simulate the sub-job having called explainError() by attaching an ErrorExplanationAction
+        subRun.addOrReplaceAction(new ErrorExplanationAction(
+                "SUB_JOB_AI_EXPLANATION: null pointer in Foo.bar()",
+                "http://localhost/job/sub-with-explanation/1/console",
+                "raw logs",
+                "Test"));
+        subRun.save();
+
+        // Now extract logs from the parent — the fast path should kick in
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-with-explanation");
+        List<String> lines = extractor.getFailedStepLog();
+        String log = String.join("\n", lines);
+
+        // The pre-computed explanation must appear
+        assertTrue(log.contains("[AI explanation from sub-job]"),
+                "Log must contain the fast-path marker.\nActual log:\n" + log);
+        assertTrue(log.contains("SUB_JOB_AI_EXPLANATION"),
+                "Log must contain the sub-job's explanation text.\nActual log:\n" + log);
+        // Raw log lines from the sub-job's sh step must NOT be extracted again
+        assertFalse(log.contains("RAW_SUB_LOG_SHOULD_NOT_APPEAR"),
+                "Raw sub-job log lines must not appear when explanation is reused.\nActual log:\n" + log);
+    }
+
+    /**
+     * Slow path — sub-job has no ErrorExplanationAction: when the downstream run has no
+     * {@link ErrorExplanationAction}, the parent falls back to raw log extraction and the
+     * sub-job's error output appears directly (no "[AI explanation from sub-job]" marker).
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_subJobHasNoExplanationAction_rawLogExtractedAsFallback(JenkinsRule jenkins) throws Exception {
+        // Sub-job: fails but does NOT call explainError() — no ErrorExplanationAction
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-no-explanation");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"RAW_FALLBACK_MARKER\" && exit 1' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-fallback-to-raw");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-no-explanation', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-no-explanation");
+        List<String> lines = extractor.getFailedStepLog();
+        String log = String.join("\n", lines);
+
+        // Raw log must be present
+        assertTrue(log.contains("RAW_FALLBACK_MARKER"),
+                "Slow path must extract raw sub-job log.\nActual log:\n" + log);
+        // Fast-path marker must NOT appear
+        assertFalse(log.contains("[AI explanation from sub-job]"),
+                "Fast-path marker must not appear when no explanation exists.\nActual log:\n" + log);
+    }
+
+    /**
+     * Downstream regex filter: when downstream collection is enabled but the job name
+     * does not match the configured pattern, the sub-job log must be skipped.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_patternMismatch_subJobFailureNotIncluded(JenkinsRule jenkins) throws Exception {
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "sub-job-pattern-miss");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"PATTERN_MISS_MARKER\" && exit 1' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "parent-pattern-miss");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'sub-job-pattern-miss', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "other-job-.*");
+        List<String> lines = extractor.getFailedStepLog();
+        String log = String.join("\n", lines);
+
+        assertFalse(log.contains("PATTERN_MISS_MARKER"),
+                "Sub-job logs must be skipped when the job name does not match the regex.\nActual log:\n" + log);
+        assertFalse(log.contains("### Downstream Job: sub-job-pattern-miss"),
+                "No downstream section should be present for non-matching jobs.\nActual log:\n" + log);
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void downstream_invisibleBuildStepJob_replacedWithHiddenPlaceholder(JenkinsRule jenkins) throws Exception {
+        Authentication viewer = configureReadAccess(jenkins, "viewer-build-step");
+
+        WorkflowJob subJob = jenkins.createProject(WorkflowJob.class, "hidden-build-step-sub");
+        subJob.setDefinition(new CpsFlowDefinition(
+                "node { sh 'echo \"HIDDEN_BUILD_STEP_MARKER\" && exit 1' }", true));
+
+        WorkflowJob parentJob = jenkins.createProject(WorkflowJob.class, "visible-build-step-parent");
+        parentJob.setDefinition(new CpsFlowDefinition(
+                "build job: 'hidden-build-step-sub', propagate: false\n"
+                + "currentBuild.result = 'FAILURE'",
+                true));
+
+        grantItemRead(jenkins, "viewer-build-step", parentJob);
+
+        WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
+
+        String log;
+        try (ACLContext ignored = ACL.as2(viewer)) {
+            PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, viewer, true,
+                    "hidden-build-step-sub");
+            log = String.join("\n", extractor.getFailedStepLog());
+        }
+
+        assertTrue(log.contains("### Downstream Job: [hidden] ###"),
+                "Unreadable downstream jobs should be represented by a hidden placeholder.\nActual log:\n" + log);
+        assertTrue(log.contains("Downstream failure details omitted due to permissions."),
+                "Hidden placeholder should explain why downstream details are missing.\nActual log:\n" + log);
+        assertFalse(log.contains("HIDDEN_BUILD_STEP_MARKER"),
+                "Hidden downstream logs must not be exposed.\nActual log:\n" + log);
+    }
+
+    @Test
+    void downstream_invisibleUpstreamCauseJob_skippedByVisibilityFilter(JenkinsRule jenkins) throws Exception {
+        Authentication viewer = configureReadAccess(jenkins, "viewer-upstream-cause");
+
+        FreeStyleProject parentJob = jenkins.createFreeStyleProject("visible-upstream-parent");
+        grantItemRead(jenkins, "viewer-upstream-cause", parentJob);
+        FreeStyleBuild parentRun = jenkins.buildAndAssertSuccess(parentJob);
+
+        FreeStyleProject hiddenSubJob = jenkins.createFreeStyleProject("hidden-upstream-sub");
+        hiddenSubJob.getBuildersList().add(new FailureBuilder());
+        FreeStyleBuild hiddenSubRun = jenkins.assertBuildStatus(Result.FAILURE,
+                hiddenSubJob.scheduleBuild2(0, new Cause.UpstreamCause(parentRun)));
+        assertNotNull(hiddenSubRun, "Hidden downstream build should be created");
+
+        String log;
+        try (ACLContext ignored = ACL.as2(viewer)) {
+            PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, viewer, true,
+                    "hidden-upstream-sub");
+            log = String.join("\n", extractor.getFailedStepLog());
+        }
+
+        assertFalse(log.contains("### Downstream Job:"),
+                "UpstreamCause fallback should skip unreadable downstream jobs entirely.\nActual log:\n" + log);
+    }
+
+    private Authentication configureReadAccess(JenkinsRule jenkins, String username) {
+        jenkins.jenkins.setSecurityRealm(jenkins.createDummySecurityRealm());
+        MockAuthorizationStrategy strategy = new MockAuthorizationStrategy()
+                .grant(Jenkins.READ)
+                .everywhere()
+                .to(username);
+        jenkins.jenkins.setAuthorizationStrategy(strategy);
+        return User.getById(username, true).impersonate2();
+    }
+
+    private void grantItemRead(JenkinsRule jenkins, String username, Item item) {
+        MockAuthorizationStrategy strategy = (MockAuthorizationStrategy) jenkins.jenkins.getAuthorizationStrategy();
+        strategy.grant(Item.READ).onItems(item).to(username);
+        jenkins.jenkins.setAuthorizationStrategy(strategy);
     }
 }

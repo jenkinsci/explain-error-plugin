@@ -4,6 +4,7 @@ import hudson.Extension;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import java.util.Set;
+import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -21,12 +22,17 @@ public class ExplainErrorStep extends Step {
     private int maxLines;
     private String language;
     private String customContext;
+    private boolean collectDownstreamLogs;
+    private String downstreamJobPattern;
 
     @DataBoundConstructor
     public ExplainErrorStep() {
         this.logPattern = "";
         this.maxLines = 100;
         this.language = "";
+        this.customContext = "";
+        this.collectDownstreamLogs = false;
+        this.downstreamJobPattern = "";
     }
 
     public String getLogPattern() {
@@ -63,6 +69,24 @@ public class ExplainErrorStep extends Step {
     @DataBoundSetter
     public void setCustomContext(String customContext) {
         this.customContext = customContext != null ? customContext : "";
+    }
+
+    public boolean isCollectDownstreamLogs() {
+        return collectDownstreamLogs;
+    }
+
+    @DataBoundSetter
+    public void setCollectDownstreamLogs(boolean collectDownstreamLogs) {
+        this.collectDownstreamLogs = collectDownstreamLogs;
+    }
+
+    public String getDownstreamJobPattern() {
+        return downstreamJobPattern;
+    }
+
+    @DataBoundSetter
+    public void setDownstreamJobPattern(String downstreamJobPattern) {
+        this.downstreamJobPattern = downstreamJobPattern != null ? downstreamJobPattern : "";
     }
 
     @Override
@@ -105,7 +129,9 @@ public class ExplainErrorStep extends Step {
             TaskListener listener = getContext().get(TaskListener.class);
 
             ErrorExplainer explainer = new ErrorExplainer();
-            String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(), step.getLanguage(), step.getCustomContext());
+            String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
+                    step.getLanguage(), step.getCustomContext(), step.isCollectDownstreamLogs(),
+                    step.getDownstreamJobPattern(), Jenkins.getAuthentication2());
 
             return explanation;
         }

@@ -2,7 +2,9 @@ package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
@@ -18,6 +20,54 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
 class ErrorExplainerTest {
+
+    @Test
+    void filterErrorLogs_preservesEntireDownstreamSectionWhenPatternIsUsed() {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+
+        String filtered = errorExplainer.filterErrorLogs(java.util.List.of(
+                "parent info line",
+                "ERROR: upstream failed",
+                "### Downstream Job: team-folder/sub-job #12 ###",
+                "Result: FAILURE",
+                "--- LOG CONTENT ---",
+                "[AI explanation from sub-job]",
+                "Root cause: dependency mismatch",
+                "### END OF DOWNSTREAM JOB: team-folder/sub-job ###",
+                "non matching tail"
+        ), "ERROR");
+
+        assertTrue(filtered.contains("ERROR: upstream failed"));
+        assertTrue(filtered.contains("### Downstream Job: team-folder/sub-job #12 ###"));
+        assertTrue(filtered.contains("[AI explanation from sub-job]"));
+        assertTrue(filtered.contains("Root cause: dependency mismatch"));
+        assertTrue(filtered.contains("### END OF DOWNSTREAM JOB: team-folder/sub-job ###"));
+        assertFalse(filtered.contains("parent info line"));
+        assertFalse(filtered.contains("non matching tail"));
+    }
+
+    @Test
+    void filterErrorLogs_keepsOnlyMatchingUpstreamLinesOutsideDownstreamSections() {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+
+        String filtered = errorExplainer.filterErrorLogs(java.util.List.of(
+                "upstream info",
+                "Exception: upstream failure",
+                "upstream debug",
+                "### Downstream Job: team-folder/sub-job #9 ###",
+                "Result: FAILURE",
+                "--- LOG CONTENT ---",
+                "sub-job debug line",
+                "### END OF DOWNSTREAM JOB: team-folder/sub-job ###",
+                "upstream trailing info"
+        ), "Exception");
+
+        assertFalse(filtered.contains("upstream info"));
+        assertTrue(filtered.contains("Exception: upstream failure"));
+        assertFalse(filtered.contains("upstream debug"));
+        assertTrue(filtered.contains("sub-job debug line"));
+        assertFalse(filtered.contains("upstream trailing info"));
+    }
 
     @Test
     void testErrorExplainerBasicFunctionality(JenkinsRule jenkins) throws Exception {

@@ -50,7 +50,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 ### Prerequisites
 
-- Jenkins 2.479.3+
+- Jenkins (2.528.3) or higher required
 - Java 17+
 - AI API Key (OpenAI or Google)
 
@@ -240,6 +240,8 @@ post {
 | **logPattern** | Regex pattern to filter relevant log lines          | `''` (no filtering) |
 | **language** | Language for the explanation                          | `'English'`         |
 | **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
+| **collectDownstreamLogs** | Whether to include logs from failed downstream jobs discovered via the `build` step or `Cause.UpstreamCause` | `false` |
+| **downstreamJobPattern** | Regular expression matched against downstream job full names. Used only when downstream collection is enabled. | `''` (collect none) |
 
 ```groovy
 explainError(
@@ -254,6 +256,18 @@ explainError(
   '''
 )
 ```
+
+To include downstream failures, opt in explicitly and limit collection with a regex:
+
+```groovy
+explainError(
+  collectDownstreamLogs: true,
+  downstreamJobPattern: 'team-folder/.*/deploy-.*'
+)
+```
+
+This keeps the default behavior fast and predictable on large controllers. Only downstream jobs
+whose full name matches `downstreamJobPattern` are scanned and included in the AI analysis.
 
 Output appears in the sidebar of the failed job.
 
@@ -275,7 +289,7 @@ Works with Freestyle, Declarative, or any job type.
 |-------|----------|
 |API key not set	| Add your key in Jenkins global config |
 |Auth or rate limit error| Check key validity, quota, and provider plan |
-|Button not visible	| Ensure Jenkins version ≥ 2.479.3, restart Jenkins after installation |
+|Button not visible	| Ensure Jenkins version ≥ 2.528.3, restart Jenkins after installation |
 
 Enable debug logs:
 

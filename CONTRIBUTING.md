@@ -10,7 +10,7 @@ This guide will help you get started with development and contribution.
 
 - **Java**: Version 17 or later
 - **Maven**: Version 3.9 or later
-- **Jenkins**: Version 2.479.3 or later for testing
+- **Jenkins**: Version 2.528.3 or later for testing
 - **Git**: For version control
 - **IDE**: IntelliJ IDEA or VS Code recommended
 
@@ -24,27 +24,10 @@ This guide will help you get started with development and contribution.
 
 2. **Build the plugin:**
 
+   A `Makefile` is provided for convenience. Run the following to see all available targets and their descriptions:
+
    ```bash
-   # Clean and compile
-   mvn clean compile
-   
-   # Package the plugin
-   mvn clean package
-
-   # Package without running tests (useful for development)
-   mvn clean package -DskipTests
-   ```
-
-3. **Run Jenkins locally with the plugin:**
-   ```bash
-   # Start Jenkins on http://localhost:8080
-   mvn hpi:run
-   
-   # Or on a custom port
-   mvn hpi:run -Dport=5000
-
-   # check for code quality issues
-   mvn spotbugs:check
+   make help
    ```
 
 ### 2. Plugin Installation & Testing
@@ -53,7 +36,7 @@ This guide will help you get started with development and contribution.
 
 1. **Build the plugin:**
    ```bash
-   mvn clean package -DskipTests
+   make package
    ```
 
 2. **Install in Jenkins:**
@@ -67,6 +50,8 @@ This guide will help you get started with development and contribution.
    cp target/explain-error.hpi $JENKINS_HOME/plugins/
    # Restart Jenkins
    ```
+
+> **Tip:** Run `make help` anytime to see all available build, test, and run targets.
 
 #### Plugin Configuration for Development
 
@@ -88,16 +73,7 @@ This guide will help you get started with development and contribution.
 
 ### Running Tests
 
-```bash
-# Run unit tests
-mvn test
-
-# Run integration tests
-mvn verify
-
-# Skip tests during development (not recommended for PRs)
-mvn clean package -DskipTests
-```
+Run `make help` to see all available test-related targets.
 
 ### Writing Tests
 
@@ -156,6 +132,8 @@ class AIServiceTest {
 - **Line length**: Maximum 120 characters
 - **Naming**: Use descriptive names for classes and methods
 
+To check for code quality issues, run `make help` to find the lint target and execute it.
+
 ### Architecture
 
 The plugin follows these patterns:
@@ -199,8 +177,12 @@ src/main/java/io/jenkins/plugins/explain_error/
 
 1. **Before submitting:**
    - ✅ All tests pass
+   - ✅ Full verify passes
+   - ✅ No new lint issues
    - ✅ Code follows style guidelines
    - ✅ Documentation updated
+
+   Run `make help` to see the relevant targets for each of the above steps.
 
 2. **PR checklist:**
    - [ ] Descriptive title and description

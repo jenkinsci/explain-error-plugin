@@ -66,7 +66,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 
 ### AI Service Integration
 - All AI services extend `BaseAIProvider` and implement `ExtensionPoint`
-- LangChain4j integration (v1.9.1) for OpenAI, Gemini, AWS Bedrock, and Ollama providers
+- LangChain4j integration (v1.11.0) for OpenAI, Gemini, AWS Bedrock, and Ollama providers
 - Structured output parsing using `JenkinsLogAnalysis` record with `@Description` annotations
 - Each provider implements `createAssistant()` to build LangChain4j assistants
 - Provider descriptors extend `BaseProviderDescriptor` with `@Symbol` annotations for CasC
@@ -123,19 +123,17 @@ Use `provider.setThrowError(true)` to simulate failures, `provider.getLastCustom
 ## Build & Dependencies
 
 ### Maven Configuration
-- Jenkins baseline: 2.479.3
+- Jenkins baseline: 2.528.3
 - Java 17+ required
-- LangChain4j: v1.9.1 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-bedrock, langchain4j-ollama)
+- LangChain4j: v1.11.0 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-bedrock, langchain4j-ollama)
 - Key Jenkins dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 - SLF4J and Jackson exclusions to avoid conflicts with Jenkins core
 - Test dependencies: `workflow-cps`, `workflow-job`, `workflow-durable-task-step`, `workflow-basic-steps`, `test-harness`
 - Key dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 
 ### Commands
-- `mvn compile` - Compile the plugin
-- `mvn test` - Run unit tests
-- `mvn hpi:run` - Start Jenkins with plugin for testing
-- `mvn package` - Build .hpi file
+
+A `Makefile` is provided for convenience — run `make help` to list all targets.
 
 ## Configuration & Usage
 

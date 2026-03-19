@@ -19,4 +19,14 @@
              description="Additional instructions or context for the AI. Overrides the global custom context if specified. Leave empty to use global configuration.">
         <f:textarea />
     </f:entry>
+
+    <f:entry title="Collect Downstream Logs" field="collectDownstreamLogs"
+             description="Include logs from failed downstream jobs only when explicitly enabled. Disabled by default.">
+        <f:checkbox />
+    </f:entry>
+
+    <f:entry title="Downstream Job Pattern" field="downstreamJobPattern"
+             description="Regular expression matched against downstream job full names. Used only when downstream collection is enabled.">
+        <f:textbox />
+    </f:entry>
 </j:jelly>

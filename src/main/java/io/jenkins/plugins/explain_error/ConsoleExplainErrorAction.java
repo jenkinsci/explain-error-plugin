@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import hudson.model.Result;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
+import jenkins.model.Jenkins;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
@@ -88,7 +89,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             }
 
             // Fetch the last N lines of the log
-            PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines);
+            PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
+                    false, null);
             List<String> logLines = logExtractor.getFailedStepLog();
             this.urlString = logExtractor.getUrl();
 

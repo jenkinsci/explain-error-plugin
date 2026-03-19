@@ -9,16 +9,20 @@ import hudson.model.TaskListener;
 import hudson.util.LogTaskListener;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.security.core.Authentication;
 
 /**
  * Service class responsible for explaining errors using AI.
  */
 public class ErrorExplainer {
+    static final String DOWNSTREAM_SECTION_START = "### Downstream Job: ";
+    static final String DOWNSTREAM_SECTION_END = "### END OF DOWNSTREAM JOB: ";
 
     private String providerName;
     private String urlString;
@@ -30,14 +34,26 @@ public class ErrorExplainer {
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
-        return explainError(run, listener, logPattern, maxLines, null, null);
+        return explainError(run, listener, logPattern, maxLines, null, null, false, null, null);
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language) {
-        return explainError(run, listener, logPattern, maxLines, language, null);
+        return explainError(run, listener, logPattern, maxLines, language, null, false, null, null);
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language, String customContext) {
+        return explainError(run, listener, logPattern, maxLines, language, customContext, false, null, null);
+    }
+
+    public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
+                               String customContext, boolean collectDownstreamLogs, String downstreamJobPattern) {
+        return explainError(run, listener, logPattern, maxLines, language, customContext,
+                collectDownstreamLogs, downstreamJobPattern, null);
+    }
+
+    String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
+                        String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
+                        Authentication authentication) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         try {
             // Check if explanation is enabled (folder-level or global)
@@ -54,7 +70,8 @@ public class ErrorExplainer {
             }
 
             // Extract error logs
-            String errorLogs = extractErrorLogs(run, logPattern, maxLines);
+            String errorLogs = extractErrorLogs(run, logPattern, maxLines, collectDownstreamLogs,
+                    downstreamJobPattern, authentication);
 
             // Use step-level customContext if provided, otherwise fallback to global
             String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
@@ -83,26 +100,49 @@ public class ErrorExplainer {
         }
     }
 
-    private String extractErrorLogs(Run<?, ?> run, String logPattern, int maxLines) throws IOException {
-        PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines);
+    private String extractErrorLogs(Run<?, ?> run, String logPattern, int maxLines,
+                                    boolean collectDownstreamLogs, String downstreamJobPattern,
+                                    Authentication authentication) throws IOException {
+        PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, authentication,
+                collectDownstreamLogs, downstreamJobPattern);
         List<String> logLines =  logExtractor.getFailedStepLog();
         this.urlString = logExtractor.getUrl();
 
+        return filterErrorLogs(logLines, logPattern);
+    }
+
+    String filterErrorLogs(List<String> logLines, String logPattern) {
         if (StringUtils.isBlank(logPattern)) {
-            // Return last few lines if no pattern specified
             return String.join("\n", logLines);
         }
 
         Pattern pattern = Pattern.compile(logPattern, Pattern.CASE_INSENSITIVE);
-        StringBuilder errorLogs = new StringBuilder();
+        List<String> filteredLines = new ArrayList<>();
+        boolean inDownstreamSection = false;
 
         for (String line : logLines) {
-            if (pattern.matcher(line).find()) {
-                errorLogs.append(line).append("\n");
+            if (isDownstreamSectionStart(line)) {
+                inDownstreamSection = true;
+            }
+
+            if (inDownstreamSection || pattern.matcher(line).find()) {
+                filteredLines.add(line);
+            }
+
+            if (inDownstreamSection && isDownstreamSectionEnd(line)) {
+                inDownstreamSection = false;
             }
         }
 
-        return errorLogs.toString();
+        return String.join("\n", filteredLines);
+    }
+
+    private boolean isDownstreamSectionStart(String line) {
+        return line != null && line.startsWith(DOWNSTREAM_SECTION_START);
+    }
+
+    private boolean isDownstreamSectionEnd(String line) {
+        return line != null && line.startsWith(DOWNSTREAM_SECTION_END);
     }
 
     /**

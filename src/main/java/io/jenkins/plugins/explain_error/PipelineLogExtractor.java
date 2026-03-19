@@ -1,5 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
+import com.google.common.annotations.VisibleForTesting;
+import hudson.model.Item;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
@@ -12,10 +14,15 @@ import org.jenkinsci.plugins.workflow.actions.WarningAction;
 
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
+import hudson.model.Cause;
 import hudson.model.Result;
 import hudson.model.Run;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
+import jenkins.model.CauseOfInterruption;
+import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
-
+import org.springframework.security.core.Authentication;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
@@ -31,7 +38,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Utility for extracting log lines related to a failing build or pipeline step
@@ -53,10 +63,32 @@ public class PipelineLogExtractor {
     private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
     public static final String URL_NAME = "stages";
 
+    /**
+     * Pattern to detect error-related content in build logs.
+     * Matches common error indicators: error(s), exception(s), failed, fatal (case-insensitive).
+     */
+    private static final Pattern ERROR_PATTERN = Pattern.compile(
+            "(?i)\\b(errors?|exceptions?|failed|fatal)\\b",
+            Pattern.MULTILINE
+    );
+
+    /** Lines of context to include before and after each error-pattern match. */
+    private static final int ERROR_CONTEXT_LINES = 5;
+
+    /** Maximum recursion depth when following downstream (sub-job) failures. */
+    private static final int MAX_DOWNSTREAM_DEPTH = 5;
+
+    /** Hard cap for recent builds scanned per job when falling back to UpstreamCause lookup. */
+    private static final int MAX_UPSTREAM_CAUSE_CANDIDATES_PER_JOB = 100;
+
     private boolean isGraphViewPluginAvailable = false;
     private transient String url;
     private transient Run<?, ?> run;
     private int maxLines;
+    private int downstreamDepth;
+    private final boolean collectDownstreamLogs;
+    private final Pattern downstreamJobPattern;
+    private final Authentication authentication;
 
     /**
      * Reads the provided log text and returns at most the last {@code maxLines} lines.
@@ -327,12 +359,20 @@ public class PipelineLogExtractor {
 
         if (!accumulated.isEmpty()) {
             setUrl(primaryNodeId != null ? primaryNodeId : "0");
-            return accumulated;
+        } else {
+            // Final fallback: last N lines of the full build console log
+            setUrl("0");
+            accumulated.addAll(run.getLog(maxLines));
         }
 
-        // Final fallback: last N lines of the full build console log
-        setUrl("0");
-        return run.getLog(maxLines);
+        // Collect logs from failed downstream (sub-job) builds, recursively
+        if (collectDownstreamLogs && downstreamDepth == 0) {
+            Set<String> visitedRunIds = new HashSet<>();
+            visitedRunIds.add(run.getParent().getFullName() + "#" + run.getNumber());
+            collectDownstreamLogs(accumulated, visitedRunIds);
+        }
+
+        return accumulated;
     }
 
     /**
@@ -377,10 +417,374 @@ public class PipelineLogExtractor {
 
     public PipelineLogExtractor(Run<?, ?> run, int maxLines)
     {
+        this(run, maxLines, Jenkins.getAuthentication2(), false, null);
+    }
+
+    public PipelineLogExtractor(Run<?, ?> run, int maxLines, boolean collectDownstreamLogs, String downstreamJobPattern)
+    {
+        this(run, maxLines, Jenkins.getAuthentication2(), collectDownstreamLogs, downstreamJobPattern);
+    }
+
+    PipelineLogExtractor(Run<?, ?> run, int maxLines, Authentication authentication,
+                         boolean collectDownstreamLogs, String downstreamJobPattern)
+    {
+        this(run, maxLines, 0, authentication, collectDownstreamLogs,
+                compileDownstreamJobPattern(collectDownstreamLogs, downstreamJobPattern));
+    }
+
+    @VisibleForTesting
+    PipelineLogExtractor(Run<?, ?> run, int maxLines, int downstreamDepth)
+    {
+        this(run, maxLines, downstreamDepth, Jenkins.getAuthentication2(), true, Pattern.compile(".*"));
+    }
+
+    private PipelineLogExtractor(Run<?, ?> run, int maxLines, int downstreamDepth, Authentication authentication,
+                                 boolean collectDownstreamLogs,
+                                 Pattern downstreamJobPattern)
+    {
         this.run = run;
         this.maxLines = maxLines;
+        this.downstreamDepth = downstreamDepth;
+        this.collectDownstreamLogs = collectDownstreamLogs;
+        this.downstreamJobPattern = downstreamJobPattern;
+        this.authentication = authentication != null ? authentication : Jenkins.getAuthentication2();
         if (Jenkins.get().getPlugin("pipeline-graph-view") != null) {
             isGraphViewPluginAvailable = true;
+        }
+    }
+
+    private static Pattern compileDownstreamJobPattern(boolean collectDownstreamLogs, String downstreamJobPattern) {
+        if (!collectDownstreamLogs || downstreamJobPattern == null || downstreamJobPattern.isBlank()) {
+            return null;
+        }
+        try {
+            return Pattern.compile(downstreamJobPattern);
+        } catch (PatternSyntaxException e) {
+            LOGGER.log(Level.WARNING, "Invalid downstream job pattern \"{0}\". Downstream logs will not be collected.", downstreamJobPattern);
+            return null;
+        }
+    }
+
+    /**
+     * Collects error logs from failed downstream (sub-job) builds triggered by this run.
+     * <p>
+     * Supports two discovery mechanisms:
+     * <ol>
+     *   <li><b>DownstreamBuildAction</b> (pipeline-build-step plugin): reads the
+     *       {@link org.jenkinsci.plugins.workflow.support.steps.build.DownstreamBuildAction}
+     *       attached to the current run to find builds triggered by the {@code build} step.</li>
+     *   <li><b>Cause.UpstreamCause</b>: scans all jobs in Jenkins for builds whose
+     *       {@link Cause.UpstreamCause} points back to this run. This covers cases where
+     *       the pipeline-build-step plugin is not installed.</li>
+     * </ol>
+     * Recursion is bounded by {@link #MAX_DOWNSTREAM_DEPTH} to prevent infinite loops.
+     *
+     * @param accumulated the list to append downstream log lines into
+     * @param visitedRunIds set of already-visited run IDs (job full name + "#" + build number)
+     *                      used to prevent duplicate processing across recursive calls
+     */
+    void collectDownstreamLogs(List<String> accumulated, Set<String> visitedRunIds) {
+        boolean foundViaDownstreamBuildAction = false;
+        String runId = run.getParent().getFullName() + "#" + run.getNumber();
+        if (!collectDownstreamLogs || downstreamJobPattern == null
+                || downstreamDepth >= MAX_DOWNSTREAM_DEPTH || !hasRemainingCapacity(accumulated)) {
+            return;
+        }
+
+        // Strategy A: DownstreamBuildAction (pipeline-build-step plugin)
+        if (Jenkins.get().getPlugin("pipeline-build-step") != null) {
+            try {
+                foundViaDownstreamBuildAction = collectViaDownstreamBuildAction(accumulated, visitedRunIds);
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING,
+                        "Failed to collect downstream logs via DownstreamBuildAction for " + runId, e);
+            }
+        }
+
+        if (foundViaDownstreamBuildAction || !hasRemainingCapacity(accumulated)) {
+            return;
+        }
+
+        // Strategy B: Cause.UpstreamCause — scan builds that list this run as upstream
+        try {
+            collectViaUpstreamCause(accumulated, visitedRunIds);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING,
+                    "Failed to collect downstream logs via UpstreamCause for " + runId, e);
+        }
+    }
+
+    /**
+     * Discovers failed downstream builds via
+     * {@link org.jenkinsci.plugins.workflow.support.steps.build.DownstreamBuildAction}
+     * and appends their logs to {@code accumulated}.
+     */
+    private boolean collectViaDownstreamBuildAction(List<String> accumulated, Set<String> visitedRunIds) throws IOException {
+        org.jenkinsci.plugins.workflow.support.steps.build.DownstreamBuildAction action =
+                run.getAction(org.jenkinsci.plugins.workflow.support.steps.build.DownstreamBuildAction.class);
+        if (action == null) {
+            return false;
+        }
+        boolean foundMatchingDownstream = false;
+        for (org.jenkinsci.plugins.workflow.support.steps.build.DownstreamBuildAction.DownstreamBuild db : action.getDownstreamBuilds()) {
+            if (!hasRemainingCapacity(accumulated)) {
+                return foundMatchingDownstream;
+            }
+            String jobFullName = db.getJobFullName();
+            if (!matchesDownstreamJob(jobFullName)) {
+                continue;
+            }
+            Run<?, ?> downstreamRun;
+            try (ACLContext ignored = ACL.as2(ACL.SYSTEM2)) {
+                downstreamRun = db.getBuild();
+            }
+            if (downstreamRun == null) {
+                continue;
+            }
+            foundMatchingDownstream = true;
+            appendDownstreamRunLog(downstreamRun, accumulated, visitedRunIds);
+        }
+        return foundMatchingDownstream;
+    }
+
+    /**
+     * Discovers failed downstream builds by scanning all jobs for builds whose
+     * {@link Cause.UpstreamCause} points to this run, and appends their logs to
+     * {@code accumulated}.
+     */
+    private void collectViaUpstreamCause(List<String> accumulated, Set<String> visitedRunIds) throws IOException {
+        String thisJobName = run.getParent().getFullName();
+        int thisBuildNumber = run.getNumber();
+        long thisBuildStartTime = run.getTimeInMillis();
+
+        try (ACLContext ignored = ACL.as2(authentication)) {
+            for (hudson.model.Job<?, ?> job : Jenkins.get().getAllItems(hudson.model.Job.class)) {
+                if (!hasRemainingCapacity(accumulated)) {
+                    return;
+                }
+                if (!job.hasPermission(Item.READ) || !matchesDownstreamJob(job.getFullName())) {
+                    continue;
+                }
+                // Skip the current job itself
+                if (job.getFullName().equals(thisJobName)) {
+                    continue;
+                }
+                Run<?, ?> lastBuild = job.getLastBuild();
+                if (lastBuild == null) {
+                    continue;
+                }
+                int scannedCandidates = 0;
+                // Walk recent builds of this job to find ones triggered by our run
+                for (Run<?, ?> candidate = lastBuild; candidate != null; candidate = candidate.getPreviousBuild()) {
+                    if (!hasRemainingCapacity(accumulated) || scannedCandidates >= MAX_UPSTREAM_CAUSE_CANDIDATES_PER_JOB) {
+                        break;
+                    }
+                    scannedCandidates++;
+                    // Only look at builds that could have been triggered by our run
+                    if (candidate.getTimeInMillis() < thisBuildStartTime) {
+                        break;
+                    }
+                    for (Cause cause : candidate.getCauses()) {
+                        if (cause instanceof Cause.UpstreamCause) {
+                            Cause.UpstreamCause upstreamCause = (Cause.UpstreamCause) cause;
+                            if (upstreamCause.getUpstreamProject().equals(thisJobName)
+                                    && upstreamCause.getUpstreamBuild() == thisBuildNumber) {
+                                appendDownstreamRunLog(candidate, accumulated, visitedRunIds);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns {@code true} if the given run was aborted because a sibling branch triggered
+     * a fail-fast interruption (e.g. via {@code parallelsAlwaysFailFast()} or
+     * {@code parallel(failFast: true, ...)}).
+     * <p>
+     * Jenkins records the interruption cause in an {@link InterruptedBuildAction} attached to
+     * the run. When the cause is a fail-fast signal, its
+     * {@link CauseOfInterruption#getShortDescription()} contains the phrase "fail fast"
+     * (case-insensitive). This distinguishes a sibling-aborted run from a run that was
+     * independently aborted by a user or another mechanism.
+     *
+     * @param run the build to inspect
+     * @return {@code true} if the build was interrupted by a fail-fast signal
+     */
+    boolean isAbortedByFailFast(Run<?, ?> run) {
+        if (run.getResult() != Result.ABORTED) {
+            return false;
+        }
+        for (InterruptedBuildAction action : run.getActions(InterruptedBuildAction.class)) {
+            for (CauseOfInterruption cause : action.getCauses()) {
+                String desc = cause.getShortDescription();
+                if (desc != null && desc.toLowerCase(java.util.Locale.ROOT).contains("fail fast")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasRemainingCapacity(List<String> accumulated) {
+        return accumulated.size() < maxLines;
+    }
+
+    private boolean matchesDownstreamJob(String jobFullName) {
+        return downstreamJobPattern != null && downstreamJobPattern.matcher(jobFullName).matches();
+    }
+
+    /**
+     * Appends the error content of a single downstream run to {@code accumulated},
+     * then recurses into its own downstream builds.
+     * <p>
+     * <b>Fast path — reuse existing AI explanation:</b> if the downstream run already has an
+     * {@link ErrorExplanationAction} (i.e. the sub-job called {@code explainError()} itself),
+     * its pre-computed explanation text is used directly. This avoids a redundant AI call and
+     * preserves the full context that was available when the sub-job ran.
+     * <p>
+     * <b>Slow path — extract raw logs:</b> when no {@link ErrorExplanationAction} is present,
+     * a {@link PipelineLogExtractor} is created for the downstream run and its log lines are
+     * appended as before.
+     * <p>
+     * Builds that were aborted by a fail-fast signal from a sibling branch are labelled
+     * {@code ABORTED (interrupted by fail-fast, not the root cause)} in the section header
+     * so that the AI can distinguish them from the build that actually caused the failure.
+     *
+     * @param downstreamRun  the downstream build to extract content from
+     * @param accumulated    the list to append content lines into
+     * @param visitedRunIds  set of already-visited run IDs to prevent duplicates
+     */
+    private void appendDownstreamRunLog(Run<?, ?> downstreamRun, List<String> accumulated,
+                                        Set<String> visitedRunIds) throws IOException {
+        Result downstreamResult = downstreamRun.getResult();
+        if (downstreamResult == null || !downstreamResult.isWorseThan(Result.SUCCESS)) {
+            return;
+        }
+        String jobFullName = downstreamRun.getParent().getFullName();
+        int buildNumber = downstreamRun.getNumber();
+        String runId = jobFullName + "#" + buildNumber;
+        if (!visitedRunIds.add(runId)) {
+            return; // already processed
+        }
+        int remaining = this.maxLines - accumulated.size();
+        if (remaining <= 0) {
+            return;
+        }
+        if (!canReadDownstreamRun(downstreamRun)) {
+            appendHiddenDownstreamPlaceholder(accumulated);
+            return;
+        }
+
+        boolean failFastAborted = isAbortedByFailFast(downstreamRun);
+        String resultLabel = failFastAborted
+            ? "ABORTED (interrupted by fail-fast, not the root cause)"
+            : String.valueOf(downstreamResult);
+
+        List<String> header = Arrays.asList(
+            "### Downstream Job: " + jobFullName + " #" + buildNumber + " ###",
+            "Result: " + resultLabel,
+            "--- LOG CONTENT ---"
+        );
+
+        String runUrl = run.getUrl();
+
+        // Fast path: sub-job already has an AI explanation — reuse it directly.
+        ErrorExplanationAction existingExplanation = downstreamRun.getAction(ErrorExplanationAction.class);
+        if (existingExplanation != null && existingExplanation.hasValidExplanation()) {
+            // Redirect "View failure output" to the sub-job's own explanation URL when available.
+            if (!failFastAborted && existingExplanation.getUrlString() != null && this.url != null
+                    && runUrl != null && this.url.contains(runUrl)) {
+                this.url = existingExplanation.getUrlString();
+            }
+            accumulated.addAll(header);
+            accumulated.add("[AI explanation from sub-job]");
+            accumulated.addAll(Arrays.asList(existingExplanation.getExplanation().split("\n", -1)));
+            accumulated.add("### END OF DOWNSTREAM JOB: " + jobFullName + " ###");
+            // No need to recurse further — the sub-job's explanation already covers its own
+            // downstream failures (it was produced with full context at the time of the failure).
+            return;
+        }
+
+        // Slow path: no existing explanation — extract raw logs as before.
+        PipelineLogExtractor subExtractor = new PipelineLogExtractor(downstreamRun, remaining, downstreamDepth + 1,
+                authentication, collectDownstreamLogs, downstreamJobPattern);
+        List<String> subLog = subExtractor.getFailedStepLog();
+        if (subLog == null || subLog.isEmpty()) {
+            return;
+        }
+
+        // If this sub-job genuinely failed (not just aborted by fail-fast) and the parent
+        // URL still points to the parent job (i.e. no prior real sub-job failure has already
+        // claimed the URL), redirect "View failure output" to the sub-job's failing node.
+        if (!failFastAborted && subExtractor.getUrl() != null && this.url != null
+                && runUrl != null && this.url.contains(runUrl)) {
+            this.url = subExtractor.getUrl();
+        }
+
+        int remainingCapacity = maxLines - accumulated.size();
+        if (remainingCapacity <= 0) {
+            // No room left for this downstream section
+            return;
+        }
+
+        // Append header, truncated if needed
+        if (header.size() > remainingCapacity) {
+            accumulated.addAll(header.subList(0, remainingCapacity));
+            // No room left for sub-log or footer
+            return;
+        } else {
+            accumulated.addAll(header);
+            remainingCapacity -= header.size();
+        }
+        // Reserve at least one line for footer if possible
+        final String endMarker = "### END OF DOWNSTREAM JOB: " + jobFullName + " ###";
+        if (remainingCapacity <= 0) {
+            // No space for sub-log or footer
+            return;
+        }
+        int spaceForSubLog = remainingCapacity - 1; // keep one line for footer
+        if (spaceForSubLog > 0) {
+            if (subLog.size() > spaceForSubLog) {
+                accumulated.addAll(subLog.subList(0, spaceForSubLog));
+            } else {
+                accumulated.addAll(subLog);
+            }
+            remainingCapacity = maxLines - accumulated.size();
+        }
+        // Append footer if there is still room
+        if (remainingCapacity > 0) {
+            accumulated.add(endMarker);
+        }
+        // Recurse into sub-job's own downstream builds only if capacity remains
+        if (maxLines - accumulated.size() > 0) {
+            subExtractor.collectDownstreamLogs(accumulated, visitedRunIds);
+        }
+    }
+
+    private boolean canReadDownstreamRun(Run<?, ?> downstreamRun) {
+        try (ACLContext ignored = ACL.as2(authentication)) {
+            return downstreamRun.getParent().hasPermission(Item.READ);
+        }
+    }
+
+    private void appendHiddenDownstreamPlaceholder(List<String> accumulated) {
+        int remainingCapacity = maxLines - accumulated.size();
+        if (remainingCapacity <= 0) {
+            return;
+        }
+        List<String> placeholderLines = Arrays.asList(
+                "### Downstream Job: [hidden] ###",
+                "Result: UNAVAILABLE",
+                "Downstream failure details omitted due to permissions.",
+                "### END OF DOWNSTREAM JOB: [hidden] ###"
+        );
+        if (placeholderLines.size() <= remainingCapacity) {
+            accumulated.addAll(placeholderLines);
+        } else {
+            accumulated.addAll(placeholderLines.subList(0, remainingCapacity));
         }
     }
 }
