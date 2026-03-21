@@ -364,7 +364,8 @@ public class AutoFixOrchestrator {
             for (String glob : allowedPathGlobs) {
                 try {
                     PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
-                    if (matcher.matches(p) || matcher.matches(Path.of(p.getFileName().toString()))) {
+                    Path fileName = p.getFileName();
+                    if (matcher.matches(p) || (fileName != null && matcher.matches(fileName))) {
                         matched = true;
                         break;
                     }
