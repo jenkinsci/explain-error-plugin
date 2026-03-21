@@ -1,0 +1,22 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:st="jelly:stapler">
+    <l:layout title="AI Auto-Fix">
+        <st:include it="${it.run}" page="sidepanel.jelly"/>
+        <l:main-panel>
+            <h1>AI Auto-Fix</h1>
+            <l:card title="Status: ${it.statusDisplayName}">
+                <p>${it.message}</p>
+                <j:if test="${it.hasCreatedPr()}">
+                    <div class="jenkins-!-margin-top-3">
+                        <a href="${it.prUrl}" class="jenkins-button" target="_blank">
+                            <l:icon src="symbol-git-pull-request-outline plugin-ionicons-api" class="icon-md" />
+                            View Pull Request
+                        </a>
+                    </div>
+                    <p class="jenkins-!-margin-top-2"><strong>Branch:</strong> ${it.branchName}</p>
+                </j:if>
+                <p class="jenkins-!-color-secondary">Generated on: ${it.formattedTimestamp}</p>
+            </l:card>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

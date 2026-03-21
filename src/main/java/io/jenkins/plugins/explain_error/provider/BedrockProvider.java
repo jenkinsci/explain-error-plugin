@@ -39,6 +39,17 @@ public class BedrockProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
+        ChatModel model = buildChatModel();
+        return AiServices.create(Assistant.class, model);
+    }
+
+    @Override
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        ChatModel model = buildChatModel();
+        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
+    }
+
+    private ChatModel buildChatModel() {
         var builder = BedrockChatModel.builder()
                 .modelId(getModel())
                 .defaultRequestParameters(
@@ -53,8 +64,7 @@ public class BedrockProvider extends BaseAIProvider {
             builder.region(Region.of(region));
         }
 
-        ChatModel model = builder.build();
-        return AiServices.create(Assistant.class, model);
+        return builder.build();
     }
 
     @Override

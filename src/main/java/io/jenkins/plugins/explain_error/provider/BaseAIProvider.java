@@ -36,6 +36,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
 
     public abstract Assistant createAssistant();
 
+    public abstract io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant();
+
     public abstract boolean isNotValid(@CheckForNull TaskListener listener);
 
     public String getUrl() {

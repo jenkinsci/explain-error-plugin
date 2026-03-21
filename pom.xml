@@ -129,6 +129,19 @@
       <artifactId>cloudbees-folder</artifactId>
     </dependency>
 
+    <!-- For credentials lookup (plain-credentials) -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>plain-credentials</artifactId>
+    </dependency>
+
+    <!-- For git SCM URL extraction (optional compile dependency) -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>git</artifactId>
+      <optional>true</optional>
+    </dependency>
+
     <!-- Needed only for testing -->
     <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -157,6 +170,14 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- WireMock for SCM API integration tests -->
+    <dependency>
+      <groupId>com.github.tomakehurst</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>3.0.1</version>
       <scope>test</scope>
     </dependency>
 

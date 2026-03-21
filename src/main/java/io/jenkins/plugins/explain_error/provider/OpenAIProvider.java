@@ -40,7 +40,18 @@ public class OpenAIProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
-        ChatModel model = OpenAiChatModel.builder()
+        ChatModel model = buildChatModel();
+        return AiServices.create(Assistant.class, model);
+    }
+
+    @Override
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        ChatModel model = buildChatModel();
+        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
+    }
+
+    private ChatModel buildChatModel() {
+        return OpenAiChatModel.builder()
                 .baseUrl(Util.fixEmptyAndTrim(getUrl())) // Will use default if null
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())
@@ -50,8 +61,6 @@ public class OpenAIProvider extends BaseAIProvider {
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
                 .build();
-
-        return AiServices.create(Assistant.class, model);
     }
 
     @Override

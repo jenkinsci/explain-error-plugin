@@ -31,7 +31,18 @@ public class OllamaProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
-        ChatModel model = OllamaChatModel.builder()
+        ChatModel model = buildChatModel();
+        return AiServices.create(Assistant.class, model);
+    }
+
+    @Override
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        ChatModel model = buildChatModel();
+        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
+    }
+
+    private ChatModel buildChatModel() {
+        return OllamaChatModel.builder()
                 .baseUrl(getUrl())
                 .modelName(getModel())
                 .temperature(0.3)
@@ -40,7 +51,6 @@ public class OllamaProvider extends BaseAIProvider {
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
                 .build();
-        return AiServices.create(Assistant.class, model);
     }
 
     @Override

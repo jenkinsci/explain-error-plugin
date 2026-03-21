@@ -26,11 +26,32 @@ public class ErrorExplainer {
 
     private String providerName;
     private String urlString;
+    private String lastErrorLogs;
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
 
     public String getProviderName() {
         return providerName;
+    }
+
+    /**
+     * Returns the error logs extracted during the last call to {@link #explainError}.
+     * Returns {@code null} if {@code explainError} has not been called yet.
+     */
+    public String getLastErrorLogs() {
+        return lastErrorLogs;
+    }
+
+    /**
+     * Returns the resolved AI provider for the given run (folder-level first, then global).
+     * Delegates to the private {@link #resolveProvider(Run)} method.
+     *
+     * @param run the build run to resolve the provider for
+     * @return the resolved AI provider, or {@code null} if none is configured
+     */
+    @CheckForNull
+    public BaseAIProvider getResolvedProvider(@CheckForNull Run<?, ?> run) {
+        return resolveProvider(run);
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
@@ -72,6 +93,7 @@ public class ErrorExplainer {
             // Extract error logs
             String errorLogs = extractErrorLogs(run, logPattern, maxLines, collectDownstreamLogs,
                     downstreamJobPattern, authentication);
+            this.lastErrorLogs = errorLogs;
 
             // Use step-level customContext if provided, otherwise fallback to global
             String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
