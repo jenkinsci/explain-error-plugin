@@ -156,6 +156,29 @@ class AutoFixOrchestratorTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void buildPrBody_aiContentContainingPlaceholder_isNotDoubleSubstituted() {
+        // Regression: Issue 4 — multi-pass .replace() could corrupt AI output
+        // if the explanation itself contained a {placeholder} token.
+        Job<?, ?> job = mock(Job.class);
+        when(job.getFullName()).thenReturn("proj");
+        when(run.getParent()).thenReturn((Job) job);
+        when(run.getNumber()).thenReturn(7);
+
+        // explanation contains "{fixType}" — should appear literally in the output
+        FixSuggestion suggestion = new FixSuggestion(
+                true, "Use {fixType} carefully", "high", "dependency", null);
+
+        String body = orchestrator.buildPrBody(run, suggestion,
+                "explanation={explanation} type={fixType}");
+
+        assertTrue(body.contains("Use {fixType} carefully"),
+                "AI output containing {fixType} must not be substituted a second time");
+        assertTrue(body.contains("type=dependency"),
+                "The actual {fixType} placeholder in the template must still be substituted");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void buildPrBody_noChanges_showsFallback() {
         Job<?, ?> job = mock(Job.class);
         when(job.getFullName()).thenReturn("proj");
