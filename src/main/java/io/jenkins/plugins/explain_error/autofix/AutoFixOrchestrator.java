@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -38,6 +39,9 @@ public class AutoFixOrchestrator {
     private static final Logger LOGGER = Logger.getLogger(AutoFixOrchestrator.class.getName());
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /** Matches {@code {word}} placeholder tokens in PR body templates. */
+    private static final Pattern TEMPLATE_PLACEHOLDER = Pattern.compile("\\{(\\w+)\\}");
 
     /** Default PR body template with {@code {variable}} placeholders. */
     private static final String DEFAULT_PR_TEMPLATE = """
@@ -539,13 +543,21 @@ public class AutoFixOrchestrator {
             changesSummary.append("No file changes.\n");
         }
 
-        return template
-                .replace("{jobName}", jobName)
-                .replace("{buildNumber}", buildNumber)
-                .replace("{explanation}", explanation)
-                .replace("{changesSummary}", changesSummary.toString().stripTrailing())
-                .replace("{fixType}", fixType)
-                .replace("{confidence}", confidence);
+        // Build values map and substitute all placeholders in a single pass so that
+        // AI-provided content (explanation, descriptions) cannot match and corrupt
+        // subsequent placeholder tokens (e.g. if explanation itself contains "{fixType}").
+        Map<String, String> values = Map.of(
+                "jobName", jobName,
+                "buildNumber", buildNumber,
+                "explanation", explanation,
+                "changesSummary", changesSummary.toString().stripTrailing(),
+                "fixType", fixType,
+                "confidence", confidence
+        );
+        return TEMPLATE_PLACEHOLDER.matcher(template).replaceAll(m -> {
+            String val = values.get(m.group(1));
+            return val != null ? val : m.group(0);
+        });
     }
 
     /**
