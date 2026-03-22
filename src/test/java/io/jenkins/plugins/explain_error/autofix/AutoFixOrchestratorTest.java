@@ -180,7 +180,7 @@ class AutoFixOrchestratorTest {
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "some error logs", aiProvider,
                 "creds-id", null, null, null, null,
-                Collections.emptyList(), false, 30, listener);
+                Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
         // No SCM interactions should have occurred — verified by the fact that
@@ -200,7 +200,7 @@ class AutoFixOrchestratorTest {
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
                 "creds-id", null, null, null, null,
-                Collections.emptyList(), false, 30, listener);
+                Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
         verify(run, never()).getParent();
@@ -220,7 +220,7 @@ class AutoFixOrchestratorTest {
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
                 "creds-id", null, null, null, null,
-                Collections.emptyList(), false, 30, listener);
+                Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus(),
                 "Empty changes list must be treated as skipped (no changes to commit)");
@@ -254,7 +254,7 @@ class AutoFixOrchestratorTest {
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
                 "creds-id", null, null, null, null,
-                List.of("pom.xml"), false, 30, listener);
+                List.of("pom.xml"), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus());
         assertTrue(result.getMessage().contains("src/Main.java"),
@@ -295,7 +295,7 @@ class AutoFixOrchestratorTest {
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
                 "creds-id", null, null, null, null,
-                List.of("pom.xml"), false, 30, listener);
+                List.of("pom.xml"), false, 30, listener, null);
 
         assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus(),
                 "pom.xml matches the allowed glob and must not be rejected");

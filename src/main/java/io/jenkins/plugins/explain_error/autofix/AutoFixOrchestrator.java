@@ -102,7 +102,8 @@ public class AutoFixOrchestrator {
             List<String> allowedPathGlobs,
             boolean draftPr,
             int timeoutSeconds,
-            TaskListener listener) {
+            TaskListener listener,
+            String prTemplate) {
 
         // We keep track of the branch name so we can clean up on timeout/failure.
         final String[] createdBranchRef = {null};
@@ -112,7 +113,7 @@ public class AutoFixOrchestrator {
                 return doAttemptAutoFix(
                         run, errorLogs, aiProvider, credentialsId,
                         scmTypeOverride, githubEnterpriseUrl, gitlabUrl, bitbucketUrl,
-                        allowedPathGlobs, draftPr, listener, createdBranchRef);
+                        allowedPathGlobs, draftPr, listener, createdBranchRef, prTemplate);
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Auto-fix failed with exception", e);
                 listener.getLogger().println("[AutoFix] Error: " + e.getMessage());
@@ -168,7 +169,8 @@ public class AutoFixOrchestrator {
             List<String> allowedPathGlobs,
             boolean draftPr,
             TaskListener listener,
-            String[] createdBranchRef) throws Exception {
+            String[] createdBranchRef,
+            String prTemplate) throws Exception {
 
         listener.getLogger().println("[AutoFix] Requesting fix suggestion from AI provider...");
 
@@ -298,7 +300,8 @@ public class AutoFixOrchestrator {
 
         // Step 10 — Create PR
         String prTitle = "fix: AI auto-fix for " + run.getParent().getFullName() + " #" + run.getNumber();
-        String prBody = buildPrBody(run, suggestion, DEFAULT_PR_TEMPLATE);
+        String effectiveTemplate = (prTemplate != null && !prTemplate.isBlank()) ? prTemplate : DEFAULT_PR_TEMPLATE;
+        String prBody = buildPrBody(run, suggestion, effectiveTemplate);
 
         PullRequest pr;
         try {

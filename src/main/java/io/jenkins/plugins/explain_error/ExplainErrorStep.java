@@ -41,6 +41,7 @@ public class ExplainErrorStep extends Step {
     private String autoFixAllowedPaths = "pom.xml,build.gradle,build.gradle.kts,*.properties,*.yml,*.yaml,Jenkinsfile,Dockerfile,package.json,requirements.txt,go.mod";
     private boolean autoFixDraftPr = false;
     private int autoFixTimeoutSeconds = 60;
+    private String autoFixPrTemplate = "";
 
     @DataBoundConstructor
     public ExplainErrorStep() {
@@ -188,6 +189,15 @@ public class ExplainErrorStep extends Step {
         this.autoFixTimeoutSeconds = autoFixTimeoutSeconds > 0 ? autoFixTimeoutSeconds : 60;
     }
 
+    public String getAutoFixPrTemplate() {
+        return autoFixPrTemplate;
+    }
+
+    @DataBoundSetter
+    public void setAutoFixPrTemplate(String autoFixPrTemplate) {
+        this.autoFixPrTemplate = autoFixPrTemplate != null ? autoFixPrTemplate : "";
+    }
+
     @Override
     public StepExecution start(StepContext context) throws Exception {
         return new ExplainErrorStepExecution(context, this);
@@ -252,7 +262,8 @@ public class ExplainErrorStep extends Step {
                         allowedPaths,
                         step.isAutoFixDraftPr(),
                         step.getAutoFixTimeoutSeconds(),
-                        listener);
+                        listener,
+                        step.getAutoFixPrTemplate().isEmpty() ? null : step.getAutoFixPrTemplate());
                 listener.getLogger().println("[AutoFix] Status: " + fixResult.getStatus() + " - " + fixResult.getMessage());
                 if (fixResult.getStatus() == AutoFixStatus.CREATED) {
                     listener.getLogger().println("[AutoFix] PR created: " + fixResult.getPrUrl());
