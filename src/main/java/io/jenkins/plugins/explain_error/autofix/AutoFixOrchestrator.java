@@ -184,6 +184,11 @@ public class AutoFixOrchestrator {
             return AutoFixResult.skippedLowConfidence();
         }
 
+        if (suggestion.changes() == null || suggestion.changes().isEmpty()) {
+            listener.getLogger().println("[AutoFix] Skipping: AI returned fixable=true but no file changes.");
+            return AutoFixResult.skippedLowConfidence();
+        }
+
         // Step 3 — Validate file paths
         if (suggestion.changes() != null) {
             for (FixSuggestion.FileChange change : suggestion.changes()) {

@@ -208,34 +208,22 @@ class AutoFixOrchestratorTest {
 
     // -----------------------------------------------------------------------
     // Path 1c — fixable=true, confidence=high, empty changes list
-    //           validateFilePath loop is skipped → proceeds to SCM step,
-    //           which fails with FAILED (no real SCM) rather than NOT_APPLICABLE.
-    //           We verify it did NOT return SKIPPED_LOW_CONFIDENCE or
-    //           SKIPPED_PATH_NOT_ALLOWED — the path-guard is not triggered.
+    //           Guard added: empty changes → SKIPPED_LOW_CONFIDENCE before any
+    //           SCM or branch operations are attempted.
     // -----------------------------------------------------------------------
 
     @Test
-    @SuppressWarnings("unchecked")
-    void attemptAutoFix_emptyChanges_doesNotReturnSkippedStatuses() {
+    void attemptAutoFix_emptyChanges_returnsSkipped() {
         String aiJson = "{\"fixable\": true, \"explanation\": \"Fix available\", \"confidence\": \"high\", \"fixType\": \"config\", \"changes\": []}";
         when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
-
-        // SCM extraction will try run.getParent(); mock it to throw so the test stays fast
-        Job<?, ?> job = mock(Job.class);
-        when(run.getParent()).thenReturn((Job) job);
-        // job.getScm() is called via AbstractProject — using a plain Job mock means
-        // extractRemoteUrl will hit the "not an AbstractProject" branch and throw,
-        // causing the future to resolve as FAILED rather than a path-guard status.
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
                 "creds-id", null, null, null, null,
                 Collections.emptyList(), false, 30, listener);
 
-        assertNotEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus(),
-                "Empty changes must not trigger low-confidence skip");
-        assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus(),
-                "Empty changes must not trigger path-not-allowed skip");
+        assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus(),
+                "Empty changes list must be treated as skipped (no changes to commit)");
     }
 
     // -----------------------------------------------------------------------
