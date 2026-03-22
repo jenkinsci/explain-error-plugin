@@ -421,24 +421,59 @@ public class AutoFixOrchestrator {
 
     /**
      * Builds a {@link ScmRepo} from the remote URL and applies any enterprise URL overrides.
+     *
+     * <p>When {@code scmTypeOverride} is specified, it bypasses URL-based host detection —
+     * required for self-hosted instances (e.g. {@code git.company.com}) whose hostname
+     * does not match {@code github.com}, {@code gitlab.com}, or {@code bitbucket.org}.
      */
     private ScmRepo buildScmRepo(String remoteUrl, String token, String scmTypeOverride,
                                   String githubEnterpriseUrl, String gitlabUrl, String bitbucketUrl) {
+        // If scmTypeOverride is provided, use it directly so self-hosted instances work.
+        if (scmTypeOverride != null && !scmTypeOverride.isBlank()) {
+            ScmType forcedType;
+            switch (scmTypeOverride.trim().toLowerCase()) {
+                case "github":    forcedType = ScmType.GITHUB;    break;
+                case "gitlab":    forcedType = ScmType.GITLAB;    break;
+                case "bitbucket": forcedType = ScmType.BITBUCKET; break;
+                default:
+                    LOGGER.warning("Unrecognised scmTypeOverride '" + scmTypeOverride
+                            + "' — falling back to URL-based detection");
+                    forcedType = null;
+            }
+            if (forcedType != null) {
+                String baseUrl;
+                switch (forcedType) {
+                    case GITHUB:
+                        baseUrl = (githubEnterpriseUrl != null && !githubEnterpriseUrl.isBlank())
+                                ? githubEnterpriseUrl.stripTrailing() + "/api/v3"
+                                : "https://api.github.com";
+                        break;
+                    case GITLAB:
+                        baseUrl = (gitlabUrl != null && !gitlabUrl.isBlank())
+                                ? gitlabUrl.stripTrailing() + "/api/v4"
+                                : "https://gitlab.com/api/v4";
+                        break;
+                    case BITBUCKET:
+                        baseUrl = (bitbucketUrl != null && !bitbucketUrl.isBlank())
+                                ? bitbucketUrl.stripTrailing() + "/2.0"
+                                : "https://api.bitbucket.org/2.0";
+                        break;
+                    default:
+                        baseUrl = null; // unreachable
+                }
+                return ScmRepo.parseWithOverride(remoteUrl, token, forcedType, baseUrl);
+            }
+        }
+
         ScmRepo repo = ScmRepo.parse(remoteUrl, token);
 
-        // Apply enterprise base-URL overrides
+        // Apply enterprise base-URL overrides when the host was auto-detected
         if (repo.scmType() == ScmType.GITHUB && githubEnterpriseUrl != null && !githubEnterpriseUrl.isBlank()) {
             repo = repo.withBaseUrl(githubEnterpriseUrl.stripTrailing() + "/api/v3");
         } else if (repo.scmType() == ScmType.GITLAB && gitlabUrl != null && !gitlabUrl.isBlank()) {
             repo = repo.withBaseUrl(gitlabUrl.stripTrailing() + "/api/v4");
         } else if (repo.scmType() == ScmType.BITBUCKET && bitbucketUrl != null && !bitbucketUrl.isBlank()) {
             repo = repo.withBaseUrl(bitbucketUrl.stripTrailing() + "/2.0");
-        }
-
-        // scmTypeOverride is informational / for future use; ScmRepo.parse already detected the type
-        // from the URL. If needed, a caller could re-parse with a different host mapping.
-        if (scmTypeOverride != null && !scmTypeOverride.isBlank()) {
-            LOGGER.fine("scmTypeOverride='" + scmTypeOverride + "' specified; current detection: " + repo.scmType());
         }
 
         return repo;

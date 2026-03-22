@@ -67,6 +67,39 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
     }
 
     /**
+     * Parses owner/repoName from a remote URL and constructs a ScmRepo with an explicit
+     * ScmType and baseUrl. Used when the hostname is not a known public service (self-hosted
+     * instances) and the caller already knows the SCM type via {@code scmTypeOverride}.
+     *
+     * @param remoteUrl the remote URL (SSH or HTTPS format) — used to extract owner/repoName
+     * @param token     the authentication token (plaintext)
+     * @param scmType   the SCM type to use (bypasses host-based auto-detection)
+     * @param baseUrl   the API base URL to use
+     * @return a populated ScmRepo with the overridden type and baseUrl
+     * @throws IllegalArgumentException if the URL cannot be parsed
+     */
+    public static ScmRepo parseWithOverride(String remoteUrl, String token, ScmType scmType, String baseUrl) {
+        if (remoteUrl == null || remoteUrl.isBlank()) {
+            throw new IllegalArgumentException("Remote URL must not be null or blank");
+        }
+        String url = remoteUrl.trim();
+        Matcher sshMatcher = SSH_PATTERN.matcher(url);
+        Matcher httpsMatcher = HTTPS_PATTERN.matcher(url);
+        String owner;
+        String repoName;
+        if (sshMatcher.matches()) {
+            owner = sshMatcher.group(2);
+            repoName = sshMatcher.group(3);
+        } else if (httpsMatcher.matches()) {
+            owner = httpsMatcher.group(2);
+            repoName = httpsMatcher.group(3);
+        } else {
+            throw new IllegalArgumentException("Cannot parse owner/repo from remote URL: " + remoteUrl);
+        }
+        return new ScmRepo(scmType, baseUrl, owner, repoName, token);
+    }
+
+    /**
      * Returns a new ScmRepo with the baseUrl overridden (for enterprise instances).
      *
      * @param baseUrl the new API base URL
@@ -74,5 +107,15 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
      */
     public ScmRepo withBaseUrl(String baseUrl) {
         return new ScmRepo(this.scmType, baseUrl, this.owner, this.repoName, this.token);
+    }
+
+    /**
+     * Overrides the record-generated toString() to redact the token so it is never
+     * accidentally printed in build logs or exception stack traces.
+     */
+    @Override
+    public String toString() {
+        return "ScmRepo[scmType=" + scmType + ", baseUrl=" + baseUrl
+                + ", owner=" + owner + ", repoName=" + repoName + ", token=[REDACTED]]";
     }
 }
