@@ -1,0 +1,315 @@
+package io.jenkins.plugins.explain_error.autofix;
+
+import hudson.model.Job;
+import hudson.model.Run;
+import hudson.model.TaskListener;
+import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class AutoFixOrchestratorTest {
+
+    private AutoFixOrchestrator orchestrator;
+
+    // Shared mocks for attemptAutoFix paths
+    private Run<?, ?> run;
+    private BaseAIProvider aiProvider;
+    private FixAssistant fixAssistant;
+    private TaskListener listener;
+
+    @BeforeEach
+    @SuppressWarnings("unchecked")
+    void setUp() {
+        orchestrator = new AutoFixOrchestrator();
+
+        run = mock(Run.class);
+        aiProvider = mock(BaseAIProvider.class);
+        fixAssistant = mock(FixAssistant.class);
+        listener = mock(TaskListener.class);
+
+        PrintStream printStream = mock(PrintStream.class);
+        when(listener.getLogger()).thenReturn(printStream);
+        when(aiProvider.createFixAssistant()).thenReturn(fixAssistant);
+    }
+
+    // -----------------------------------------------------------------------
+    // parseFixSuggestion — happy paths
+    // -----------------------------------------------------------------------
+
+    @Test
+    void parseFixSuggestion_fixableTrue() throws IOException {
+        String json = """
+                {
+                  "fixable": true,
+                  "explanation": "Missing dependency",
+                  "confidence": "high",
+                  "fixType": "dependency",
+                  "changes": []
+                }
+                """;
+        FixSuggestion suggestion = orchestrator.parseFixSuggestion(json);
+        assertTrue(suggestion.fixable());
+        assertEquals("high", suggestion.confidence());
+        assertEquals("dependency", suggestion.fixType());
+    }
+
+    @Test
+    void parseFixSuggestion_fixableFalse() throws IOException {
+        String json = "{\"fixable\": false, \"explanation\": \"Unknown error\", \"confidence\": \"low\", \"fixType\": \"unknown\", \"changes\": []}";
+        FixSuggestion suggestion = orchestrator.parseFixSuggestion(json);
+        assertFalse(suggestion.fixable());
+        assertEquals("low", suggestion.confidence());
+    }
+
+    @Test
+    void parseFixSuggestion_withPreamble_extractsJsonBlock() throws IOException {
+        // AI sometimes prefixes the JSON with prose; the parser should strip it
+        String raw = "Sure! Here is the fix:\n{\"fixable\": false, \"confidence\": \"low\", \"fixType\": \"unknown\", \"changes\": []}";
+        FixSuggestion suggestion = orchestrator.parseFixSuggestion(raw);
+        assertFalse(suggestion.fixable());
+    }
+
+    @Test
+    void parseFixSuggestion_emptyResponse_throws() {
+        assertThrows(IOException.class, () -> orchestrator.parseFixSuggestion(""));
+    }
+
+    @Test
+    void parseFixSuggestion_blankResponse_throws() {
+        assertThrows(IOException.class, () -> orchestrator.parseFixSuggestion("   "));
+    }
+
+    @Test
+    void parseFixSuggestion_noJsonObject_throws() {
+        assertThrows(IOException.class, () -> orchestrator.parseFixSuggestion("no braces here"));
+    }
+
+    // -----------------------------------------------------------------------
+    // extractNewContent
+    // -----------------------------------------------------------------------
+
+    @Test
+    void extractNewContent_returnsAddedLines() {
+        String diff = "--- a/NewFile.java\n+++ b/NewFile.java\n@@ -0,0 +1,3 @@\n+line one\n+line two\n+line three\n";
+        String result = orchestrator.extractNewContent(diff);
+        assertTrue(result.contains("line one"));
+        assertTrue(result.contains("line two"));
+        assertTrue(result.contains("line three"));
+    }
+
+    @Test
+    void extractNewContent_ignoresContextAndRemovalLines() {
+        String diff = "--- a/f\n+++ b/f\n@@ -1,3 +1,3 @@\n context\n-removed\n+added\n";
+        String result = orchestrator.extractNewContent(diff);
+        assertTrue(result.contains("added"));
+        assertFalse(result.contains("removed"));
+        assertFalse(result.contains("context"));
+    }
+
+    @Test
+    void extractNewContent_nullDiff_returnsEmpty() {
+        assertEquals("", orchestrator.extractNewContent(null));
+    }
+
+    @Test
+    void extractNewContent_blankDiff_returnsEmpty() {
+        assertEquals("", orchestrator.extractNewContent("   "));
+    }
+
+    // -----------------------------------------------------------------------
+    // buildPrBody
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void buildPrBody_substitutesAllPlaceholders() {
+        Job<?, ?> job = mock(Job.class);
+        when(job.getFullName()).thenReturn("my-org/my-repo");
+        when(run.getParent()).thenReturn((Job) job);
+        when(run.getNumber()).thenReturn(42);
+
+        FixSuggestion suggestion = new FixSuggestion(
+                true,
+                "Dependency version mismatch",
+                "high",
+                "dependency",
+                List.of(new FixSuggestion.FileChange("pom.xml", "modify", "--- a/pom.xml\n+++ b/pom.xml\n@@ -1,1 +1,1 @@\n-old\n+new\n", "Update version")));
+
+        String template = "job={jobName} build=#{buildNumber} conf={confidence} type={fixType}\n{explanation}\n{changesSummary}";
+        String body = orchestrator.buildPrBody(run, suggestion, template);
+
+        assertTrue(body.contains("my-org/my-repo"), "jobName placeholder must be substituted");
+        assertTrue(body.contains("42"), "buildNumber placeholder must be substituted");
+        assertTrue(body.contains("high"), "confidence placeholder must be substituted");
+        assertTrue(body.contains("dependency"), "fixType placeholder must be substituted");
+        assertTrue(body.contains("Dependency version mismatch"), "explanation placeholder must be substituted");
+        assertTrue(body.contains("pom.xml"), "changesSummary must mention file path");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void buildPrBody_noChanges_showsFallback() {
+        Job<?, ?> job = mock(Job.class);
+        when(job.getFullName()).thenReturn("proj");
+        when(run.getParent()).thenReturn((Job) job);
+        when(run.getNumber()).thenReturn(1);
+
+        FixSuggestion suggestion = new FixSuggestion(false, null, null, null, null);
+        String body = orchestrator.buildPrBody(run, suggestion, "{changesSummary}");
+
+        assertTrue(body.contains("No file changes"), "No changes should show fallback text");
+    }
+
+    // -----------------------------------------------------------------------
+    // Path 1a — fixable=false → SKIPPED_LOW_CONFIDENCE (AI says not fixable)
+    // -----------------------------------------------------------------------
+
+    @Test
+    void attemptAutoFix_notFixable_returnsSkippedLowConfidence() {
+        String aiJson = "{\"fixable\": false, \"explanation\": \"Unknown\", \"confidence\": \"low\", \"fixType\": \"unknown\", \"changes\": []}";
+        when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
+
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "some error logs", aiProvider,
+                "creds-id", null, null, null, null,
+                Collections.emptyList(), false, 30, listener);
+
+        assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
+        // No SCM interactions should have occurred — verified by the fact that
+        // run.getParent() (which is needed for SCM extraction) was never called
+        verify(run, never()).getParent();
+    }
+
+    // -----------------------------------------------------------------------
+    // Path 1b — fixable=true but confidence=low → SKIPPED_LOW_CONFIDENCE
+    // -----------------------------------------------------------------------
+
+    @Test
+    void attemptAutoFix_fixableButLowConfidence_returnsSkippedLowConfidence() {
+        String aiJson = "{\"fixable\": true, \"explanation\": \"Uncertain\", \"confidence\": \"low\", \"fixType\": \"unknown\", \"changes\": []}";
+        when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
+
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "error logs", aiProvider,
+                "creds-id", null, null, null, null,
+                Collections.emptyList(), false, 30, listener);
+
+        assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
+        verify(run, never()).getParent();
+    }
+
+    // -----------------------------------------------------------------------
+    // Path 1c — fixable=true, confidence=high, empty changes list
+    //           validateFilePath loop is skipped → proceeds to SCM step,
+    //           which fails with FAILED (no real SCM) rather than NOT_APPLICABLE.
+    //           We verify it did NOT return SKIPPED_LOW_CONFIDENCE or
+    //           SKIPPED_PATH_NOT_ALLOWED — the path-guard is not triggered.
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void attemptAutoFix_emptyChanges_doesNotReturnSkippedStatuses() {
+        String aiJson = "{\"fixable\": true, \"explanation\": \"Fix available\", \"confidence\": \"high\", \"fixType\": \"config\", \"changes\": []}";
+        when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
+
+        // SCM extraction will try run.getParent(); mock it to throw so the test stays fast
+        Job<?, ?> job = mock(Job.class);
+        when(run.getParent()).thenReturn((Job) job);
+        // job.getScm() is called via AbstractProject — using a plain Job mock means
+        // extractRemoteUrl will hit the "not an AbstractProject" branch and throw,
+        // causing the future to resolve as FAILED rather than a path-guard status.
+
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "error logs", aiProvider,
+                "creds-id", null, null, null, null,
+                Collections.emptyList(), false, 30, listener);
+
+        assertNotEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus(),
+                "Empty changes must not trigger low-confidence skip");
+        assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus(),
+                "Empty changes must not trigger path-not-allowed skip");
+    }
+
+    // -----------------------------------------------------------------------
+    // Path 8 — allowedPaths excludes the target file → SKIPPED_PATH_NOT_ALLOWED
+    // -----------------------------------------------------------------------
+
+    @Test
+    void attemptAutoFix_pathNotInAllowedList_returnsSkippedPathNotAllowed() {
+        // allowed: only pom.xml; AI suggests changing src/Main.java
+        String aiJson = """
+                {
+                  "fixable": true,
+                  "explanation": "Code fix",
+                  "confidence": "high",
+                  "fixType": "code",
+                  "changes": [
+                    {
+                      "filePath": "src/Main.java",
+                      "action": "modify",
+                      "unifiedDiff": "--- a/src/Main.java\\n+++ b/src/Main.java\\n@@ -1,1 +1,1 @@\\n-old\\n+new\\n",
+                      "description": "Fix the bug"
+                    }
+                  ]
+                }
+                """;
+        when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
+
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "error logs", aiProvider,
+                "creds-id", null, null, null, null,
+                List.of("pom.xml"), false, 30, listener);
+
+        assertEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus());
+        assertTrue(result.getMessage().contains("src/Main.java"),
+                "Message must name the rejected file path");
+        verify(run, never()).getParent();
+    }
+
+    // -----------------------------------------------------------------------
+    // Path 8 variant — allowed glob matches → path guard passes
+    // (The test verifies SKIPPED_PATH_NOT_ALLOWED is NOT returned when the
+    //  glob matches; the run proceeds to SCM extraction which fails with FAILED.)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void attemptAutoFix_pathMatchesAllowedGlob_doesNotReturnPathNotAllowed() {
+        String aiJson = """
+                {
+                  "fixable": true,
+                  "explanation": "Config fix",
+                  "confidence": "high",
+                  "fixType": "config",
+                  "changes": [
+                    {
+                      "filePath": "pom.xml",
+                      "action": "modify",
+                      "unifiedDiff": "--- a/pom.xml\\n+++ b/pom.xml\\n@@ -1,1 +1,1 @@\\n-old\\n+new\\n",
+                      "description": "Update version"
+                    }
+                  ]
+                }
+                """;
+        when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
+
+        Job<?, ?> job = mock(Job.class);
+        when(run.getParent()).thenReturn((Job) job);
+
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "error logs", aiProvider,
+                "creds-id", null, null, null, null,
+                List.of("pom.xml"), false, 30, listener);
+
+        assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus(),
+                "pom.xml matches the allowed glob and must not be rejected");
+    }
+}
