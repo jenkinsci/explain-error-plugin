@@ -77,7 +77,7 @@ Run `make help` to see all available test-related targets.
 
 ### Writing Tests
 
-We use JUnit 5 and Mockito for testing. Examples:
+We use JUnit 5, Mockito, and WireMock for testing. Examples:
 
 ```java
 @ExtendWith(MockitoExtension.class)
@@ -141,11 +141,33 @@ The plugin follows these patterns:
 ```
 src/main/java/io/jenkins/plugins/explain_error/
 ├── GlobalConfigurationImpl.java     # Main plugin class
-├── ExplainErrorStep.java            # Pipeline step implementation
-├── AIService.java                   # AI communication service
-├── ErrorExplainer.java              # Error analysis logic
+├── ExplainErrorStep.java            # Pipeline step (explainError + autoFix parameters)
+├── ErrorExplainer.java              # Error analysis logic (provider resolution)
 ├── ConsoleExplainErrorAction.java   # Console button action
-└── ErrorExplanationAction.java      # Build action for storing results
+├── ErrorExplanationAction.java      # Build action for storing results
+├── provider/
+│   ├── BaseAIProvider.java          # Abstract AI service base class
+│   ├── OpenAIProvider.java          # OpenAI / LangChain4j
+│   ├── GeminiProvider.java          # Google Gemini / LangChain4j
+│   ├── BedrockProvider.java         # AWS Bedrock / LangChain4j
+│   └── OllamaProvider.java          # Ollama / LangChain4j
+└── autofix/
+    ├── AutoFixOrchestrator.java     # Coordinates AI suggestion → branch → PR flow
+    ├── AutoFixAction.java           # Build action that stores and displays the PR URL
+    ├── AutoFixResult.java           # Result value object (status + PR URL + message)
+    ├── AutoFixStatus.java           # Enum: CREATED, FAILED, SKIPPED_*, NOT_APPLICABLE
+    ├── FixAssistant.java            # LangChain4j AI service interface for fix suggestions
+    ├── FixSuggestion.java           # Structured AI response (fixable, changes, confidence)
+    ├── UnifiedDiffApplier.java      # Applies unified diffs to file content (fuzzy match)
+    └── scm/
+        ├── ScmApiClient.java        # Interface: createBranch, commitFiles, createPullRequest…
+        ├── ScmClientFactory.java    # Factory: creates the right client from ScmRepo
+        ├── ScmRepo.java             # Value object: SCM type + base URL + owner/repo + token
+        ├── ScmType.java             # Enum: GITHUB, GITLAB, BITBUCKET
+        ├── GitHubApiClient.java     # GitHub REST API v3 (Git Trees API for atomic commits)
+        ├── GitLabApiClient.java     # GitLab REST API v4 (Commits API)
+        ├── BitbucketApiClient.java  # Bitbucket Cloud REST API v2
+        └── PullRequest.java         # Value object returned by createPullRequest()
 ```
 
 ### Adding New Features

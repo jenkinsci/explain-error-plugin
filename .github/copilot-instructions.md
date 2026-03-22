@@ -11,13 +11,18 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 - **GlobalConfigurationImpl**: Main plugin configuration class with `@Symbol("explainError")` for Configuration as Code support, handles migration from legacy enum-based configuration
 - **BaseAIProvider**: Abstract base class for AI provider implementations with nested `Assistant` interface and `BaseProviderDescriptor` for extensibility
 - **OpenAIProvider** / **GeminiProvider** / **BedrockProvider** / **OllamaProvider**: LangChain4j-based AI service implementations with provider-specific configurations
-- **ExplainErrorStep**: Pipeline step implementation for `explainError()` function (supports `logPattern`, `maxLines`, `language`, `customContext` parameters)
+- **ExplainErrorStep**: Pipeline step implementation for `explainError()` function (supports `logPattern`, `maxLines`, `language`, `customContext`, `collectDownstreamLogs`, `downstreamJobPattern`, and all `autoFix*` parameters)
 - **ExplainErrorFolderProperty**: Folder-level AI provider override — allows teams to configure their own provider without touching global settings; walks up the folder hierarchy
 - **ConsoleExplainErrorAction**: Adds "Explain Error" button to console output for manual triggering
 - **ConsoleExplainErrorActionFactory**: TransientActionFactory that dynamically injects ConsoleExplainErrorAction into all runs (new and existing)
 - **ErrorExplanationAction**: Build action for storing and displaying AI explanations
 - **ConsolePageDecorator**: UI decorator to show explain button when conditions are met
 - **ErrorExplainer**: Core error analysis logic that coordinates AI providers and log parsing; resolves provider priority (step > folder > global)
+- **AutoFixOrchestrator**: Coordinates the full AI auto-fix flow — AI suggestion → diff validation → branch creation → file commits → pull request; handles rollback on failure
+- **AutoFixAction**: Build action that persists and displays the auto-fix PR URL in the Jenkins sidebar
+- **FixAssistant**: LangChain4j AI service interface that requests a structured fix suggestion (fixable flag, file diffs, confidence score)
+- **UnifiedDiffApplier**: Parses and applies unified diffs to file content with ±3-line fuzzy matching; validates diffs before any branch is created
+- **ScmApiClient / GitHubApiClient / GitLabApiClient / BitbucketApiClient**: SCM-provider-specific REST API clients using JDK `HttpClient` (zero extra dependencies); support GitHub Enterprise, GitLab self-managed, and Bitbucket Cloud
 - **PipelineLogExtractor**: Extracts logs from the specific failing Pipeline step node (via `FlowGraphWalker`); integrates with optional `pipeline-graph-view` plugin for deep-linking
 - **JenkinsLogAnalysis**: Structured record for AI response (errorSummary, resolutionSteps, bestPractices, errorSignature)
 - **ExplanationException**: Custom exception for error explanation failures
@@ -28,7 +33,7 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 ```
 src/main/java/io/jenkins/plugins/explain_error/
 ├── GlobalConfigurationImpl.java            # Plugin configuration & CasC + migration logic
-├── ExplainErrorStep.java                   # Pipeline step (logPattern, maxLines, language, customContext)
+├── ExplainErrorStep.java                   # Pipeline step (logPattern, maxLines, language, customContext, autoFix*)
 ├── ExplainErrorFolderProperty.java         # Folder-level AI provider override
 ├── ErrorExplainer.java                     # Core error analysis logic (provider resolution)
 ├── PipelineLogExtractor.java               # Failing step log extraction + pipeline-graph-view URL
@@ -39,12 +44,29 @@ src/main/java/io/jenkins/plugins/explain_error/
 ├── JenkinsLogAnalysis.java                 # Structured AI response record
 ├── ExplanationException.java               # Custom exception for error handling
 ├── AIProvider.java                         # @Deprecated enum (backward compatibility)
-└── provider/
-    ├── BaseAIProvider.java                  # Abstract AI service with Assistant interface
-    ├── OpenAIProvider.java                  # OpenAI/LangChain4j implementation
-    ├── GeminiProvider.java                  # Google Gemini/LangChain4j implementation
-    ├── BedrockProvider.java                 # AWS Bedrock/LangChain4j implementation
-    └── OllamaProvider.java                  # Ollama/LangChain4j implementation
+├── provider/
+│   ├── BaseAIProvider.java                 # Abstract AI service with Assistant interface
+│   ├── OpenAIProvider.java                 # OpenAI/LangChain4j implementation
+│   ├── GeminiProvider.java                 # Google Gemini/LangChain4j implementation
+│   ├── BedrockProvider.java                # AWS Bedrock/LangChain4j implementation
+│   └── OllamaProvider.java                 # Ollama/LangChain4j implementation
+└── autofix/
+    ├── AutoFixOrchestrator.java            # AI suggestion → branch → commits → PR (with rollback)
+    ├── AutoFixAction.java                  # Build action: persists & displays PR URL in sidebar
+    ├── AutoFixResult.java                  # Result value object (status + PR URL + message)
+    ├── AutoFixStatus.java                  # Enum: CREATED, FAILED, SKIPPED_*, NOT_APPLICABLE
+    ├── FixAssistant.java                   # LangChain4j interface for structured fix suggestions
+    ├── FixSuggestion.java                  # AI response: fixable flag, file diffs, confidence
+    ├── UnifiedDiffApplier.java             # Applies unified diffs with ±3-line fuzzy matching
+    └── scm/
+        ├── ScmApiClient.java               # Interface: createBranch, commitFiles, createPullRequest
+        ├── ScmClientFactory.java           # Creates right client based on ScmType
+        ├── ScmRepo.java                    # Value object: type + baseUrl + owner/repo + token
+        ├── ScmType.java                    # Enum: GITHUB, GITLAB, BITBUCKET
+        ├── GitHubApiClient.java            # GitHub REST v3 — Git Trees API (atomic multi-file commit)
+        ├── GitLabApiClient.java            # GitLab REST v4 — Commits API with actions array
+        ├── BitbucketApiClient.java         # Bitbucket Cloud REST v2 — multipart /src commit
+        └── PullRequest.java               # Value object: number + URL + branch names
 ```
 
 ## Coding Standards
@@ -119,6 +141,10 @@ Use `provider.setThrowError(true)` to simulate failures, `provider.getLastCustom
 - Folder-level provider override (`ExplainErrorFolderPropertyTest`)
 - Error explanation display (`ErrorExplanationActionTest`)
 - Log extraction (`PipelineLogExtractorTest`)
+- Auto-fix orchestration paths (`autofix/AutoFixOrchestratorTest`) — uses Mockito; covers fixable/not-fixable/empty-changes/path-guard flows
+- SCM API clients (`autofix/GitHubApiClientTest`, `GitLabApiClientTest`, `BitbucketApiClientTest`) — WireMock integration tests; cover happy paths, auth failures, retry on 429/5xx
+- `ScmRepo` parsing (`autofix/ScmRepoTest`) — SSH/HTTPS URL parsing, `parseWithOverride`, token redaction in `toString()`
+- Unified diff application (`autofix/UnifiedDiffApplierTest`) — add/remove/modify hunks, multi-hunk, empty file, fuzzy matching
 
 ## Build & Dependencies
 
@@ -128,7 +154,7 @@ Use `provider.setThrowError(true)` to simulate failures, `provider.getLastCustom
 - LangChain4j: v1.11.0 (langchain4j, langchain4j-open-ai, langchain4j-google-ai-gemini, langchain4j-bedrock, langchain4j-ollama)
 - Key Jenkins dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 - SLF4J and Jackson exclusions to avoid conflicts with Jenkins core
-- Test dependencies: `workflow-cps`, `workflow-job`, `workflow-durable-task-step`, `workflow-basic-steps`, `test-harness`
+- Test dependencies: `workflow-cps`, `workflow-job`, `workflow-durable-task-step`, `workflow-basic-steps`, `test-harness`, `wiremock-standalone` (for SCM API integration tests)
 - Key dependencies: `jackson2-api`, `workflow-step-api`, `commons-lang3-api`
 
 ### Commands
@@ -182,6 +208,22 @@ pipeline {
                 maxLines: 200,                           // Max log lines to send to AI (default: 100)
                 language: 'Chinese',                     // Response language (default: English)
                 customContext: 'This is a Maven project' // Step-level context; overrides global customContext
+            )
+
+            // Auto-fix: AI generates a code fix and opens a PR automatically
+            explainError(
+                autoFix: true,
+                autoFixCredentialsId: 'github-pat',     // Jenkins credential with repo write access
+                autoFixAllowedPaths: 'pom.xml,*.yml',   // Restrict files the AI may change
+                autoFixDraftPr: true                     // Open as draft PR (GitHub only)
+            )
+
+            // Auto-fix on a self-hosted GitLab instance
+            explainError(
+                autoFix: true,
+                autoFixCredentialsId: 'gitlab-pat',
+                autoFixScmType: 'gitlab',
+                autoFixGitlabUrl: 'https://gitlab.company.com'
             )
         }
     }
@@ -253,7 +295,7 @@ Create `src/test/java/io/jenkins/plugins/explain_error/provider/AnthropicProvide
 
 ### Step 5 — Update Documentation
 
-- Add provider to `README.md` feature list and CasC YAML example
+- Add provider to `README.md` feature list, Supported AI Providers section, and CasC YAML example
 - Update `copilot-instructions.md` provider list and Key Components
 
 ### Best Practices

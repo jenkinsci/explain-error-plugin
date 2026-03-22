@@ -40,6 +40,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
+* **AI auto-fix** — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
@@ -242,6 +243,16 @@ post {
 | **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 | **collectDownstreamLogs** | Whether to include logs from failed downstream jobs discovered via the `build` step or `Cause.UpstreamCause` | `false` |
 | **downstreamJobPattern** | Regular expression matched against downstream job full names. Used only when downstream collection is enabled. | `''` (collect none) |
+| **autoFix** | Enable AI auto-fix: the plugin will attempt to generate and commit a code fix, then open a pull request | `false` |
+| **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository | `''` |
+| **autoFixScmType** | SCM type override: `github`, `gitlab`, or `bitbucket`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` | Auto-detected from remote URL |
+| **autoFixGithubEnterpriseUrl** | Base URL of your GitHub Enterprise instance (e.g. `https://github.company.com`) | `''` (uses `api.github.com`) |
+| **autoFixGitlabUrl** | Base URL of your self-hosted GitLab instance (e.g. `https://gitlab.company.com`) | `''` (uses `gitlab.com`) |
+| **autoFixBitbucketUrl** | Base URL of your self-hosted Bitbucket instance | `''` (uses `api.bitbucket.org`) |
+| **autoFixAllowedPaths** | Comma-separated list of file glob patterns the AI is permitted to modify | `pom.xml,build.gradle,*.yml,*.yaml,...` |
+| **autoFixDraftPr** | Open the pull request as a draft (GitHub only) | `false` |
+| **autoFixTimeoutSeconds** | Maximum seconds to wait for the auto-fix to complete | `60` |
+| **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}` placeholders | Built-in template |
 
 ```groovy
 explainError(
@@ -272,6 +283,50 @@ whose full name matches `downstreamJobPattern` are scanned and included in the A
 Output appears in the sidebar of the failed job.
 
 ![Side Panel - AI Error Explanation](docs/images/side-panel.png)
+
+### Auto-Fix: Automatic Pull Request Creation
+
+When `autoFix: true` is set, the plugin goes one step further than explaining the error — it asks the AI to generate a code fix, commits the changes to a new branch, and opens a pull request for your review.
+
+**Quick start:**
+
+```groovy
+post {
+    failure {
+        explainError(
+            autoFix: true,
+            autoFixCredentialsId: 'github-pat'  // Jenkins credential with repo write access
+        )
+    }
+}
+```
+
+The pull request is created on the same repository the build checks out from. The URL appears in the Jenkins build sidebar as soon as the PR is opened.
+
+**Self-hosted SCM (GitHub Enterprise / GitLab self-managed / Bitbucket Server):**
+
+```groovy
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'gitlab-pat',
+    autoFixScmType: 'gitlab',
+    autoFixGitlabUrl: 'https://gitlab.company.com'
+)
+```
+
+**Restrict which files the AI may change** (recommended for production):
+
+```groovy
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'github-pat',
+    autoFixAllowedPaths: 'pom.xml,build.gradle,*.properties'
+)
+```
+
+The AI will only propose changes to files matching the glob patterns. Any attempt to modify files outside the list is rejected before a branch is created.
+
+> **Note:** Auto-fix requires a personal access token (PAT) with write access to the repository. It does **not** use the SSH key used to check out the repository.
 
 ### Method 2: Manual Console Analysis
 
