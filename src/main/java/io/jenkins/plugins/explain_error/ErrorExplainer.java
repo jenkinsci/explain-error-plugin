@@ -9,6 +9,7 @@ import hudson.model.TaskListener;
 import hudson.util.LogTaskListener;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -77,6 +78,7 @@ public class ErrorExplainer {
             String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
 
             // Get AI explanation
+            UsageStatisticsManager stats = UsageStatisticsManager.get();
             try {
                 String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
@@ -84,11 +86,19 @@ public class ErrorExplainer {
                 // Store explanation in build action
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs, provider.getProviderName());
                 run.addOrReplaceAction(action);
-                
+
                 return explanation;
             } catch (ExplanationException ee) {
                 listener.getLogger().println(ee.getMessage());
                 return null;
+            } finally {
+                // Count every API attempt (success or failure) — both may incur provider cost.
+                // Wrapped in try-catch: stats bugs must never propagate to the build.
+                try {
+                    if (stats != null) stats.recordCall(run.getParent().getFullName(), Instant.now());
+                } catch (Exception e) {
+                    LOGGER.warning(jobInfo + " Failed to record usage stats: " + e.getMessage());
+                }
             }
 
             // Explanation is now available on the job page, no need to clutter console output
@@ -162,8 +172,19 @@ public class ErrorExplainer {
             throw new ExplanationException("error", "No AI provider configured.");
         }
 
-        // Get AI explanation with global custom context
-        String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, GlobalConfigurationImpl.get().getCustomContext());
+        // Get AI explanation with global custom context.
+        // Count every API attempt (success or failure) — both may incur provider cost.
+        UsageStatisticsManager stats = UsageStatisticsManager.get();
+        String explanation = null;
+        try {
+            explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, GlobalConfigurationImpl.get().getCustomContext());
+        } finally {
+            try {
+                if (stats != null) stats.recordCall(run.getParent().getFullName(), Instant.now());
+            } catch (Exception e) {
+                LOGGER.warning(jobInfo + " Failed to record usage stats: " + e.getMessage());
+            }
+        }
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
         LOGGER.fine("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
