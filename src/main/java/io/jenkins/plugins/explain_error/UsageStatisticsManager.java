@@ -35,8 +35,8 @@ import java.util.logging.Logger;
  *   save() override
  *     ├── pruneOldDays() — drop dailyCounts entries older than 31 days
  *     ├── snapshot AtomicLong  → long         (totalCallsValue)
- *     ├── snapshot dailyCounts → Map<String,Long> (dailyCountsMap)
- *     ├── snapshot perJobCounts → Map<String,Long> (perJobCountsMap)
+ *     ├── snapshot dailyCounts → {@code Map<String,Long>} (dailyCountsMap)
+ *     ├── snapshot perJobCounts → {@code Map<String,Long>} (perJobCountsMap)
  *     └── super.save() — writes XML
  *
  *   readResolve()
