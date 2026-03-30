@@ -24,10 +24,17 @@ public class ConsolePageDecorator extends PageDecorator {
             return false;
         }
 
+        if (config.getAiProvider() == null) {
+            return false;
+        }
+
         return !config.getAiProvider().isNotValid(null);
     }
 
     public String getProviderName() {
+        if (GlobalConfigurationImpl.get().getAiProvider() == null) {
+            return null;
+        }
         return GlobalConfigurationImpl.get().getAiProvider().getProviderName();
     }
 

@@ -57,6 +57,13 @@ class ConsolePageDecoratorTest {
     }
 
     @Test
+    void testIsExplainErrorEnabledWhenAiProviderIsNull() {
+        // Should return false (not throw NPE) when aiProvider is null
+        config.setAiProvider(null);
+        assertFalse(decorator.isExplainErrorEnabled());
+    }
+
+    @Test
     void testIsExplainErrorEnabledWithNullApiKey() {
         provider.setApiKey(null);
 
