@@ -6,6 +6,9 @@ import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -125,6 +128,21 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     public void setCustomContext(String customContext) {
         this.customContext = customContext;
 
+    }
+
+    public long getTotalCalls() {
+        UsageStatisticsManager usage = UsageStatisticsManager.get();
+        return usage != null ? usage.getTotalCalls() : 0L;
+    }
+
+    public long getCallsThisMonth() {
+        UsageStatisticsManager usage = UsageStatisticsManager.get();
+        return usage != null ? usage.getCallsThisMonth() : 0L;
+    }
+
+    public List<Map.Entry<String, Long>> getTopJobs() {
+        UsageStatisticsManager usage = UsageStatisticsManager.get();
+        return usage != null ? usage.getTopJobs() : Collections.emptyList();
     }
 
     @Override

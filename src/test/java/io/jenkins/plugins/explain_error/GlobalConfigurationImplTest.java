@@ -5,10 +5,14 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
+import hudson.model.FreeStyleBuild;
+import hudson.model.FreeStyleProject;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
+import org.htmlunit.Page;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -26,6 +30,14 @@ class GlobalConfigurationImplTest {
         // Reset to clean state for each test (no auto-population)
         config.setAiProvider(new OpenAIProvider(null, "test-model", Secret.fromString("test-key")));
         config.setEnableExplanation(true);
+    }
+
+    @AfterEach
+    void tearDown() {
+        UsageStatisticsManager usage = UsageStatisticsManager.get();
+        if (usage != null) {
+            usage.flushPendingSaveForTesting();
+        }
     }
 
     @Test
@@ -78,5 +90,27 @@ class GlobalConfigurationImplTest {
         String displayName = config.getDisplayName();
         assertNotNull(displayName);
         assertEquals("Explain Error Plugin Configuration", displayName);
+    }
+
+    @Test
+    void testUsageStatisticsAreVisibleOnConfigureSystemPage(JenkinsRule jenkins) throws Exception {
+        UsageStatisticsManager usage = UsageStatisticsManager.get();
+        assertNotNull(usage);
+        usage.resetForTesting();
+        usage.recordCall("folder/test-job", java.time.Instant.now());
+
+        FreeStyleProject project = jenkins.createFreeStyleProject("test-job");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+        assertNotNull(build);
+
+        try (JenkinsRule.WebClient client = jenkins.createWebClient()) {
+            Page page = client.goTo("configure");
+            String content = page.getWebResponse().getContentAsString();
+
+            assertTrue(content.contains("Explain Error Plugin - Usage Statistics"));
+            assertTrue(content.contains("Total AI Calls"));
+            assertTrue(content.contains("folder/test-job"));
+            assertTrue(content.contains(">1<") || content.contains("1</span>") || content.contains("1</td>"));
+        }
     }
 }

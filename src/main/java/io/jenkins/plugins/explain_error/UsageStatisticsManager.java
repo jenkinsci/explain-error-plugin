@@ -224,6 +224,16 @@ public class UsageStatisticsManager extends GlobalConfiguration {
         }
     }
 
+    /** Cancels any debounced save and persists immediately. Package-private for tests. */
+    void flushPendingSaveForTesting() {
+        ensureInitialized();
+        TimerTask task = pendingSave != null ? pendingSave.getAndSet(null) : null;
+        if (task != null) {
+            task.cancel();
+        }
+        save();
+    }
+
     @Override
     @NonNull
     public String getDisplayName() {

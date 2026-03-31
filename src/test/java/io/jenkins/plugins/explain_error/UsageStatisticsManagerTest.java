@@ -3,6 +3,7 @@ package io.jenkins.plugins.explain_error;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.jenkins.plugins.explain_error.provider.TestProvider;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -42,6 +43,13 @@ class UsageStatisticsManagerTest {
         mgr = UsageStatisticsManager.get();
         assertNotNull(mgr, "UsageStatisticsManager extension must be registered");
         mgr.resetForTesting();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (mgr != null) {
+            mgr.flushPendingSaveForTesting();
+        }
     }
 
     // ─────────────────────────────────────────────────────────

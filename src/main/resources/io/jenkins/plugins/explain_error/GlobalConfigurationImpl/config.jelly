@@ -10,4 +10,37 @@
         </f:entry>
       </f:optionalBlock>
     </f:section>
+    <f:section title="Explain Error Plugin - Usage Statistics">
+        <f:entry title="Total AI Calls">
+            <b>${it.totalCalls}</b>
+        </f:entry>
+        <f:entry title="Calls This Month">
+            <span>${it.callsThisMonth}</span>
+        </f:entry>
+        <j:if test="${!it.topJobs.isEmpty()}">
+            <f:entry title="Top Jobs by Usage">
+                <table class="jenkins-table sortable">
+                    <thead>
+                        <tr>
+                            <th>Job</th>
+                            <th>Total Calls</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <j:forEach items="${it.topJobs}" var="entry">
+                            <tr>
+                                <td>${entry.key}</td>
+                                <td>${entry.value}</td>
+                            </tr>
+                        </j:forEach>
+                    </tbody>
+                </table>
+            </f:entry>
+        </j:if>
+        <j:if test="${it.topJobs.isEmpty()}">
+            <f:entry title="Top Jobs by Usage">
+                <span style="color: var(--text-color-secondary)">No AI calls recorded yet.</span>
+            </f:entry>
+        </j:if>
+    </f:section>
 </j:jelly>
