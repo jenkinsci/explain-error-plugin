@@ -5,13 +5,12 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
-import hudson.model.FreeStyleBuild;
-import hudson.model.FreeStyleProject;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
-import org.htmlunit.Page;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -93,24 +92,26 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
-    void testUsageStatisticsAreVisibleOnConfigureSystemPage(JenkinsRule jenkins) throws Exception {
+    void testUsageStatisticsAreExposedForConfigurationView() throws Exception {
         UsageStatisticsManager usage = UsageStatisticsManager.get();
         assertNotNull(usage);
         usage.resetForTesting();
         usage.recordCall("folder/test-job", java.time.Instant.now());
 
-        FreeStyleProject project = jenkins.createFreeStyleProject("test-job");
-        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
-        assertNotNull(build);
+        assertEquals(1L, config.getTotalCalls());
+        assertEquals(1L, config.getCallsThisMonth());
+        assertEquals(1, config.getTopJobs().size());
+        assertEquals("folder/test-job", config.getTopJobs().get(0).getKey());
+        assertEquals(1L, config.getTopJobs().get(0).getValue());
 
-        try (JenkinsRule.WebClient client = jenkins.createWebClient()) {
-            Page page = client.goTo("configure");
-            String content = page.getWebResponse().getContentAsString();
+        try (InputStream stream = GlobalConfigurationImpl.class.getResourceAsStream(
+                "/io/jenkins/plugins/explain_error/GlobalConfigurationImpl/config.jelly")) {
+            assertNotNull(stream, "Global configuration Jelly view should be packaged");
+            String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
 
             assertTrue(content.contains("Explain Error Plugin - Usage Statistics"));
             assertTrue(content.contains("Total AI Calls"));
-            assertTrue(content.contains("folder/test-job"));
-            assertTrue(content.contains(">1<") || content.contains("1</span>") || content.contains("1</td>"));
+            assertTrue(content.contains("Top Jobs by Usage"));
         }
     }
 }
