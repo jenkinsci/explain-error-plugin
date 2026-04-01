@@ -22,7 +22,7 @@
     <gitHubRepo>jenkinsci/explain-error-plugin</gitHubRepo>
     <jenkins.baseline>2.528</jenkins.baseline>
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
-    <langchain4j.version>1.11.0</langchain4j.version>
+    <langchain4j.version>1.12.2</langchain4j.version>
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
     <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
     <hpi.bundledArtifacts>bedrockruntime,jtokkit,langchain4j,langchain4j-bedrock,langchain4j-core,langchain4j-google-ai-gemini,langchain4j-http-client,langchain4j-http-client-jdk,langchain4j-ollama,langchain4j-open-ai,opennlp-tools</hpi.bundledArtifacts>
