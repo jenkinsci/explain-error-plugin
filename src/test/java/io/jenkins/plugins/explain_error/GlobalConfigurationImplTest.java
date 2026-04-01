@@ -11,6 +11,7 @@ import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,7 +97,7 @@ class GlobalConfigurationImplTest {
         UsageStatisticsManager usage = UsageStatisticsManager.get();
         assertNotNull(usage);
         usage.resetForTesting();
-        usage.recordCall("folder/test-job", java.time.Instant.now());
+        usage.recordCall("folder/test-job", Instant.now());
 
         assertEquals(1L, config.getTotalCalls());
         assertEquals(1L, config.getCallsThisMonth());
@@ -113,5 +114,37 @@ class GlobalConfigurationImplTest {
             assertTrue(content.contains("Total AI Calls"));
             assertTrue(content.contains("Top Jobs by Usage"));
         }
+    }
+
+    @Test
+    void testUsageStatisticsSectionIsDefinedOnlyInGlobalConfigurationView() throws Exception {
+        try (InputStream globalStream = GlobalConfigurationImpl.class.getResourceAsStream(
+                "/io/jenkins/plugins/explain_error/GlobalConfigurationImpl/config.jelly");
+             InputStream usageStream = UsageStatisticsManager.class.getResourceAsStream(
+                     "/io/jenkins/plugins/explain_error/UsageStatisticsManager/config.jelly")) {
+            assertNotNull(globalStream, "Global configuration Jelly view should be packaged");
+            assertNotNull(usageStream, "Usage statistics Jelly view should be packaged");
+
+            String globalContent = new String(globalStream.readAllBytes(), StandardCharsets.UTF_8);
+            String usageContent = new String(usageStream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertEquals(1, countOccurrences(globalContent, "Explain Error Plugin - Usage Statistics"));
+            assertTrue(globalContent.contains("Total AI Calls"));
+            assertTrue(globalContent.contains("Calls This Month"));
+            assertTrue(globalContent.contains("Top Jobs by Usage"));
+
+            assertEquals(0, countOccurrences(usageContent, "Explain Error Plugin - Usage Statistics"),
+                    "UsageStatisticsManager should not render a duplicate statistics section");
+        }
+    }
+
+    private int countOccurrences(String text, String needle) {
+        int count = 0;
+        int fromIndex = 0;
+        while ((fromIndex = text.indexOf(needle, fromIndex)) != -1) {
+            count++;
+            fromIndex += needle.length();
+        }
+        return count;
     }
 }

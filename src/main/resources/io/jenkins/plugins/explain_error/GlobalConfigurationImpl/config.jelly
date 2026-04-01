@@ -11,36 +11,40 @@
       </f:optionalBlock>
     </f:section>
     <f:section title="Explain Error Plugin - Usage Statistics">
-        <f:entry title="Total AI Calls">
-            <b>${it.totalCalls}</b>
-        </f:entry>
-        <f:entry title="Calls This Month">
-            <span>${it.callsThisMonth}</span>
-        </f:entry>
-        <j:if test="${!it.topJobs.isEmpty()}">
-            <f:entry title="Top Jobs by Usage">
-                <table class="jenkins-table sortable">
-                    <thead>
-                        <tr>
-                            <th>Job</th>
-                            <th>Total Calls</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <j:forEach items="${it.topJobs}" var="entry">
-                            <tr>
-                                <td>${entry.key}</td>
-                                <td>${entry.value}</td>
-                            </tr>
-                        </j:forEach>
-                    </tbody>
-                </table>
-            </f:entry>
-        </j:if>
-        <j:if test="${it.topJobs.isEmpty()}">
-            <f:entry title="Top Jobs by Usage">
-                <span style="color: var(--text-color-secondary)">No AI calls recorded yet.</span>
-            </f:entry>
-        </j:if>
+        <j:set var="topJobs" value="${it.topJobs}"/>
+        <table class="jenkins-table">
+            <tbody>
+                <tr>
+                    <th scope="row">Total AI Calls</th>
+                    <td>${it.totalCalls}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Calls This Month</th>
+                    <td>${it.callsThisMonth}</td>
+                </tr>
+            </tbody>
+        </table>
+        <h4>Top Jobs by Usage</h4>
+        <table class="jenkins-table sortable">
+            <thead>
+                <tr>
+                    <th>Job</th>
+                    <th>Total Calls</th>
+                </tr>
+            </thead>
+            <tbody>
+                <j:if test="${topJobs.isEmpty()}">
+                    <tr>
+                        <td colspan="2">No AI calls recorded yet.</td>
+                    </tr>
+                </j:if>
+                <j:forEach items="${topJobs}" var="entry">
+                    <tr>
+                        <td>${entry.key}</td>
+                        <td>${entry.value}</td>
+                    </tr>
+                </j:forEach>
+            </tbody>
+        </table>
     </f:section>
 </j:jelly>
