@@ -245,6 +245,43 @@ class UsageStatisticsManagerTest {
                 "No count should be lost under concurrent access");
     }
 
+    @Test
+    void concurrentRecordCalls_afterLazyInit_noCountingLoss() throws InterruptedException {
+        mgr.totalCallsValue = 0L;
+        mgr.dailyCountsMap = new java.util.HashMap<>();
+        mgr.perJobCountsMap = new java.util.HashMap<>();
+        mgr.totalCalls = null;
+        mgr.dailyCounts = null;
+        mgr.perJobCounts = null;
+
+        int threads = 2;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threads);
+
+        for (int i = 0; i < threads; i++) {
+            final int threadIdx = i;
+            pool.submit(() -> {
+                try {
+                    start.await();
+                    mgr.recordCall("job-" + threadIdx, Instant.now());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        start.countDown();
+        boolean completed = done.await(30, TimeUnit.SECONDS);
+        pool.shutdown();
+
+        assertTrue(completed, "All threads should complete within 30s");
+        assertEquals(2L, mgr.getTotalCalls(),
+                "Concurrent first-use initialization must not lose early increments");
+    }
+
     // ─────────────────────────────────────────────────────────
     // Class 5: ErrorExplainer integration
     // ─────────────────────────────────────────────────────────
@@ -323,6 +360,26 @@ class UsageStatisticsManagerTest {
     }
 
     @Test
+    void explainError_invalidProviderConfig_doesNotCallRecordCall() throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        TestProvider provider = new TestProvider();
+        provider.setApiKey(null);
+        config.setAiProvider(provider);
+        config.setEnableExplanation(true);
+
+        FreeStyleProject project = j.createFreeStyleProject();
+        FreeStyleBuild build = j.buildAndAssertSuccess(project);
+
+        ErrorExplainer explainer = new ErrorExplainer();
+        TaskListener listener = new LogTaskListener(Logger.getLogger("test"), Level.INFO);
+
+        String result = explainer.explainError(build, listener, null, 100);
+
+        assertNull(result, "Invalid provider config should return null");
+        assertEquals(0L, mgr.getTotalCalls(), "Local validation failures must not be counted as API calls");
+    }
+
+    @Test
     void explainErrorText_success_callsRecordCall() throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         TestProvider provider = new TestProvider();
@@ -356,6 +413,23 @@ class UsageStatisticsManagerTest {
                 () -> explainer.explainErrorText("some error text", "http://example.com", build));
 
         assertEquals(1L, mgr.getTotalCalls(), "Failed explainErrorText calls must still be counted");
+    }
+
+    @Test
+    void explainErrorText_blankInput_doesNotCallRecordCall() throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableExplanation(true);
+
+        FreeStyleProject project = j.createFreeStyleProject();
+        FreeStyleBuild build = j.buildAndAssertSuccess(project);
+
+        ErrorExplainer explainer = new ErrorExplainer();
+
+        assertThrows(ExplanationException.class,
+                () -> explainer.explainErrorText("   ", "http://example.com", build));
+
+        assertEquals(0L, mgr.getTotalCalls(), "Blank input must not be counted as an API call");
     }
 
     // ─────────────────────────────────────────────────────────

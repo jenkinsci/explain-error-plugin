@@ -104,7 +104,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
         } catch (Exception e) {
             LOGGER.severe("AI API request failed: " + e.getMessage());
-            throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);
+            throw new ExplanationException("error", "API request failed: " + e.getMessage(), e, true);
         }
     }
 

@@ -81,6 +81,7 @@ public class ErrorExplainer {
             UsageStatisticsManager stats = UsageStatisticsManager.get();
             try {
                 String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext);
+                recordCallSafely(stats, run, jobInfo);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
 
                 // Store explanation in build action
@@ -89,16 +90,11 @@ public class ErrorExplainer {
 
                 return explanation;
             } catch (ExplanationException ee) {
+                if (ee.wasRequestAttempted()) {
+                    recordCallSafely(stats, run, jobInfo);
+                }
                 listener.getLogger().println(ee.getMessage());
                 return null;
-            } finally {
-                // Count every API attempt (success or failure) — both may incur provider cost.
-                // Wrapped in try-catch: stats bugs must never propagate to the build.
-                try {
-                    if (stats != null) stats.recordCall(run.getParent().getFullName(), Instant.now());
-                } catch (Exception e) {
-                    LOGGER.warning(jobInfo + " Failed to record usage stats: " + e.getMessage());
-                }
             }
 
             // Explanation is now available on the job page, no need to clutter console output
@@ -173,17 +169,16 @@ public class ErrorExplainer {
         }
 
         // Get AI explanation with global custom context.
-        // Count every API attempt (success or failure) — both may incur provider cost.
         UsageStatisticsManager stats = UsageStatisticsManager.get();
-        String explanation = null;
+        String explanation;
         try {
             explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, GlobalConfigurationImpl.get().getCustomContext());
-        } finally {
-            try {
-                if (stats != null) stats.recordCall(run.getParent().getFullName(), Instant.now());
-            } catch (Exception e) {
-                LOGGER.warning(jobInfo + " Failed to record usage stats: " + e.getMessage());
+            recordCallSafely(stats, run, jobInfo);
+        } catch (ExplanationException ee) {
+            if (ee.wasRequestAttempted()) {
+                recordCallSafely(stats, run, jobInfo);
             }
+            throw ee;
         }
         LOGGER.fine(jobInfo + " AI error explanation succeeded.");
         LOGGER.fine("Explanation length: " + explanation.length());
@@ -193,6 +188,16 @@ public class ErrorExplainer {
         run.save();
 
         return action;
+    }
+
+    private void recordCallSafely(@CheckForNull UsageStatisticsManager stats, @NonNull Run<?, ?> run, String jobInfo) {
+        // Count only outbound provider requests. Local validation failures are not billable API calls.
+        // Wrapped in try-catch: stats bugs must never propagate to the build.
+        try {
+            if (stats != null) stats.recordCall(run.getParent().getFullName(), Instant.now());
+        } catch (Exception e) {
+            LOGGER.warning(jobInfo + " Failed to record usage stats: " + e.getMessage());
+        }
     }
 
     /**

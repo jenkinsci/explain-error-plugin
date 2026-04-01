@@ -71,13 +71,14 @@ public class UsageStatisticsManager extends GlobalConfiguration {
 
     // --- Transient working fields (rebuilt by readResolve after each load) ---
     // package-private for direct manipulation in pruneOldDays tests
-    transient AtomicLong totalCalls;
-    transient ConcurrentHashMap<String, AtomicLong> dailyCounts;
-    transient ConcurrentHashMap<String, AtomicLong> perJobCounts;
+    transient volatile AtomicLong totalCalls;
+    transient volatile ConcurrentHashMap<String, AtomicLong> dailyCounts;
+    transient volatile ConcurrentHashMap<String, AtomicLong> perJobCounts;
     private transient AtomicReference<TimerTask> pendingSave;
 
     public UsageStatisticsManager() {
         load();
+        readResolve();
     }
 
     /** Returns the singleton instance, or null if Jenkins is not running. */
@@ -218,7 +219,7 @@ public class UsageStatisticsManager extends GlobalConfiguration {
     }
 
     /** Guards against deserialization edge cases where XStream skips readResolve on the root object. */
-    private void ensureInitialized() {
+    private synchronized void ensureInitialized() {
         if (totalCalls == null) {
             readResolve();
         }
