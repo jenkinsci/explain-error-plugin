@@ -97,10 +97,11 @@ class GlobalConfigurationImplTest {
         UsageStatisticsManager usage = UsageStatisticsManager.get();
         assertNotNull(usage);
         usage.resetForTesting();
-        usage.recordCall("folder/test-job", Instant.now());
+        Instant fixedInstant = Instant.parse("2024-02-15T10:00:00Z");
+        usage.recordCall("folder/test-job", fixedInstant);
 
         assertEquals(1L, config.getTotalCalls());
-        assertEquals(1L, config.getCallsThisMonth());
+        assertEquals(1L, config.getCallsThisMonth(fixedInstant));
         assertEquals(1, config.getTopJobs().size());
         assertEquals("folder/test-job", config.getTopJobs().get(0).getKey());
         assertEquals(1L, config.getTopJobs().get(0).getValue());

@@ -67,12 +67,11 @@ class UsageStatisticsManagerTest {
 
     @Test
     void recordCall_incrementsDailyCounts() {
-        Instant now = Instant.now();
-        mgr.recordCall("my-job", now);
-        mgr.recordCall("my-job", now);
+        Instant fixedInstant = Instant.parse("2024-02-15T10:00:00Z");
+        mgr.recordCall("my-job", fixedInstant);
+        mgr.recordCall("my-job", fixedInstant);
 
-        // calls this month covers today's calls
-        assertTrue(mgr.getCallsThisMonth() >= 2);
+        assertEquals(2L, mgr.getCallsThisMonth(fixedInstant));
     }
 
     @Test
@@ -115,7 +114,7 @@ class UsageStatisticsManagerTest {
     void recordCall_nullTimestamp_usesNowFallback() {
         assertDoesNotThrow(() -> mgr.recordCall("my-job", null));
         assertEquals(1L, mgr.getTotalCalls());
-        assertTrue(mgr.getCallsThisMonth() >= 1);
+        assertEquals(1, mgr.dailyCounts.size());
     }
 
     // ─────────────────────────────────────────────────────────
@@ -169,14 +168,15 @@ class UsageStatisticsManagerTest {
 
     @Test
     void roundTrip_dailyCountsPersisted() {
-        mgr.recordCall("job-a", Instant.now());
+        Instant fixedInstant = Instant.parse("2024-02-15T10:00:00Z");
+        mgr.recordCall("job-a", fixedInstant);
         mgr.save();
 
         mgr.dailyCountsMap = new java.util.HashMap<>();
         mgr.load();
         mgr.readResolve();
 
-        assertTrue(mgr.getCallsThisMonth() >= 1);
+        assertEquals(1L, mgr.getCallsThisMonth(fixedInstant));
     }
 
     @Test

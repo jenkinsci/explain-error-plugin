@@ -4,6 +4,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
+import jenkins.util.Timer;
 import org.jenkinsci.Symbol;
 
 import java.time.Instant;
@@ -13,9 +14,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
@@ -30,7 +32,7 @@ import java.util.logging.Logger;
  *     ├── increment transient AtomicLong totalCalls
  *     ├── update transient ConcurrentHashMap dailyCounts (yyyy-MM-dd key, UTC)
  *     ├── update transient ConcurrentHashMap perJobCounts (job full name key)
- *     └── scheduleSave() — debounced 5s via Jenkins Timer
+ *     └── scheduleSave() — debounced 5s via Jenkins-managed scheduler
  *
  *   save() override
  *     ├── pruneOldDays() — drop dailyCounts entries older than 31 days
@@ -47,9 +49,6 @@ import java.util.logging.Logger;
 public class UsageStatisticsManager extends GlobalConfiguration {
 
     private static final Logger LOGGER = Logger.getLogger(UsageStatisticsManager.class.getName());
-
-    /** Shared daemon timer for deferred saves. Daemon so it doesn't block JVM shutdown. */
-    private static final Timer SAVE_TIMER = new Timer("explain-error-stats-save", /* daemon= */ true);
 
     /** Delay before flushing stats to disk (debounces rapid concurrent calls). */
     static final long SAVE_DELAY_MS = 5000L;
@@ -74,7 +73,7 @@ public class UsageStatisticsManager extends GlobalConfiguration {
     transient volatile AtomicLong totalCalls;
     transient volatile ConcurrentHashMap<String, AtomicLong> dailyCounts;
     transient volatile ConcurrentHashMap<String, AtomicLong> perJobCounts;
-    private transient AtomicReference<TimerTask> pendingSave;
+    private transient AtomicReference<ScheduledFuture<?>> pendingSave;
 
     public UsageStatisticsManager() {
         load();
@@ -130,19 +129,15 @@ public class UsageStatisticsManager extends GlobalConfiguration {
      * Safe to call from multiple threads concurrently.
      */
     private void scheduleSave() {
-        TimerTask task = new TimerTask() {
-            @Override
-            public void run() {
-                UsageStatisticsManager.this.save();
-            }
-        };
-        TimerTask old = pendingSave.getAndSet(task);
-        if (old != null) old.cancel();
         try {
-            SAVE_TIMER.schedule(task, SAVE_DELAY_MS);
-        } catch (IllegalStateException ignored) {
-            // A concurrent scheduleSave() cancelled this task before we could schedule it.
-            // A newer task is already scheduled — safe to ignore.
+            ScheduledFuture<?> task = Timer.get().schedule(UsageStatisticsManager.this::save, SAVE_DELAY_MS, TimeUnit.MILLISECONDS);
+            ScheduledFuture<?> old = pendingSave.getAndSet(task);
+            if (old != null) {
+                old.cancel(false);
+            }
+        } catch (RejectedExecutionException ignored) {
+            // Jenkins is shutting down or the shared scheduler is no longer accepting work.
+            // Best effort persistence already happened for earlier calls; skip rescheduling.
         }
     }
 
@@ -193,8 +188,13 @@ public class UsageStatisticsManager extends GlobalConfiguration {
 
     /** Returns total calls made during the current calendar month (UTC). */
     public long getCallsThisMonth() {
+        return getCallsThisMonth(Instant.now());
+    }
+
+    long getCallsThisMonth(Instant referenceTime) {
         ensureInitialized();
-        String monthPrefix = DAY_FMT.format(Instant.now()).substring(0, 7); // "yyyy-MM"
+        Instant now = referenceTime != null ? referenceTime : Instant.now();
+        String monthPrefix = DAY_FMT.format(now).substring(0, 7); // "yyyy-MM"
         return dailyCounts.entrySet().stream()
                 .filter(e -> e.getKey().startsWith(monthPrefix))
                 .mapToLong(e -> e.getValue().get())
@@ -228,9 +228,9 @@ public class UsageStatisticsManager extends GlobalConfiguration {
     /** Cancels any debounced save and persists immediately. Package-private for tests. */
     void flushPendingSaveForTesting() {
         ensureInitialized();
-        TimerTask task = pendingSave != null ? pendingSave.getAndSet(null) : null;
+        ScheduledFuture<?> task = pendingSave != null ? pendingSave.getAndSet(null) : null;
         if (task != null) {
-            task.cancel();
+            task.cancel(false);
         }
         save();
     }

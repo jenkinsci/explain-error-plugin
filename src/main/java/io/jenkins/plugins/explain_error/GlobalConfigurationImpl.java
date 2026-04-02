@@ -6,6 +6,7 @@ import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -136,8 +137,12 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     }
 
     public long getCallsThisMonth() {
+        return getCallsThisMonth(Instant.now());
+    }
+
+    long getCallsThisMonth(Instant referenceTime) {
         UsageStatisticsManager usage = UsageStatisticsManager.get();
-        return usage != null ? usage.getCallsThisMonth() : 0L;
+        return usage != null ? usage.getCallsThisMonth(referenceTime) : 0L;
     }
 
     public List<Map.Entry<String, Long>> getTopJobs() {
