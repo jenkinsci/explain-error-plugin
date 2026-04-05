@@ -35,8 +35,8 @@ class ExplainErrorStepTest {
         // Check that the explain error step was called and logged the expected error
         jenkins.assertLogContains("[explain-error] Starting explanation", run);
         jenkins.assertLogContains("[explain-error] Using provider OpenAI", run);
-        jenkins.assertLogContains("[explain-error] AI request failed: The provider is not properly configured.", run);
-        jenkins.assertLogContains("The provider is not properly configured.", run);
+        jenkins.assertLogContains("No Api key configured for OpenAI.", run);
+        jenkins.assertLogContains("[explain-error] Provider configuration is invalid.", run);
     }
 
     @Test
