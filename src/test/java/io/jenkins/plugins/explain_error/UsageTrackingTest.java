@@ -133,6 +133,7 @@ class UsageTrackingTest {
 
         JSONObject response = invokeExplainConsoleError(action, null, null);
         assertEquals("warning", response.getString("status"));
+        assertEquals("Unknown", response.getString("providerName"));
 
         assertEquals(1, recorder.events.size());
         UsageEvent event = recorder.events.get(0);
@@ -141,6 +142,27 @@ class UsageTrackingTest {
         assertEquals("Test", event.providerName());
         assertEquals("test-model", event.model());
         assertEquals(0, event.inputLogLineCount());
+    }
+
+    @Test
+    void pipelineStepDisabledRequestEmitsDisabledUsageEventWithConfiguredProvider(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(false);
+        config.setAiProvider(new TestProvider());
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "usage-pipeline-disabled");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.EntryPoint.PIPELINE_STEP, event.entryPoint());
+        assertEquals(UsageEvent.Result.DISABLED, event.result());
+        assertEquals("Test", event.providerName());
+        assertEquals("test-model", event.model());
+        assertEquals(0, event.inputLogLineCount());
+        jenkins.assertLogContains("[explain-error] Explanation is disabled by configuration.", run);
     }
 
     @Test

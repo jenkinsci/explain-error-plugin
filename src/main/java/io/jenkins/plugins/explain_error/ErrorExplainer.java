@@ -73,7 +73,8 @@ public class ErrorExplainer {
                         Authentication authentication, UsageEvent.EntryPoint entryPoint) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         long startTimeNanos = System.nanoTime();
-        BaseAIProvider provider = null;
+        ProviderResolution providerResolution = resolveProvider(run);
+        BaseAIProvider provider = providerResolution.provider();
         int inputLogLineCount = 0;
         try {
             logToConsole(listener, "Starting explanation for " + jobInfo + ".");
@@ -81,14 +82,11 @@ public class ErrorExplainer {
             // Check if explanation is enabled (folder-level or global)
             if (!isExplanationEnabled(run)) {
                 logToConsole(listener, "Explanation is disabled by configuration.");
-                recordUsage(entryPoint, UsageEvent.Result.DISABLED, null, startTimeNanos, 0,
+                recordUsage(entryPoint, UsageEvent.Result.DISABLED, provider, startTimeNanos, 0,
                         collectDownstreamLogs);
                 return null;
             }
 
-            // Resolve provider (folder-level first, then global)
-            ProviderResolution providerResolution = resolveProvider(run);
-            provider = providerResolution.provider();
             if (provider == null) {
                 logToConsole(listener, "No AI provider is configured.");
                 recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, null, startTimeNanos, 0,
@@ -212,15 +210,15 @@ public class ErrorExplainer {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
         long startTimeNanos = System.nanoTime();
         int inputLogLineCount = countLines(errorText);
+        ProviderResolution providerResolution = resolveProvider(run);
+        BaseAIProvider provider = providerResolution.provider();
 
         // Check if explanation is enabled (folder-level or global)
         if (!isExplanationEnabled(run)) {
-            recordUsage(entryPoint, UsageEvent.Result.DISABLED, null, startTimeNanos, inputLogLineCount, false);
+            recordUsage(entryPoint, UsageEvent.Result.DISABLED, provider, startTimeNanos,
+                    inputLogLineCount, false);
             throw new ExplanationException("error", "AI error explanation is disabled.");
         }
-        // Resolve provider (folder-level first, then global)
-        ProviderResolution providerResolution = resolveProvider(run);
-        BaseAIProvider provider = providerResolution.provider();
         if (provider == null) {
             recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, null, startTimeNanos, inputLogLineCount,
                     false);

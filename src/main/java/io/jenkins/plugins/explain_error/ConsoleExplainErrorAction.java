@@ -74,7 +74,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                         provider != null ? provider.getModel() : null,
                         startTimeNanos,
                         0);
-                writeJsonResponse(rsp, "warning", "Unkown" , "AI error explanation is disabled in global configuration.");
+                writeJsonResponse(rsp, "warning", "Unknown", "AI error explanation is disabled in global configuration.");
                 return;
             }
 
@@ -116,7 +116,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         } catch (Exception e) {
             LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
             LOGGER.severe("Error explaining console error: " + e.getMessage());
-            writeJsonResponse(rsp, "error", "Unkown" , "Error: " + e.getMessage());
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
         }
     }
 

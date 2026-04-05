@@ -18,7 +18,8 @@ public class ErrorExplanationAction implements RunAction2 {
     private transient Run<?, ?> run;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
-        this(explanation, urlString, originalErrorLogs, providerName, null, countLines(originalErrorLogs));
+        this(explanation, urlString, originalErrorLogs, providerName, null,
+                ErrorExplainer.countLines(originalErrorLogs));
     }
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs,
@@ -113,19 +114,5 @@ public class ErrorExplanationAction implements RunAction2 {
      */
     public boolean hasValidExplanation() {
         return explanation != null && !explanation.isBlank();
-    }
-
-    private static int countLines(String text) {
-        if (text == null || text.isEmpty()) {
-            return 0;
-        }
-
-        int lineCount = 1;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                lineCount++;
-            }
-        }
-        return lineCount;
     }
 }

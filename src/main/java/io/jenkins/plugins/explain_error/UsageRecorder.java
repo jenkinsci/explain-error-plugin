@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ExtensionPoint;
 
 /**
@@ -7,5 +8,5 @@ import hudson.ExtensionPoint;
  */
 public interface UsageRecorder extends ExtensionPoint {
 
-    void record(UsageEvent event);
+    void record(@NonNull UsageEvent event);
 }
