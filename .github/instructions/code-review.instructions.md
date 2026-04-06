@@ -13,10 +13,9 @@ This document outlines code review standards and best practices for the Explain 
 3. [Code Architecture](#code-architecture)
 4. [UI/UX Standards](#uiux-standards)
 5. [Configuration as Code (CasC)](#configuration-as-code-casc)
-6. [Error Handling](#error-handling)
-7. [Dependency Management](#dependency-management)
-8. [Testing Requirements](#testing-requirements)
-9. [Jelly and Frontend](#jelly-and-frontend)
+6. [Dependency Management](#dependency-management)
+7. [Testing Requirements](#testing-requirements)
+8. [Jelly and Frontend](#jelly-and-frontend)
 
 ---
 
@@ -48,28 +47,6 @@ LOGGER.info("Using FOLDER-LEVEL AI provider: " + providerName + ", Model: " + mo
 - Use `WARNING` only when action may be needed
 - Avoid duplicate logging (e.g., logging to both Jenkins logs and build console)
 - Allow admins to create specific loggers for the plugin if needed
-
-### ❌ DON'T: Use printStackTrace()
-
-```java
-// BAD: Prints stack trace to stderr
-try {
-    // code
-} catch (Exception e) {
-    e.printStackTrace();
-}
-```
-
-### ✅ DO: Use Logger
-
-```java
-// GOOD: Proper exception logging
-try {
-    // code
-} catch (Exception e) {
-    LOGGER.log(Level.WARNING, "Failed to explain error", e);
-}
-```
 
 ---
 
@@ -449,54 +426,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
 ---
 
-## Error Handling
-
-### Exception Handling Strategy
-
-#### ❌ DON'T: Return Error Strings
-
-```java
-// BAD: Returns error as string
-public String explainError(String log) {
-    try {
-        return aiService.analyze(log);
-    } catch (Exception e) {
-        return "Error: " + e.getMessage();
-    }
-}
-```
-
-#### ✅ DO: Throw Custom Exceptions
-
-```java
-// GOOD: Proper exception hierarchy
-public class ExplanationException extends Exception {
-    public ExplanationException(String message) {
-        super(message);
-    }
-    
-    public ExplanationException(String message, Throwable cause) {
-        super(message, cause);
-    }
-}
-
-public String explainError(String log) throws ExplanationException {
-    try {
-        return aiService.analyze(log);
-    } catch (IOException e) {
-        throw new ExplanationException("Failed to connect to AI provider", e);
-    }
-}
-```
-
-**Benefits**:
-- Clear separation between success and failure
-- Proper error propagation
-- Better debugging with stack traces
-- Consistent error handling across the codebase
-
----
-
 ## Dependency Management
 
 ### Use Plugin BOM
@@ -603,27 +532,6 @@ When using libraries like LangChain4j that bundle conflicting dependencies:
 ---
 
 ## Testing Requirements
-
-### Test Coverage
-
-#### ✅ DO: Test Success and Failure Scenarios
-
-```java
-@Test
-public void testSuccessfulExplanation() throws Exception {
-    // Test happy path
-}
-
-@Test
-public void testFailureHandling() throws Exception {
-    // Test error scenarios
-}
-
-@Test
-public void testInvalidConfiguration() throws Exception {
-    // Test validation
-}
-```
 
 ### Use TestProvider Instead of Mocking AI APIs
 
@@ -935,14 +843,12 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 Use this checklist when reviewing code:
 
 - [ ] Logging uses appropriate levels (FINE for debug, INFO for important events only)
-- [ ] No `printStackTrace()` calls
 - [ ] Secrets use `Secret` class
 - [ ] Permission checks on all sensitive operations (`@RequirePOST`, `Jenkins.ADMINISTER`)
 - [ ] `@Symbol` annotation on all descriptors for CasC
 - [ ] `@DataBoundConstructor` on configuration classes (no-args preferred)
 - [ ] `@DataBoundSetter` for optional/mutable fields
 - [ ] `@NonNull` / `@CheckForNull` annotations on all public method signatures
-- [ ] Exception handling uses custom exceptions, not error strings
 - [ ] `addOrReplaceAction` used instead of `addAction` for build actions
 - [ ] UI components use Jenkins design library
 - [ ] Dark theme compatibility (no hard-coded colors)
