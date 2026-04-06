@@ -1,7 +1,9 @@
 package io.jenkins.plugins.explain_error;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -103,6 +105,21 @@ class ExplainErrorStepTest {
 
         jenkins.assertLogContains("[explain-error] Starting explanation", run);
         jenkins.assertLogContains("[explain-error] Explanation is disabled by configuration.", run);
+    }
+
+    @Test
+    void testExplainErrorStepPassesLanguageToAI(JenkinsRule jenkins) throws Exception {
+        TestProvider provider = new TestProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-language");
+        job.setDefinition(new CpsFlowDefinition(
+                "node { explainError(language: 'Chinese') }", true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertEquals("Chinese", provider.getLastLanguage(),
+                "language parameter should be forwarded to the AI provider");
     }
 
 }

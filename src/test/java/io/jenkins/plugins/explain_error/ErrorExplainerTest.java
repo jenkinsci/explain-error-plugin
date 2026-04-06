@@ -22,6 +22,20 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 class ErrorExplainerTest {
 
     @Test
+    void filterErrorLogs_patternMatchesNothing_returnsEmptyString() {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+
+        String filtered = errorExplainer.filterErrorLogs(java.util.List.of(
+                "info line 1",
+                "debug: nothing relevant here",
+                "another info line"
+        ), "ERROR");
+
+        assertTrue(filtered.isEmpty(),
+                "When logPattern matches nothing and there are no downstream sections, result should be empty");
+    }
+
+    @Test
     void filterErrorLogs_preservesEntireDownstreamSectionWhenPatternIsUsed() {
         ErrorExplainer errorExplainer = new ErrorExplainer();
 
