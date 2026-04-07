@@ -1,11 +1,10 @@
 package io.jenkins.plugins.explain_error;
 
 import com.codahale.metrics.MetricRegistry;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import java.util.Locale;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import jenkins.metrics.api.Metrics;
 
 /**
@@ -29,8 +28,6 @@ import jenkins.metrics.api.Metrics;
 @Extension
 public class MetricsUsageRecorder implements UsageRecorder {
 
-    private static final Logger LOGGER = Logger.getLogger(MetricsUsageRecorder.class.getName());
-
     static final String PREFIX = "explain_error";
 
     private final MetricRegistry injectedRegistry;
@@ -50,15 +47,12 @@ public class MetricsUsageRecorder implements UsageRecorder {
         this.injectedRegistry = registry;
     }
 
+    @CheckForNull
     private MetricRegistry registry() {
         if (injectedRegistry != null) {
             return injectedRegistry;
         }
-        MetricRegistry r = Metrics.metricRegistry();
-        if (r == null) {
-            LOGGER.fine("MetricRegistry not yet available; skipping metrics recording.");
-        }
-        return r;
+        return Metrics.metricRegistry();
     }
 
     @Override
