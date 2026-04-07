@@ -111,6 +111,14 @@
       <optional>true</optional>
     </dependency>
 
+    <!-- Optional Dropwizard metrics integration via Jenkins Metrics plugin.
+         When absent the MetricsUsageRecorder extension will silently not load. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>metrics</artifactId>
+      <optional>true</optional>
+    </dependency>
+
     <!-- Pipeline build step for downstream build tracking (optional) -->
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>
