@@ -118,6 +118,17 @@ public class ErrorExplainer {
             String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
             logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
 
+            // Check quota before making a real provider call
+            if (!GlobalConfigurationImpl.get().tryAcquireQuota()) {
+                GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+                String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
+                        + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";
+                logToConsole(listener, msg);
+                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
+                        inputLogLineCount, collectDownstreamLogs);
+                return null;
+            }
+
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
@@ -230,6 +241,16 @@ public class ErrorExplainer {
             recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, provider, startTimeNanos,
                     inputLogLineCount, false);
             throw new ExplanationException("error", "The provider is not properly configured.");
+        }
+
+        // Check quota before making a real provider call
+        if (!GlobalConfigurationImpl.get().tryAcquireQuota()) {
+            GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+            String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
+                    + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";
+            recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
+                    inputLogLineCount, false);
+            throw new ExplanationException("warning", msg);
         }
 
         try {

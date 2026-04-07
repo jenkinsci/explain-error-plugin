@@ -45,6 +45,9 @@ class UsageTrackingTest {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
             config.setEnableExplanation(true);
             config.setAiProvider(null);
+            config.setEnableQuota(false);
+            config.setMaxProviderCallsPerWindow(100);
+            config.setQuotaWindow(QuotaWindow.HOURLY);
         }
     }
 
@@ -172,6 +175,94 @@ class UsageTrackingTest {
         provider.explainError("Direct provider call", null);
 
         assertTrue(recorder.events.isEmpty());
+    }
+
+    @Test
+    void pipelineStepQuotaExceededEmitsQuotaRejectedEvent(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(0);
+        config.setQuotaWindow(QuotaWindow.HOURLY);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "quota-pipeline-rejected");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.EntryPoint.PIPELINE_STEP, event.entryPoint());
+        assertEquals(UsageEvent.Result.QUOTA_REJECTED, event.result());
+        assertEquals("Test", event.providerName());
+        assertEquals("test-model", event.model());
+        jenkins.assertLogContains("[explain-error] Provider call quota exceeded.", run);
+    }
+
+    @Test
+    void consoleActionQuotaExceededEmitsQuotaRejectedEvent(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(0);
+        config.setQuotaWindow(QuotaWindow.DAILY);
+
+        FreeStyleProject project = jenkins.createFreeStyleProject("quota-console-rejected");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+        ConsoleExplainErrorAction action = new ConsoleExplainErrorAction(build);
+
+        JSONObject response = invokeExplainConsoleError(action, null, null);
+
+        assertEquals("warning", response.getString("status"));
+        assertTrue(response.getString("message").contains("quota exceeded"));
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.EntryPoint.CONSOLE_ACTION, event.entryPoint());
+        assertEquals(UsageEvent.Result.QUOTA_REJECTED, event.result());
+        assertEquals("Test", event.providerName());
+        assertEquals("test-model", event.model());
+    }
+
+    @Test
+    void quotaDisabledAllowsUnlimitedCalls(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(false);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "quota-disabled-pipeline");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        jenkins.buildAndAssertSuccess(job);
+        jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(2, recorder.events.size());
+        assertTrue(recorder.events.stream().allMatch(e -> e.result() == UsageEvent.Result.SUCCESS));
+    }
+
+    @Test
+    void cacheHitDoesNotConsumeQuota(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(1);
+        config.setQuotaWindow(QuotaWindow.HOURLY);
+
+        FreeStyleProject project = jenkins.createFreeStyleProject("quota-cache-hit");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+        ConsoleExplainErrorAction action = new ConsoleExplainErrorAction(build);
+
+        // First call: real provider call, consumes 1 quota slot
+        JSONObject firstResponse = invokeExplainConsoleError(action, null, null);
+        assertEquals("success", firstResponse.getString("status"));
+
+        // Second call: cache hit, should NOT go through quota and should succeed
+        JSONObject secondResponse = invokeExplainConsoleError(action, null, null);
+        assertEquals("success", secondResponse.getString("status"));
+
+        assertEquals(2, recorder.events.size());
+        assertEquals(UsageEvent.Result.SUCCESS, recorder.events.get(0).result());
+        assertEquals(UsageEvent.Result.CACHE_HIT, recorder.events.get(1).result());
     }
 
     private static class RecordingUsageRecorder implements UsageRecorder {

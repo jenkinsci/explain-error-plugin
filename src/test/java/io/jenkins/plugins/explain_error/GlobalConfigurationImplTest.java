@@ -47,6 +47,9 @@ class GlobalConfigurationImplTest {
     @Test
     void testDefaultValues() {
         assertTrue(config.isEnableExplanation());
+        assertFalse(config.isEnableQuota());
+        assertEquals(QuotaWindow.HOURLY, config.getQuotaWindow());
+        assertEquals(100, config.getMaxProviderCallsPerWindow());
     }
 
     @Test
@@ -97,6 +100,9 @@ class GlobalConfigurationImplTest {
         // Set some values
         config.setAiProvider(new GeminiProvider("", "test-model", Secret.fromString("test-key")));
         config.setEnableExplanation(false);
+        config.setEnableQuota(true);
+        config.setQuotaWindow(QuotaWindow.DAILY);
+        config.setMaxProviderCallsPerWindow(50);
 
         // Save the configuration
         config.save();
@@ -111,6 +117,9 @@ class GlobalConfigurationImplTest {
         assertEquals("test-model", gemini.getModel());
         assertThat(gemini.getUrl(), is(""));
         assertFalse(config.isEnableExplanation());
+        assertTrue(config.isEnableQuota());
+        assertEquals(QuotaWindow.DAILY, config.getQuotaWindow());
+        assertEquals(50, config.getMaxProviderCallsPerWindow());
     }
 
     @Test

@@ -8,6 +8,17 @@
                  description="Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). This can be overridden at the job level.">
           <f:textarea />
         </f:entry>
+
+        <f:optionalBlock field="enableQuota" title="Enable usage quota" checked="${it.enableQuota}" inline="true">
+          <f:entry title="Quota window" field="quotaWindow"
+                   description="Time window for counting provider calls.">
+            <f:select />
+          </f:entry>
+          <f:entry title="Max provider calls per window" field="maxProviderCallsPerWindow"
+                   description="Maximum number of real AI provider calls allowed within the quota window. Cache hits do not count toward this limit.">
+            <f:number clazz="setting-input" min="0" step="1" />
+          </f:entry>
+        </f:optionalBlock>
       </f:optionalBlock>
     </f:section>
 </j:jelly>
