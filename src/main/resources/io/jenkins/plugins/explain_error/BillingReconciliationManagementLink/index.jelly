@@ -1,0 +1,76 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
+  <l:layout title="Explain Error — Billing Reconciliation" permission="${app.ADMINISTER}">
+    <st:include page="sidepanel.jelly" it="${app}" optional="true"/>
+    <l:main-panel>
+      <h1>Explain Error — Billing Reconciliation</h1>
+      <p>
+        Cumulative provider call statistics since the last reset. Use these counts to reconcile
+        usage against your AI provider billing statements.
+      </p>
+
+      <h2>Successful Provider Calls</h2>
+      <j:choose>
+        <j:when test="${empty(it.successCallsByProvider)}">
+          <p class="jenkins-!-color-secondary">No successful provider calls recorded yet.</p>
+        </j:when>
+        <j:otherwise>
+          <table class="jenkins-table">
+            <thead>
+              <tr>
+                <th>Provider / Model</th>
+                <th>Total Calls</th>
+              </tr>
+            </thead>
+            <tbody>
+              <j:forEach items="${it.successCallsByProvider.entrySet()}" var="entry">
+                <tr>
+                  <td>${entry.key}</td>
+                  <td>${entry.value}</td>
+                </tr>
+              </j:forEach>
+            </tbody>
+          </table>
+        </j:otherwise>
+      </j:choose>
+
+      <h2>Fallback Provider Calls</h2>
+      <j:choose>
+        <j:when test="${empty(it.fallbackCallsByProvider)}">
+          <p class="jenkins-!-color-secondary">No fallback provider calls recorded yet.</p>
+        </j:when>
+        <j:otherwise>
+          <table class="jenkins-table">
+            <thead>
+              <tr>
+                <th>Provider / Model</th>
+                <th>Total Fallback Calls</th>
+              </tr>
+            </thead>
+            <tbody>
+              <j:forEach items="${it.fallbackCallsByProvider.entrySet()}" var="entry">
+                <tr>
+                  <td>${entry.key}</td>
+                  <td>${entry.value}</td>
+                </tr>
+              </j:forEach>
+            </tbody>
+          </table>
+        </j:otherwise>
+      </j:choose>
+
+      <h2>Quota Rejections</h2>
+      <p>Total quota-rejected calls (global + folder + user): <strong>${it.quotaRejectedTotal}</strong></p>
+
+      <h2>Reset Statistics</h2>
+      <p class="jenkins-!-color-secondary">
+        Resetting clears all in-memory and persisted counts. This does not affect your provider's billing records.
+      </p>
+      <form method="post" action="reset">
+        <f:block>
+          <button type="submit" class="jenkins-button jenkins-button--destructive">Reset Statistics</button>
+        </f:block>
+      </form>
+    </l:main-panel>
+  </l:layout>
+</j:jelly>

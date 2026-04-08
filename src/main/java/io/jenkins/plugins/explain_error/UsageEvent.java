@@ -45,7 +45,9 @@ public record UsageEvent(
         DISABLED("disabled"),
         MISCONFIGURED("misconfigured"),
         PROVIDER_ERROR("provider_error"),
-        QUOTA_REJECTED("quota_rejected");
+        QUOTA_REJECTED("quota_rejected"),
+        USER_QUOTA_REJECTED("user_quota_rejected"),
+        FALLBACK("fallback");
 
         private final String value;
 

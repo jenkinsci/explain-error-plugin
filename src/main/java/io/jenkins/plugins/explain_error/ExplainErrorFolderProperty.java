@@ -7,10 +7,15 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.ItemGroup;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Folder property for folder-level AI provider configuration.
@@ -20,6 +25,14 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     private BaseAIProvider aiProvider;
     private boolean enableExplanation = true;
+
+    // Folder-level quota
+    private boolean enableQuota = false;
+    private QuotaWindow quotaWindow = QuotaWindow.HOURLY;
+    private int maxProviderCallsPerWindow = 100;
+
+    // Runtime quota state — not persisted
+    private transient QuotaEnforcer quotaEnforcer;
 
     @DataBoundConstructor
     public ExplainErrorFolderProperty() {
@@ -65,6 +78,49 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         }
     }
 
+    public boolean isEnableQuota() {
+        return enableQuota;
+    }
+
+    @DataBoundSetter
+    public void setEnableQuota(boolean enableQuota) {
+        this.enableQuota = enableQuota;
+    }
+
+    public QuotaWindow getQuotaWindow() {
+        return quotaWindow != null ? quotaWindow : QuotaWindow.HOURLY;
+    }
+
+    @DataBoundSetter
+    public void setQuotaWindow(QuotaWindow quotaWindow) {
+        this.quotaWindow = quotaWindow != null ? quotaWindow : QuotaWindow.HOURLY;
+    }
+
+    public int getMaxProviderCallsPerWindow() {
+        return maxProviderCallsPerWindow;
+    }
+
+    @DataBoundSetter
+    public void setMaxProviderCallsPerWindow(int maxProviderCallsPerWindow) {
+        this.maxProviderCallsPerWindow = Math.max(0, maxProviderCallsPerWindow);
+    }
+
+    /**
+     * Attempts to acquire one quota slot for this folder.
+     * Always returns {@code true} when the folder quota is disabled.
+     *
+     * @return {@code true} if the call is permitted, {@code false} if the quota is exhausted
+     */
+    public boolean tryAcquireQuota() {
+        if (!enableQuota) {
+            return true;
+        }
+        if (quotaEnforcer == null) {
+            quotaEnforcer = new QuotaEnforcer();
+        }
+        return quotaEnforcer.tryAcquire(getQuotaWindow(), maxProviderCallsPerWindow);
+    }
+
     /**
      * Recursively search for folder-level AI provider configuration.
      * Walks up the folder hierarchy until a configuration is found.
@@ -74,6 +130,23 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
      */
     @CheckForNull
     public static BaseAIProvider findFolderProvider(@CheckForNull ItemGroup<?> itemGroup) {
+        ExplainErrorFolderProperty fp = findActiveFolderProperty(itemGroup);
+        return fp != null ? fp.getAiProvider() : null;
+    }
+
+    /**
+     * Recursively searches for an active folder property that has a provider configured and
+     * explanation enabled. Stops (returns {@code null}) if a folder explicitly disables
+     * explanation rather than continuing to parent folders.
+     *
+     * @param itemGroup the item group to start searching from
+     * @return the active folder property, or {@code null} if none found
+     */
+    @CheckForNull
+    public static ExplainErrorFolderProperty findActiveFolderProperty(@CheckForNull ItemGroup<?> itemGroup) {
+
+    @CheckForNull
+    public static ExplainErrorFolderProperty findActiveFolderProperty(@CheckForNull ItemGroup<?> itemGroup) {
         if (itemGroup == null) {
             return null;
         }
@@ -83,23 +156,16 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
             AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
             ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
 
-            if (property != null) {
-                BaseAIProvider provider = property.getAiProvider();
-                
-                // If provider is configured, respect the enableExplanation flag
-                if (provider != null) {
-                    // Provider configured and enabled: use it
-                    if (property.isEnableExplanation()) {
-                        return provider;
-                    }
-                    // Provider configured but disabled: explicitly disable (return null and stop searching)
-                    return null;
+            if (property != null && property.getAiProvider() != null) {
+                // Provider configured and enabled: use it
+                if (property.isEnableExplanation()) {
+                    return property;
                 }
-                // No provider configured at this level, continue to parent/global even if enableExplanation is false
+                // Provider configured but disabled: explicitly disable (stop searching)
+                return null;
             }
-
-            // Recursively check parent folder
-            return findFolderProvider(folder.getParent());
+            // No provider configured at this level, continue to parent
+            return findActiveFolderProperty(folder.getParent());
         }
 
         return null;
@@ -143,6 +209,25 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         @Override
         public String getDisplayName() {
             return "Explain Error Configuration";
+        }
+
+        @POST
+        public ListBoxModel doFillQuotaWindowItems() {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            ListBoxModel items = new ListBoxModel();
+            for (QuotaWindow window : QuotaWindow.values()) {
+                items.add(window.getDisplayName(), window.name());
+            }
+            return items;
+        }
+
+        @POST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
+        public FormValidation doCheckMaxProviderCallsPerWindow(@QueryParameter int value) {
+            if (value < 0) {
+                return FormValidation.error("Max provider calls per window must be 0 or greater.");
+            }
+            return FormValidation.ok();
         }
     }
 }
