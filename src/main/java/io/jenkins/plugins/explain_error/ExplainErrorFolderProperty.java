@@ -144,9 +144,6 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
      */
     @CheckForNull
     public static ExplainErrorFolderProperty findActiveFolderProperty(@CheckForNull ItemGroup<?> itemGroup) {
-
-    @CheckForNull
-    public static ExplainErrorFolderProperty findActiveFolderProperty(@CheckForNull ItemGroup<?> itemGroup) {
         if (itemGroup == null) {
             return null;
         }
