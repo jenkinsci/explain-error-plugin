@@ -5,7 +5,6 @@ import hudson.model.ManagementLink;
 import java.util.Map;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
-import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
@@ -79,7 +78,7 @@ public class BillingReconciliationManagementLink extends ManagementLink {
      * Handles the reset action (POST only, requires ADMINISTER).
      */
     @RequirePOST
-    public void doReset(StaplerRequest2 req, StaplerResponse2 rsp) throws Exception {
+    public void doReset(StaplerResponse2 rsp) throws Exception {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         BillingReconciliationRecorder recorder = BillingReconciliationRecorder.get();
         if (recorder != null) {
