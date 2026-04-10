@@ -3,11 +3,13 @@ package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
+import org.kohsuke.stapler.verb.GET;
 
 class ProviderTest {
 
@@ -170,5 +172,15 @@ class ProviderTest {
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testValidationEndpointsUseGet() throws NoSuchMethodException {
+        assertTrue(BaseAIProvider.BaseProviderDescriptor.class
+                .getMethod("doCheckUrl", String.class)
+                .isAnnotationPresent(GET.class));
+        assertTrue(OllamaProvider.DescriptorImpl.class
+                .getMethod("doCheckUrl", String.class)
+                .isAnnotationPresent(GET.class));
     }
 }

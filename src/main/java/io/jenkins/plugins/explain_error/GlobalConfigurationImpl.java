@@ -12,7 +12,7 @@ import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.POST;
+import org.kohsuke.stapler.verb.GET;
 import org.jenkinsci.Symbol;
 
 
@@ -256,7 +256,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return userQuotaEnforcer.tryAcquire(userId, getUserQuotaWindow(), maxUserCallsPerWindow);
     }
 
-    @POST
+    @GET
     public ListBoxModel doFillQuotaWindowItems() {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         ListBoxModel items = new ListBoxModel();
@@ -266,16 +266,16 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return items;
     }
 
-    @POST
-    @SuppressWarnings("lgtm[jenkins/no-permission-check]")
+    @GET
     public FormValidation doCheckMaxProviderCallsPerWindow(@QueryParameter int value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         if (value < 0) {
             return FormValidation.error("Max provider calls per window must be 0 or greater.");
         }
         return FormValidation.ok();
     }
 
-    @POST
+    @GET
     public ListBoxModel doFillUserQuotaWindowItems() {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         ListBoxModel items = new ListBoxModel();
@@ -285,9 +285,9 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return items;
     }
 
-    @POST
-    @SuppressWarnings("lgtm[jenkins/no-permission-check]")
+    @GET
     public FormValidation doCheckMaxUserCallsPerWindow(@QueryParameter int value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         if (value < 0) {
             return FormValidation.error("Max user calls per window must be 0 or greater.");
         }

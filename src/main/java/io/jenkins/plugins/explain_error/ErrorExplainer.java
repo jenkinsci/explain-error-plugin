@@ -106,19 +106,7 @@ public class ErrorExplainer {
                 return null;
             }
 
-            // Extract error logs
-            logToConsole(listener, "Extracting failure logs.");
-            PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
-                    collectDownstreamLogs, downstreamJobPattern, authentication);
-            String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
-            inputLogLineCount = countLines(errorLogs);
-            logExtractionSummary(listener, extractionResult, maxLines);
-
-            // Use step-level customContext if provided, otherwise fallback to global
-            String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
-            logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
-
-            // Check quota before making a real provider call
+            // Check quota before extracting logs so rejected requests stay cheap.
             if (!GlobalConfigurationImpl.get().tryAcquireQuota()) {
                 GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
                 String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
@@ -128,6 +116,20 @@ public class ErrorExplainer {
                         inputLogLineCount, collectDownstreamLogs);
                 return null;
             }
+
+            // Extract error logs
+            logToConsole(listener, "Extracting failure logs.");
+            PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
+                    collectDownstreamLogs, downstreamJobPattern, authentication);
+            String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
+            inputLogLineCount = countLines(errorLogs);
+            logExtractionSummary(listener, extractionResult, maxLines);
+
+            // Use step-level customContext if provided, otherwise fallback to global
+            String effectiveCustomContext = StringUtils.isNotBlank(customContext)
+                    ? customContext
+                    : GlobalConfigurationImpl.get().getCustomContext();
+            logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
 
             // Get AI explanation
             try {

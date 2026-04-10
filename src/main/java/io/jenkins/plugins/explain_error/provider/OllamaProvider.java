@@ -18,6 +18,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.GET;
 import org.kohsuke.stapler.verb.POST;
 
 public class OllamaProvider extends BaseAIProvider {
@@ -70,7 +71,7 @@ public class OllamaProvider extends BaseAIProvider {
             return "gemma3:1b";
         }
 
-        @POST
+        @GET
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckUrl(@QueryParameter String value) {
             if (value == null || value.isBlank()) {

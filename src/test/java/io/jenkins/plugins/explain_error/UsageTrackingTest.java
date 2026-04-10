@@ -196,6 +196,7 @@ class UsageTrackingTest {
         assertEquals(UsageEvent.Result.QUOTA_REJECTED, event.result());
         assertEquals("Test", event.providerName());
         assertEquals("test-model", event.model());
+        assertEquals(0, event.inputLogLineCount());
         jenkins.assertLogContains("[explain-error] Provider call quota exceeded.", run);
     }
 
