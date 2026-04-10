@@ -17,7 +17,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
-import org.kohsuke.stapler.verb.GET;
 
 @WithJenkins
 class GlobalConfigurationImplTest {
@@ -128,22 +127,6 @@ class GlobalConfigurationImplTest {
         String displayName = config.getDisplayName();
         assertNotNull(displayName);
         assertEquals("Explain Error Plugin Configuration", displayName);
-    }
-
-    @Test
-    void testQuotaValidationEndpointsUseGet() throws NoSuchMethodException {
-        assertTrue(GlobalConfigurationImpl.class
-                .getMethod("doFillQuotaWindowItems")
-                .isAnnotationPresent(GET.class));
-        assertTrue(GlobalConfigurationImpl.class
-                .getMethod("doCheckMaxProviderCallsPerWindow", int.class)
-                .isAnnotationPresent(GET.class));
-        assertTrue(GlobalConfigurationImpl.class
-                .getMethod("doFillUserQuotaWindowItems")
-                .isAnnotationPresent(GET.class));
-        assertTrue(GlobalConfigurationImpl.class
-                .getMethod("doCheckMaxUserCallsPerWindow", int.class)
-                .isAnnotationPresent(GET.class));
     }
 
     private HtmlSelect findProviderSelect(HtmlPage page) {

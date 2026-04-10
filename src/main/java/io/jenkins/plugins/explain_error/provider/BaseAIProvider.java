@@ -8,7 +8,7 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.GET;
+import org.kohsuke.stapler.verb.POST;
 
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
@@ -191,7 +191,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public abstract static class BaseProviderDescriptor extends Descriptor<BaseAIProvider> {
         public abstract String getDefaultModel();
 
-        @GET
+        @POST
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckUrl(@QueryParameter String value) {
             if (value == null || value.isBlank()) {

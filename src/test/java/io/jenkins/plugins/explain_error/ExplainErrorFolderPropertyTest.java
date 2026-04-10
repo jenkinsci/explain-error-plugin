@@ -8,7 +8,6 @@ import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
-import org.kohsuke.stapler.verb.GET;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -179,15 +178,5 @@ class ExplainErrorFolderPropertyTest {
         BaseAIProvider foundProvider = ExplainErrorFolderProperty.findFolderProvider(child);
         assertNotNull(foundProvider, "Should walk up two levels to find grandparent's provider");
         assertEquals("gpt-4", foundProvider.getModel());
-    }
-
-    @Test
-    void testQuotaDescriptorEndpointsUseGet() throws NoSuchMethodException {
-        assertTrue(ExplainErrorFolderProperty.DescriptorImpl.class
-                .getMethod("doFillQuotaWindowItems")
-                .isAnnotationPresent(GET.class));
-        assertTrue(ExplainErrorFolderProperty.DescriptorImpl.class
-                .getMethod("doCheckMaxProviderCallsPerWindow", int.class)
-                .isAnnotationPresent(GET.class));
     }
 }

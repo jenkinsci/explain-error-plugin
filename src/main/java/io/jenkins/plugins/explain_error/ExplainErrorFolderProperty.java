@@ -10,11 +10,12 @@ import hudson.model.ItemGroup;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.verb.GET;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Folder property for folder-level AI provider configuration.
@@ -207,9 +208,9 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
             return "Explain Error Configuration";
         }
 
-        @GET
-        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
+        @POST
         public ListBoxModel doFillQuotaWindowItems() {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             ListBoxModel items = new ListBoxModel();
             for (QuotaWindow window : QuotaWindow.values()) {
                 items.add(window.getDisplayName(), window.name());
@@ -217,7 +218,7 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
             return items;
         }
 
-        @GET
+        @POST
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckMaxProviderCallsPerWindow(@QueryParameter int value) {
             if (value < 0) {

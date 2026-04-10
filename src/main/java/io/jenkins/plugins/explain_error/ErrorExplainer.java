@@ -106,17 +106,6 @@ public class ErrorExplainer {
                 return null;
             }
 
-            // Check quota before extracting logs so rejected requests stay cheap.
-            if (!GlobalConfigurationImpl.get().tryAcquireQuota()) {
-                GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-                String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
-                        + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";
-                logToConsole(listener, msg);
-                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
-                        inputLogLineCount, collectDownstreamLogs);
-                return null;
-            }
-
             // Extract error logs
             logToConsole(listener, "Extracting failure logs.");
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
@@ -126,10 +115,19 @@ public class ErrorExplainer {
             logExtractionSummary(listener, extractionResult, maxLines);
 
             // Use step-level customContext if provided, otherwise fallback to global
-            String effectiveCustomContext = StringUtils.isNotBlank(customContext)
-                    ? customContext
-                    : GlobalConfigurationImpl.get().getCustomContext();
+            String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
             logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
+
+            // Check quota before making a real provider call
+            if (!GlobalConfigurationImpl.get().tryAcquireQuota()) {
+                GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+                String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
+                        + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";
+                logToConsole(listener, msg);
+                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
+                        inputLogLineCount, collectDownstreamLogs);
+                return null;
+            }
 
             // Get AI explanation
             try {
