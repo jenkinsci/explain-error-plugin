@@ -42,9 +42,8 @@ class QuotaEnforcerTest {
     }
 
     @Test
-    void windowRolloverResetsCount() throws InterruptedException {
-        // Use a very short custom duration to simulate window rollover without waiting an hour.
-        // We do this by resetting the enforcer, which simulates a fresh window.
+    void windowRolloverResetsCount() {
+        // Simulate a new time window by resetting the enforcer.
         QuotaEnforcer enforcer = new QuotaEnforcer();
 
         // Fill up the window

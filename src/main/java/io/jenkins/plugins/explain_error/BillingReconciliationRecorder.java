@@ -5,10 +5,12 @@ import hudson.Extension;
 import hudson.XmlFile;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
@@ -33,7 +35,7 @@ public class BillingReconciliationRecorder implements UsageRecorder {
     /** In-memory map: key="providerName/model", value=cumulative fallback calls. */
     private final ConcurrentHashMap<String, Long> fallbackCalls = new ConcurrentHashMap<>();
     /** Total quota-rejected calls (global + folder + user). */
-    private volatile long quotaRejectedTotal = 0L;
+    private final AtomicLong quotaRejectedTotal = new AtomicLong();
 
     public BillingReconciliationRecorder() {
         load();
@@ -52,7 +54,7 @@ public class BillingReconciliationRecorder implements UsageRecorder {
                 persist();
             }
             case QUOTA_REJECTED, USER_QUOTA_REJECTED -> {
-                quotaRejectedTotal++;
+                quotaRejectedTotal.incrementAndGet();
                 persist();
             }
             default -> { /* not tracked for billing */ }
@@ -76,7 +78,7 @@ public class BillingReconciliationRecorder implements UsageRecorder {
 
     /** Returns the cumulative count of quota-rejected calls across all quota types. */
     public long getQuotaRejectedTotal() {
-        return quotaRejectedTotal;
+        return quotaRejectedTotal.get();
     }
 
     /** Retrieves the singleton instance registered as a Jenkins extension. */
@@ -89,10 +91,14 @@ public class BillingReconciliationRecorder implements UsageRecorder {
     public synchronized void resetStats() {
         successCalls.clear();
         fallbackCalls.clear();
-        quotaRejectedTotal = 0L;
+        quotaRejectedTotal.set(0L);
         XmlFile file = dataFile();
         if (file.exists()) {
-            file.getFile().delete();
+            try {
+                Files.deleteIfExists(file.getFile().toPath());
+            } catch (IOException e) {
+                LOGGER.log(Level.WARNING, "Failed to delete billing reconciliation data", e);
+            }
         }
     }
 
@@ -106,7 +112,7 @@ public class BillingReconciliationRecorder implements UsageRecorder {
         BillingData data = new BillingData(
                 new LinkedHashMap<>(successCalls),
                 new LinkedHashMap<>(fallbackCalls),
-                quotaRejectedTotal);
+                quotaRejectedTotal.get());
         try {
             dataFile().write(data);
         } catch (IOException e) {
@@ -128,7 +134,7 @@ public class BillingReconciliationRecorder implements UsageRecorder {
                 if (data.fallbackCalls != null) {
                     fallbackCalls.putAll(data.fallbackCalls);
                 }
-                quotaRejectedTotal = data.quotaRejectedTotal;
+                quotaRejectedTotal.set(data.quotaRejectedTotal);
             }
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Failed to load billing reconciliation data", e);
