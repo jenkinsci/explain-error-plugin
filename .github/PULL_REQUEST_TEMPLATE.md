@@ -11,10 +11,10 @@
 <!-- Please describe any testing done to verify the changes in this PR. -->
 
 ### Submitter checklist
-- [x] Make sure you are opening from a **topic/feature/bugfix branch** (right side) and not your main branch!
-- [x] Ensure that the pull request title represents the desired changelog entry
+- [ ] Make sure you are opening from a **topic/feature/bugfix branch** (right side) and not your main branch!
+- [ ] Ensure that the pull request title represents the desired changelog entry
 - [ ] Please describe what you did
-- [x] Link to relevant issues in GitHub or Jira
+- [ ] Link to relevant issues in GitHub or Jira
 - [ ] Link to relevant pull requests, esp. upstream and downstream changes
 - [ ] Ensure you have provided tests that demonstrate the feature works or the issue is fixed
 
