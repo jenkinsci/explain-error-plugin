@@ -28,7 +28,7 @@ Put an `x` into the [ ] to show you have filled the information.
 
 <!--
 If generative AI tooling has been used in the process of authoring this PR, please
-change the checkbox below to `[X]` and fill in the tool details.
+change the checkbox below to `[x]` and fill in the tool details.
 Uncomment the "Generated-by" trailer in the commit message if applicable.
 -->
 
