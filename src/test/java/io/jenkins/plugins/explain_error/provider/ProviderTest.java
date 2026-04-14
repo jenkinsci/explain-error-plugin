@@ -171,4 +171,58 @@ class ProviderTest {
 
         assertEquals("The provider is not properly configured.", result.getMessage());
     }
+
+    @Test
+    void testCustomProviderNullUrl() {
+        BaseAIProvider provider = new CustomProvider(null, "test-model", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomProviderEmptyUrl() {
+        BaseAIProvider provider = new CustomProvider("", "test-model", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomProviderNullApiKey() {
+        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", "test-model", null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomProviderEmptyApiKey() {
+        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", "test-model", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomProviderNullModel() {
+        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomProviderEmptyModel() {
+        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
 }

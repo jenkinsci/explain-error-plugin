@@ -39,7 +39,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini or local Ollama models
+* **AI-powered explanations** via OpenAI GPT models, Google Gemini, AWS Bedrock, local Ollama, or custom company AI endpoints
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
@@ -74,9 +74,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, or Ollama  | `OpenAI` |
+| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, Ollama, or Custom | `OpenAI` |
 | **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Specify custom URL** for OpenAI-compatible services and air-gapped environments. |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Required for Custom and Ollama providers.** |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
@@ -159,6 +159,21 @@ unclassified:
     enableExplanation: true
 ```
 
+**Custom Provider Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      custom:
+        url: "https://your-company-ai.example.com/v1" # Required
+        model: "your-company-model"                   # Required
+        apiKey: "${AI_API_KEY}"                      # Required
+        apiKeyHeader: "Authorization"                # Optional (default: Authorization)
+        apiKeyPrefix: "Bearer"                       # Optional (default: Bearer)
+        timeoutSeconds: 180                            # Optional (default: 180)
+    enableExplanation: true
+```
+
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
 ## Supported AI Providers
@@ -168,6 +183,13 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
 - **Best for**: Comprehensive error analysis with excellent reasoning
+
+### Custom (Company AI / OpenAI-Compatible)
+- **Models**: Any model exposed by your company endpoint
+- **API Key**: Required
+- **Endpoint**: Required (for example, internal gateway or private AI service)
+- **Advanced Auth**: Supports custom API key header name and optional prefix
+- **Best for**: Enterprise/custom AI platforms and private gateways
 
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.

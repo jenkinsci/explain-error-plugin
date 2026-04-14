@@ -84,6 +84,19 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
+    void testConfigurePageIncludesCustomProviderOption() throws Exception {
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            client.getOptions().setJavaScriptEnabled(false);
+            HtmlPage page = client.goTo("configure");
+            HtmlSelect providerSelect = findProviderSelect(page);
+
+            boolean hasCustom = providerSelect.getOptions().stream()
+                    .anyMatch(option -> "Custom".equals(option.getText().trim()));
+            assertTrue(hasCustom, "AI provider dropdown should include the 'Custom' option");
+        }
+    }
+
+    @Test
     void testEnableExplanationSetterAndGetter() {
         config.setEnableExplanation(false);
         assertFalse(config.isEnableExplanation());

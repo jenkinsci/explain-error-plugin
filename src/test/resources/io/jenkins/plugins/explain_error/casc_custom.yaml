@@ -1,0 +1,11 @@
+unclassified:
+  explainError:
+    aiProvider:
+      custom:
+        url: "https://custom-ai.example.com/v1"
+        model: "custom-reasoner-v1"
+        apiKey: "test-custom-api-key"
+        apiKeyHeader: "x-api-key"
+        apiKeyPrefix: ""
+        timeoutSeconds: 120
+    enableExplanation: true
