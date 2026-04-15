@@ -384,7 +384,7 @@ public class ErrorExplainer {
 
     private String buildSavedExplanationMessage(ErrorExplanationAction action) {
         String label = action.getDisplayName();
-        String link = HyperlinkNote.encodeTo(action.getUrlName() + '/', label);
+        String link = HyperlinkNote.encodeTo("../" + action.getUrlName() + '/', label);
         return "Explanation saved to the build. Open " + link + ".";
     }
 

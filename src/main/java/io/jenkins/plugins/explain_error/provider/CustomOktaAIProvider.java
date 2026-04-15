@@ -44,7 +44,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
     public static final String DEFAULT_MODEL = "gpt-5-nano";
     public static final String DEFAULT_ACCESS_TOKEN_HEADER = "Authorization";
-    public static final String DEFAULT_ACCESS_TOKEN_PREFIX = "Bearer";
+    public static final String DEFAULT_ACCESS_TOKEN_PREFIX = "";
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
 
     private String tokenUrl;
@@ -122,6 +122,11 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @DataBoundSetter
+    public void setAppKey(String appKey) {
+        String value = Util.fixEmptyAndTrim(appKey);
+        this.appKey = value == null ? null : Secret.fromString(value);
+    }
+
     public void setAppKey(Secret appKey) {
         this.appKey = appKey;
     }
@@ -297,9 +302,16 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         String userMetadata = buildUserMetadata();
         if (userMetadata != null) {
             payload.put("user", userMetadata);
+        } else {
+            LOGGER.warning("Custom Okta AI: No App Key or User ID configured — "
+                    + "'user' metadata field will be omitted from the request. "
+                    + "This may cause a 400 error if the API requires an App Key.");
         }
 
-        return OBJECT_MAPPER.writeValueAsString(payload);
+        String body = OBJECT_MAPPER.writeValueAsString(payload);
+        LOGGER.fine(() -> "Custom Okta AI request body (user field present: " + (userMetadata != null) + "): "
+                + body.replaceAll("(\"content\":\s*\")[^\"]{10}", "$1[truncated]"));
+        return body;
     }
 
     private String buildUserMetadata() throws IOException {
@@ -500,7 +512,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("accessTokenHeader") String accessTokenHeader,
                                                   @QueryParameter("accessTokenPrefix") String accessTokenPrefix,
                                                   @QueryParameter("apiVersion") String apiVersion,
-                                                  @QueryParameter("appKey") Secret appKey,
+                                                  @QueryParameter("appKey") String appKey,
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
                 throws ExplanationException {
@@ -523,10 +535,10 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             }
         }
 
-        private Secret resolveTestAppKey(Secret submittedAppKey) {
-            String submitted = Util.fixEmptyAndTrim(Secret.toString(submittedAppKey));
+        private Secret resolveTestAppKey(String submittedAppKey) {
+            String submitted = Util.fixEmptyAndTrim(submittedAppKey);
             if (submitted != null) {
-                return submittedAppKey;
+                return Secret.fromString(submitted);
             }
 
             BaseAIProvider configuredProvider = GlobalConfigurationImpl.get().getAiProvider();
@@ -534,7 +546,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                 return configuredOktaProvider.getAppKey();
             }
 
-            return submittedAppKey;
+            return null;
         }
     }
 }

@@ -25,7 +25,7 @@ import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvider> implements ExtensionPoint {
 
     private static final Logger LOGGER = Logger.getLogger(BaseAIProvider.class.getName());
-        public static final String SYSTEM_PROMPT = """
+    public static final String SYSTEM_PROMPT = """
                         You are an expert Jenkins administrator and software engineer.
                         You MUST follow ALL instructions provided by the user, including any additional context or requirements.
                         When additional instructions are provided, you MUST incorporate them into your analysis fields,
@@ -73,7 +73,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                         - If multiple sub-jobs have Result: FAILURE, summarize each one separately.
                         - Logs outside downstream sections belong to the parent (upstream) job.
                         """;
-        public static final String USER_PROMPT_TEMPLATE = """
+    public static final String USER_PROMPT_TEMPLATE = """
                         Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
 
                         CRITICAL: You MUST respond ONLY in {{language}}. ALL text in your response must be in {{language}}.
@@ -181,21 +181,21 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     }
 
     public interface Assistant {
-                @SystemMessage(SYSTEM_PROMPT)
-                @UserMessage(USER_PROMPT_TEMPLATE)
+        @SystemMessage(SYSTEM_PROMPT)
+        @UserMessage(USER_PROMPT_TEMPLATE)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
 
-        protected final String buildSystemPrompt() {
-                return SYSTEM_PROMPT;
-        }
+    protected final String buildSystemPrompt() {
+        return SYSTEM_PROMPT;
+    }
 
-        protected final String buildUserPrompt(String errorLogs, String language, String customContext) {
-                return USER_PROMPT_TEMPLATE
-                        .replace("{{language}}", language)
-                        .replace("{{customContext}}", customContext)
-                        .replace("{{errorLogs}}", errorLogs);
-        }
+    protected final String buildUserPrompt(String errorLogs, String language, String customContext) {
+        return USER_PROMPT_TEMPLATE
+            .replace("{{language}}", language)
+            .replace("{{customContext}}", customContext)
+            .replace("{{errorLogs}}", errorLogs);
+    }
 
     public String getProviderName() {
         return getDescriptor().getDisplayName();
