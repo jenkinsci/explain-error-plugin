@@ -12,6 +12,7 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
+import io.jenkins.plugins.explain_error.GlobalConfigurationImpl;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import java.io.IOException;
 import java.net.URI;
@@ -510,7 +511,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             provider.setAccessTokenHeader(accessTokenHeader);
             provider.setAccessTokenPrefix(accessTokenPrefix);
             provider.setApiVersion(apiVersion);
-            provider.setAppKey(appKey);
+            provider.setAppKey(resolveTestAppKey(appKey));
             provider.setUserId(userId);
             provider.setTimeoutSeconds(timeoutSeconds);
 
@@ -520,6 +521,20 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             } catch (ExplanationException e) {
                 return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
             }
+        }
+
+        private Secret resolveTestAppKey(Secret submittedAppKey) {
+            String submitted = Util.fixEmptyAndTrim(Secret.toString(submittedAppKey));
+            if (submitted != null) {
+                return submittedAppKey;
+            }
+
+            BaseAIProvider configuredProvider = GlobalConfigurationImpl.get().getAiProvider();
+            if (configuredProvider instanceof CustomOktaAIProvider configuredOktaProvider) {
+                return configuredOktaProvider.getAppKey();
+            }
+
+            return submittedAppKey;
         }
     }
 }
