@@ -49,7 +49,7 @@ class ExplainErrorE2ETest {
      *   <li>The AI provider is called exactly once.</li>
      *   <li>An {@link ErrorExplanationAction} is attached to the failed build.</li>
      *   <li>The explanation text matches the mocked provider response.</li>
-     *   <li>The "[explain-error] Explanation saved to the build." message appears in the console.</li>
+     *   <li>The saved message appears in the console with an "AI Error Explanation" link label.</li>
      * </ul>
      */
     @Test
@@ -88,6 +88,7 @@ class ExplainErrorE2ETest {
                 "Explanation should contain the mocked provider response");
 
         jenkins.assertLogContains("[explain-error] Explanation saved to the build.", run);
+        jenkins.assertLogContains("AI Error Explanation", run);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

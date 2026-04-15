@@ -3,6 +3,7 @@ package io.jenkins.plugins.explain_error;
 import com.cloudbees.hudson.plugins.folder.AbstractFolder;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.console.HyperlinkNote;
 import hudson.model.ItemGroup;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -134,11 +135,18 @@ public class ErrorExplainer {
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
                 logToConsole(listener, "AI request completed successfully.");
 
+                if (run == null) {
+                    logToConsole(listener, "Explanation generated, but no build context was available to save it.");
+                    recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
+                        collectDownstreamLogs);
+                    return explanation;
+                }
+
                 // Store explanation in build action
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
                         provider.getProviderName(), provider.getModel(), inputLogLineCount);
                 run.addOrReplaceAction(action);
-                logToConsole(listener, "Explanation saved to the build.");
+                logToConsole(listener, buildSavedExplanationMessage(action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
                         collectDownstreamLogs);
 
@@ -372,6 +380,12 @@ public class ErrorExplainer {
 
     private void logToConsole(TaskListener listener, String message) {
         listener.getLogger().println(CONSOLE_PREFIX + message);
+    }
+
+    private String buildSavedExplanationMessage(ErrorExplanationAction action) {
+        String label = action.getDisplayName();
+        String link = HyperlinkNote.encodeTo(action.getUrlName() + '/', label);
+        return "Explanation saved to the build. Open " + link + ".";
     }
 
     /**

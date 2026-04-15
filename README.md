@@ -39,12 +39,12 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini, AWS Bedrock, local Ollama, or custom company AI endpoints
+* **AI-powered explanations** via OpenAI GPT models, Google Gemini, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
-* **Customizable**: set provider, model, API endpoint (enterprise-ready)[^1], log filters, and more
+* **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
 
-[^1]: *Enterprise-ready API endpoints support custom URLs for OpenAI-compatible services (LocalAI, DeepSeek), air-gapped environments.*
+[^1]: *Enterprise-ready API endpoints support private gateways, company-hosted AI services, and air-gapped environments.*
 
 ## Quick Start
 
@@ -74,11 +74,13 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, Ollama, or Custom | `OpenAI` |
-| **API Key** | Your AI provider API key | Get from [OpenAI](https://platform.openai.com/settings) or [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Required for Custom and Ollama providers.** |
+| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
+| **API Key** | Your AI provider API key | Used by OpenAI and Gemini providers |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Required for Custom Okta AI and Ollama providers.** |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
+
+`Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
@@ -159,20 +161,28 @@ unclassified:
     enableExplanation: true
 ```
 
-**Custom Provider Configuration:**
+**Custom Okta AI Configuration:**
 ```yaml
 unclassified:
   explainError:
     aiProvider:
-      custom:
-        url: "https://your-company-ai.example.com/v1" # Required
-        model: "your-company-model"                   # Required
-        apiKey: "${AI_API_KEY}"                      # Required
-        apiKeyHeader: "Authorization"                # Optional (default: Authorization)
-        apiKeyPrefix: "Bearer"                       # Optional (default: Bearer)
-        timeoutSeconds: 180                            # Optional (default: 180)
+      customOkta:
+        url: "https://chat-ai.example.com/openai/deployments/{model}/chat/completions" # Required
+        tokenUrl: "https://id.example.com/oauth2/default/v1/token"                      # Required
+        model: "gpt-5-nano"                                                            # Required
+        clientId: "${OKTA_CLIENT_ID}"                                                  # Required
+        clientSecret: "${OKTA_CLIENT_SECRET}"                                          # Required
+        scope: "custom.scope"                                                          # Optional
+        apiVersion: "2025-04-01-preview"                                               # Optional
+        accessTokenHeader: "api-key"                                                   # Optional (default: Authorization)
+        accessTokenPrefix: ""                                                          # Optional (default: Bearer)
+        appKey: "${CUSTOM_AI_APP_KEY}"                                                 # Optional
+        userId: "svc-jenkins"                                                          # Optional
+        timeoutSeconds: 180                                                             # Optional (default: 180)
     enableExplanation: true
 ```
+
+Use `tokenUrl` for the Okta OAuth exchange and `url` for the actual chat completions endpoint. This matches providers that separate authentication from inference, such as gateways where the access token is fetched from one URL and the model is invoked on another.
 
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
@@ -184,12 +194,14 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
 - **Best for**: Comprehensive error analysis with excellent reasoning
 
-### Custom (Company AI / OpenAI-Compatible)
-- **Models**: Any model exposed by your company endpoint
-- **API Key**: Required
-- **Endpoint**: Required (for example, internal gateway or private AI service)
-- **Advanced Auth**: Supports custom API key header name and optional prefix
-- **Best for**: Enterprise/custom AI platforms and private gateways
+### Custom Okta AI
+- **Models**: Any model exposed by your company AI gateway
+- **Authentication**: Okta OAuth client credentials (`client_id` + `client_secret`)
+- **Token URL**: Required and separate from the chat completions URL
+- **Chat Endpoint**: Required. Supports endpoint templates such as `.../deployments/{model}/chat/completions`
+- **App Key Support**: Optional `appKey` and `userId` fields populate the OpenAI-style `user` metadata payload for providers that require an application key
+- **Access Token Delivery**: Configurable header name and optional prefix so the same provider can support `Authorization: Bearer ...`, `api-key: ...`, and similar patterns
+- **Best for**: Generic company AI providers that use Okta for authentication before invoking a custom chat endpoint
 
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
@@ -212,6 +224,8 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ## Usage
 
 ### Method 1: Pipeline Step
+
+No pipeline changes are required for `Custom Okta AI`. Once the provider is configured globally or at the folder level, existing `explainError()` calls continue to work unchanged.
 
 Use `explainError()` in your pipeline (e.g., in a `post` block):
 

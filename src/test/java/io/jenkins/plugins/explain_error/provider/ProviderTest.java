@@ -173,8 +173,9 @@ class ProviderTest {
     }
 
     @Test
-    void testCustomProviderNullUrl() {
-        BaseAIProvider provider = new CustomProvider(null, "test-model", Secret.fromString("test-key"));
+    void testCustomOktaProviderNullChatUrl() {
+        BaseAIProvider provider = new CustomOktaAIProvider(null, "https://id.example.com/oauth2/default/v1/token",
+                "test-model", "client-id", Secret.fromString("test-secret"));
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -182,8 +183,9 @@ class ProviderTest {
     }
 
     @Test
-    void testCustomProviderEmptyUrl() {
-        BaseAIProvider provider = new CustomProvider("", "test-model", Secret.fromString("test-key"));
+    void testCustomOktaProviderNullTokenUrl() {
+        BaseAIProvider provider = new CustomOktaAIProvider("https://chat.example.com/openai/deployments",
+                null, "test-model", "client-id", Secret.fromString("test-secret"));
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -191,8 +193,10 @@ class ProviderTest {
     }
 
     @Test
-    void testCustomProviderNullApiKey() {
-        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", "test-model", null);
+    void testCustomOktaProviderNullClientId() {
+        BaseAIProvider provider = new CustomOktaAIProvider("https://chat.example.com/openai/deployments",
+                "https://id.example.com/oauth2/default/v1/token", "test-model", null,
+                Secret.fromString("test-secret"));
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -200,26 +204,9 @@ class ProviderTest {
     }
 
     @Test
-    void testCustomProviderEmptyApiKey() {
-        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", "test-model", Secret.fromString(""));
-        ExplanationException result = assertThrows(ExplanationException.class,
-                () -> provider.explainError("Test error", null));
-
-        assertEquals("The provider is not properly configured.", result.getMessage());
-    }
-
-    @Test
-    void testCustomProviderNullModel() {
-        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", null, Secret.fromString("test-key"));
-        ExplanationException result = assertThrows(ExplanationException.class,
-                () -> provider.explainError("Test error", null));
-
-        assertEquals("The provider is not properly configured.", result.getMessage());
-    }
-
-    @Test
-    void testCustomProviderEmptyModel() {
-        BaseAIProvider provider = new CustomProvider("https://ai.example.com/v1", "", Secret.fromString("test-key"));
+    void testCustomOktaProviderNullClientSecret() {
+        BaseAIProvider provider = new CustomOktaAIProvider("https://chat.example.com/openai/deployments",
+                "https://id.example.com/oauth2/default/v1/token", "test-model", "client-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 

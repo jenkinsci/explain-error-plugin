@@ -8,7 +8,7 @@ import io.jenkins.plugins.casc.misc.ConfiguredWithCode;
 import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
 import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
-import io.jenkins.plugins.explain_error.provider.CustomProvider;
+import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import org.junit.jupiter.api.Test;
 
@@ -36,18 +36,24 @@ public class CasCTest {
     }
 
     @Test
-    @ConfiguredWithCode("casc_custom.yaml")
-    void loadCustomProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+    @ConfiguredWithCode("casc_custom_okta.yaml")
+    void loadCustomOktaProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         BaseAIProvider provider = config.getAiProvider();
 
-        assertInstanceOf(CustomProvider.class, provider);
-        CustomProvider custom = (CustomProvider) provider;
-        assertEquals("https://custom-ai.example.com/v1", custom.getUrl());
-        assertEquals("custom-reasoner-v1", custom.getModel());
-        assertEquals("test-custom-api-key", custom.getApiKey().getPlainText());
-        assertEquals("x-api-key", custom.getApiKeyHeader());
-        assertNull(custom.getApiKeyPrefix());
-        assertEquals(120, custom.getTimeoutSeconds());
+        assertInstanceOf(CustomOktaAIProvider.class, provider);
+        CustomOktaAIProvider customOkta = (CustomOktaAIProvider) provider;
+        assertEquals("https://chat-ai.example.com/openai/deployments/{model}/chat/completions", customOkta.getUrl());
+        assertEquals("https://id.example.com/oauth2/default/v1/token", customOkta.getTokenUrl());
+        assertEquals("gpt-5-nano", customOkta.getModel());
+        assertEquals("test-client-id", customOkta.getClientId());
+        assertEquals("test-client-secret", customOkta.getClientSecret().getPlainText());
+        assertEquals("custom.scope", customOkta.getScope());
+        assertEquals("api-key", customOkta.getAccessTokenHeader());
+        assertNull(customOkta.getAccessTokenPrefix());
+        assertEquals("2025-04-01-preview", customOkta.getApiVersion());
+        assertEquals("test-app-key", customOkta.getAppKey());
+        assertEquals("cec123", customOkta.getUserId());
+        assertEquals(150, customOkta.getTimeoutSeconds());
     }
 }
