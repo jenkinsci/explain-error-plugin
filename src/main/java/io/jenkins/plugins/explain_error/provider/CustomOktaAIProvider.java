@@ -53,7 +53,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     private String scope;
     private String accessTokenHeader;
     private String accessTokenPrefix;
-    private String appKey;
+    private Secret appKey;
     private String userId;
     private Integer timeoutSeconds;
 
@@ -116,13 +116,13 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         this.accessTokenPrefix = Util.fixEmptyAndTrim(accessTokenPrefix);
     }
 
-    public String getAppKey() {
+    public Secret getAppKey() {
         return appKey;
     }
 
     @DataBoundSetter
-    public void setAppKey(String appKey) {
-        this.appKey = Util.fixEmptyAndTrim(appKey);
+    public void setAppKey(Secret appKey) {
+        this.appKey = appKey;
     }
 
     public String getUserId() {
@@ -302,7 +302,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     private String buildUserMetadata() throws IOException {
-        String configuredAppKey = Util.fixEmptyAndTrim(getAppKey());
+        String configuredAppKey = Util.fixEmptyAndTrim(Secret.toString(getAppKey()));
         String configuredUserId = Util.fixEmptyAndTrim(getUserId());
         if (configuredAppKey == null && configuredUserId == null) {
             return null;
@@ -499,7 +499,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("accessTokenHeader") String accessTokenHeader,
                                                   @QueryParameter("accessTokenPrefix") String accessTokenPrefix,
                                                   @QueryParameter("apiVersion") String apiVersion,
-                                                  @QueryParameter("appKey") String appKey,
+                                                  @QueryParameter("appKey") Secret appKey,
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
                 throws ExplanationException {

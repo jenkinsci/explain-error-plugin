@@ -44,7 +44,7 @@
 
   <f:entry title="App Key" field="appKey"
            description="Optional application key sent inside the OpenAI-style user metadata payload for providers that require it.">
-    <f:textbox/>
+    <f:password/>
   </f:entry>
 
   <f:entry title="End User" field="userId"

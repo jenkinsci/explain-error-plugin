@@ -76,7 +76,7 @@ class CustomOktaAIProviderTest {
         provider.setAccessTokenHeader("api-key");
         provider.setAccessTokenPrefix("");
         provider.setApiVersion("2025-04-01-preview");
-        provider.setAppKey("team-app-key");
+        provider.setAppKey(Secret.fromString("team-app-key"));
         provider.setUserId("cec-user");
 
         String explanation = provider.explainError("FAILURE: sample error", null, "English", "Prioritize root cause");

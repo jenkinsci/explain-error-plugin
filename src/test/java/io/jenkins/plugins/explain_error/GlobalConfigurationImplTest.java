@@ -105,7 +105,7 @@ class GlobalConfigurationImplTest {
                 "gpt-5-nano",
                 "client-id",
                 Secret.fromString("client-secret"));
-        provider.setAppKey("app-key");
+        provider.setAppKey(Secret.fromString("app-key"));
         config.setAiProvider(provider);
         config.save();
 
@@ -116,7 +116,7 @@ class GlobalConfigurationImplTest {
         CustomOktaAIProvider customOkta = (CustomOktaAIProvider) reloaded;
         assertEquals("client-id", customOkta.getClientId());
         assertEquals("client-secret", customOkta.getClientSecret().getPlainText());
-        assertEquals("app-key", customOkta.getAppKey());
+        assertEquals("app-key", customOkta.getAppKey().getPlainText());
     }
 
     @Test

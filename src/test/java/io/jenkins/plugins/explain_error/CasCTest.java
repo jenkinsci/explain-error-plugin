@@ -52,7 +52,7 @@ public class CasCTest {
         assertEquals("api-key", customOkta.getAccessTokenHeader());
         assertNull(customOkta.getAccessTokenPrefix());
         assertEquals("2025-04-01-preview", customOkta.getApiVersion());
-        assertEquals("test-app-key", customOkta.getAppKey());
+        assertEquals("test-app-key", customOkta.getAppKey().getPlainText());
         assertEquals("cec123", customOkta.getUserId());
         assertEquals(150, customOkta.getTimeoutSeconds());
     }
