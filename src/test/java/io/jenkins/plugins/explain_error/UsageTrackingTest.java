@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
@@ -45,6 +46,10 @@ class UsageTrackingTest {
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
             config.setEnableExplanation(true);
             config.setAiProvider(null);
+            config.setEnableQuota(false);
+            config.setMaxProviderCallsPerWindow(100);
+            config.setQuotaWindow(QuotaWindow.HOURLY);
+            config.getQuotaEnforcer().reset();
         }
     }
 
@@ -172,6 +177,101 @@ class UsageTrackingTest {
         provider.explainError("Direct provider call", null);
 
         assertTrue(recorder.events.isEmpty());
+    }
+
+    @Test
+    void quotaRejectedEmitsUsageEventAndDoesNotCallProvider(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(true);
+        config.setQuotaWindow(QuotaWindow.HOURLY);
+        config.setMaxProviderCallsPerWindow(0);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "usage-quota-rejected");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.EntryPoint.PIPELINE_STEP, event.entryPoint());
+        assertEquals(UsageEvent.Result.QUOTA_REJECTED, event.result());
+        assertEquals("Test", event.providerName());
+        assertEquals("test-model", event.model());
+        assertEquals(0, event.inputLogLineCount());
+        jenkins.assertLogContains("Provider call quota exceeded. Limit: 0 calls per hourly window.", run);
+    }
+
+    @Test
+    void quotaDisabledAllowsRequestsNormally(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(false);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "usage-quota-disabled");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.Result.SUCCESS, event.result());
+        assertTrue(run.getAction(ErrorExplanationAction.class).hasValidExplanation());
+    }
+
+    @Test
+    void folderQuotaOverridesGlobalQuotaWhenExceeded(JenkinsRule jenkins) throws Exception {
+        // Global quota is permissive (100 calls), but folder quota is zero
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(100);
+
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "quota-folder");
+        ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
+        folderProperty.setEnableExplanation(true);
+        folderProperty.setAiProvider(new TestProvider());
+        folderProperty.setEnableQuota(true);
+        folderProperty.setMaxProviderCallsPerWindow(0);
+        folderProperty.setQuotaWindow(QuotaWindow.HOURLY);
+        folder.addProperty(folderProperty);
+
+        WorkflowJob job = folder.createProject(WorkflowJob.class, "quota-job");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.Result.QUOTA_REJECTED, event.result());
+        jenkins.assertLogContains("Provider call quota exceeded (folder level). Limit: 0 calls per hourly window.", run);
+    }
+
+    @Test
+    void folderWithoutQuotaFallsBackToGlobalQuota(JenkinsRule jenkins) throws Exception {
+        // Global quota is zero; the folder has its own provider but NO quota enabled
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setAiProvider(new TestProvider());
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(0);
+        config.setQuotaWindow(QuotaWindow.DAILY);
+
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "no-quota-folder");
+        ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
+        folderProperty.setEnableExplanation(true);
+        folderProperty.setAiProvider(new TestProvider());
+        folderProperty.setEnableQuota(false); // no folder-level quota
+        folder.addProperty(folderProperty);
+
+        WorkflowJob job = folder.createProject(WorkflowJob.class, "fallback-quota-job");
+        job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
+
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        assertEquals(1, recorder.events.size());
+        UsageEvent event = recorder.events.get(0);
+        assertEquals(UsageEvent.Result.QUOTA_REJECTED, event.result());
+        jenkins.assertLogContains("Provider call quota exceeded. Limit: 0 calls per daily window.", run);
     }
 
     private static class RecordingUsageRecorder implements UsageRecorder {

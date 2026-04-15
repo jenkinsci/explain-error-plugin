@@ -106,6 +106,15 @@ public class ErrorExplainer {
                 return null;
             }
 
+            // Check quota before making a real provider call (folder-level overrides global)
+            QuotaCheckResult quotaCheck = tryAcquireQuota(run);
+            if (!quotaCheck.allowed()) {
+                logToConsole(listener, quotaCheck.rejectionMessage());
+                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos, 0,
+                        collectDownstreamLogs);
+                return null;
+            }
+
             // Extract error logs
             logToConsole(listener, "Extracting failure logs.");
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
@@ -232,6 +241,14 @@ public class ErrorExplainer {
             throw new ExplanationException("error", "The provider is not properly configured.");
         }
 
+        // Check quota before making a real provider call (folder-level overrides global)
+        QuotaCheckResult quotaCheck = tryAcquireQuota(run);
+        if (!quotaCheck.allowed()) {
+            recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
+                    inputLogLineCount, false);
+            throw new ExplanationException("warning", quotaCheck.rejectionMessage());
+        }
+
         try {
             // Get AI explanation with global custom context
             String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null,
@@ -355,6 +372,45 @@ public class ErrorExplainer {
 
     private void logToConsole(TaskListener listener, String message) {
         listener.getLogger().println(CONSOLE_PREFIX + message);
+    }
+
+    /**
+     * Attempts to acquire a quota slot. Folder-level quota (nearest ancestor with
+     * {@code enableQuota=true}) takes precedence over the global quota.
+     *
+     * @param run the current build run (may be null)
+     * @return a {@link QuotaCheckResult} indicating whether the call is allowed
+     */
+    private QuotaCheckResult tryAcquireQuota(@CheckForNull Run<?, ?> run) {
+        // Walk up the folder hierarchy to find the nearest folder-level quota
+        if (run != null) {
+            ExplainErrorFolderProperty folderQuota =
+                    ExplainErrorFolderProperty.findFolderWithQuota(run.getParent().getParent());
+            if (folderQuota != null) {
+                boolean allowed = folderQuota.tryAcquireQuota();
+                if (!allowed) {
+                    String msg = "Provider call quota exceeded (folder level). Limit: "
+                            + folderQuota.getMaxProviderCallsPerWindow()
+                            + " calls per " + folderQuota.getQuotaWindow().getDisplayName().toLowerCase()
+                            + " window.";
+                    return new QuotaCheckResult(false, msg);
+                }
+                return QuotaCheckResult.ALLOWED;
+            }
+        }
+
+        // Fall back to global quota
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        if (!config.tryAcquireQuota()) {
+            String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
+                    + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";
+            return new QuotaCheckResult(false, msg);
+        }
+        return QuotaCheckResult.ALLOWED;
+    }
+
+    private record QuotaCheckResult(boolean allowed, String rejectionMessage) {
+        static final QuotaCheckResult ALLOWED = new QuotaCheckResult(true, null);
     }
 
     private void logExtractionSummary(TaskListener listener, PipelineLogExtractor.ExtractionResult result,

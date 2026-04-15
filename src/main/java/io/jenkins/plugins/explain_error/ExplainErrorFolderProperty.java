@@ -7,10 +7,15 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.ItemGroup;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Folder property for folder-level AI provider configuration.
@@ -20,6 +25,11 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     private BaseAIProvider aiProvider;
     private boolean enableExplanation = true;
+
+    private boolean enableQuota = false;
+    private QuotaWindow quotaWindow = QuotaWindow.HOURLY;
+    private int maxProviderCallsPerWindow = 100;
+    private transient QuotaEnforcer quotaEnforcer;
 
     @DataBoundConstructor
     public ExplainErrorFolderProperty() {
@@ -63,6 +73,76 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         if (!enableExplanation) {
             this.aiProvider = null;
         }
+    }
+
+    public boolean isEnableQuota() {
+        return enableQuota;
+    }
+
+    @DataBoundSetter
+    public void setEnableQuota(boolean enableQuota) {
+        this.enableQuota = enableQuota;
+    }
+
+    public QuotaWindow getQuotaWindow() {
+        return quotaWindow != null ? quotaWindow : QuotaWindow.HOURLY;
+    }
+
+    @DataBoundSetter
+    public void setQuotaWindow(QuotaWindow quotaWindow) {
+        this.quotaWindow = quotaWindow != null ? quotaWindow : QuotaWindow.HOURLY;
+    }
+
+    public int getMaxProviderCallsPerWindow() {
+        return maxProviderCallsPerWindow;
+    }
+
+    @DataBoundSetter
+    public void setMaxProviderCallsPerWindow(int maxProviderCallsPerWindow) {
+        this.maxProviderCallsPerWindow = Math.max(0, maxProviderCallsPerWindow);
+    }
+
+    QuotaEnforcer getQuotaEnforcer() {
+        if (quotaEnforcer == null) {
+            quotaEnforcer = new QuotaEnforcer();
+        }
+        return quotaEnforcer;
+    }
+
+    /**
+     * Attempts to acquire a quota slot for a real AI provider call.
+     *
+     * @return {@code true} if the call is allowed; {@code false} if the quota is exceeded
+     */
+    public boolean tryAcquireQuota() {
+        if (!enableQuota) {
+            return true;
+        }
+        return getQuotaEnforcer().tryAcquire(getQuotaWindow(), maxProviderCallsPerWindow);
+    }
+
+    /**
+     * Recursively search for a folder-level quota configuration.
+     * Walks up the folder hierarchy and returns the nearest folder that has
+     * {@code enableQuota=true}, or {@code null} if none is found.
+     *
+     * @param itemGroup the item group to search from
+     * @return the nearest folder property with quota enabled, or null
+     */
+    @CheckForNull
+    public static ExplainErrorFolderProperty findFolderWithQuota(@CheckForNull ItemGroup<?> itemGroup) {
+        if (itemGroup == null) {
+            return null;
+        }
+        if (itemGroup instanceof AbstractFolder) {
+            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
+            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
+            if (property != null && property.isEnableQuota()) {
+                return property;
+            }
+            return findFolderWithQuota(folder.getParent());
+        }
+        return null;
     }
 
     /**
@@ -143,6 +223,24 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         @Override
         public String getDisplayName() {
             return "Explain Error Configuration";
+        }
+
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
+        public ListBoxModel doFillQuotaWindowItems() {
+            ListBoxModel items = new ListBoxModel();
+            for (QuotaWindow window : QuotaWindow.values()) {
+                items.add(window.getDisplayName(), window.name());
+            }
+            return items;
+        }
+
+        @POST
+        public FormValidation doCheckMaxProviderCallsPerWindow(@QueryParameter int value) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            if (value < 0) {
+                return FormValidation.error("Max provider calls per window must be 0 or greater.");
+            }
+            return FormValidation.ok();
         }
     }
 }

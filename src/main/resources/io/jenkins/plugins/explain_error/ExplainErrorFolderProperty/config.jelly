@@ -2,6 +2,16 @@
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
     <f:optionalBlock field="enableExplanation" title="Enable AI Error Explanation" checked="${instance.enableExplanation}" inline="true">
         <f:dropdownDescriptorSelector title="AI Provider" field="aiProvider"/>
+        <f:optionalBlock field="enableQuota" title="Enable Request Quota"
+                         checked="${instance.enableQuota}" inline="true">
+          <f:entry title="Quota Window" field="quotaWindow">
+            <f:select />
+          </f:entry>
+          <f:entry title="Max Provider Calls per Window" field="maxProviderCallsPerWindow"
+                   description="Maximum number of real AI provider calls allowed within the quota window. Overrides the global quota when configured. Cache hits do not count toward this limit.">
+            <f:number clazz="setting-input" min="0" />
+          </f:entry>
+        </f:optionalBlock>
         <f:block>
             <p class="jenkins-!-margin-top-3">
                 <strong>Note:</strong> Folder-level configuration takes precedence over global configuration.
