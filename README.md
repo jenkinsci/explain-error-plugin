@@ -94,6 +94,11 @@ Support for folder-level overrides allows different teams to use their own AI pr
 
 *Inherits from parent folders, overrides global defaults.*
 
+### Quota and Metrics
+
+The plugin supports request quotas and usage metrics for provider/model-level visibility.
+See [AI Provider Call Quotas](docs/usage-quota.md) for configuration, collection, and dashboard guidance.
+
 ### Configuration as Code (CasC)
 
 This plugin supports [Configuration as Code](https://plugins.jenkins.io/configuration-as-code/) for automated setup. Use the `explainError` symbol in your YAML configuration:
@@ -288,7 +293,7 @@ Works with Freestyle, Declarative, or any job type.
 | Issue | Solution |
 |-------|----------|
 |API key not set	| Add your key in Jenkins global config |
-|Auth or rate limit error| Check key validity, quota, and provider plan |
+|Auth or rate limit error| Check key validity, quota, and provider plan. See [AI Provider Call Quotas](docs/usage-quota.md) |
 |Button not visible	| Ensure Jenkins version ≥ 2.528.3, restart Jenkins after installation |
 
 Enable debug logs:
@@ -299,7 +304,7 @@ Enable debug logs:
 
 1. Use `explainError()` in `post { failure { ... } }` blocks
 2. Apply `logPattern` to focus on relevant errors
-3. Monitor your AI provider usage to control costs
+3. Monitor usage metrics and quota outcomes to control costs (see [AI Provider Call Quotas](docs/usage-quota.md))
 4. Keep plugin updated regularly
 
 ## Support & Community

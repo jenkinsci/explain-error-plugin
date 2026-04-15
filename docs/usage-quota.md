@@ -132,6 +132,48 @@ Jenkins root  (global: 100 calls/hour)
 
 ---
 
+## Collecting Metrics
+
+This plugin emits usage metrics through the Jenkins Metrics plugin integration.
+
+### Prerequisite
+
+Install the Jenkins Metrics plugin on your controller. Without it, usage events are still created internally but no external metrics are exported.
+
+### What to scrape
+
+Collect metrics from your Jenkins Metrics endpoint/backend and filter by the `explain_error` prefix.
+
+The plugin exports the following metric families:
+
+| Metric | Type | Meaning |
+|---|---|---|
+| `explain_error.requests.<entryPoint>.<result>` | Counter | Total requests by entry point (`pipeline_step`, `console_action`) and outcome (`success`, `provider_error`, `quota_rejected`, etc.) |
+| `explain_error.provider_calls.<provider>.<model>.<result>` | Counter | Provider/model-level outcomes for calls that involve a provider (`success`, `cache_hit`, `provider_error`, `quota_rejected`) |
+| `explain_error.request_duration_ms` | Histogram | End-to-end request duration in milliseconds |
+| `explain_error.input_log_lines` | Histogram | Number of input log lines processed per request |
+
+### How this works for newly added AI providers
+
+No extra metrics code is needed per provider as long as the provider is resolved through the standard Explain Error flow.
+
+- Provider and model dimensions are derived from the provider display name and model value.
+- Names are sanitized to low-cardinality metric segments (lowercase, unsupported characters replaced with `_`).
+- Example: `My Custom Provider` + `my-model/v2.0` becomes:
+
+```text
+explain_error.provider_calls.my_custom_provider.my-model_v2_0.success
+```
+
+### Recommended dashboards
+
+- Volume: requests by result and entry point
+- Reliability: `provider_error` and `quota_rejected` rates
+- Cost control proxy: provider/model call counters
+- Latency: p50/p95 from `request_duration_ms`
+
+---
+
 ## Tips
 
 - **Setting `maxProviderCallsPerWindow: 0`** at the global level and then using folder-level quotas is a clean way to give each team an explicit allowance while preventing any uncontrolled global spend.
