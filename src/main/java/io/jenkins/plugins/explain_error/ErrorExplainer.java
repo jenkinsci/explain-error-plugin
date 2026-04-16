@@ -27,6 +27,7 @@ public class ErrorExplainer {
 
     private String providerName;
     private String urlString;
+    private String lastErrorLogs;
     private final UsageRecorder usageRecorder;
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
@@ -60,7 +61,7 @@ public class ErrorExplainer {
      */
     @CheckForNull
     public BaseAIProvider getResolvedProvider(@CheckForNull Run<?, ?> run) {
-        return resolveProvider(run);
+        return resolveProvider(run).provider();
     }
 
     public String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines) {
@@ -140,6 +141,7 @@ public class ErrorExplainer {
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
                     collectDownstreamLogs, downstreamJobPattern, authentication);
             String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
+            this.lastErrorLogs = errorLogs;
             inputLogLineCount = countLines(errorLogs);
             logExtractionSummary(listener, extractionResult, maxLines);
 
