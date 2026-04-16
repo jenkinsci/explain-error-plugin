@@ -146,7 +146,7 @@ public class ErrorExplainer {
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
                         provider.getProviderName(), provider.getModel(), inputLogLineCount);
                 run.addOrReplaceAction(action);
-                logToConsole(listener, buildSavedExplanationMessage(action));
+                logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
                         collectDownstreamLogs);
 
@@ -382,9 +382,12 @@ public class ErrorExplainer {
         listener.getLogger().println(CONSOLE_PREFIX + message);
     }
 
-    private String buildSavedExplanationMessage(ErrorExplanationAction action) {
+    private String buildSavedExplanationMessage(Run<?, ?> run, ErrorExplanationAction action) {
         String label = action.getDisplayName();
-        String link = HyperlinkNote.encodeTo("../" + action.getUrlName() + '/', label);
+        // Use a root-relative absolute path so the link resolves correctly from any
+        // page that embeds the console log (build root, /console, pipeline step view, etc.).
+        // run.getUrl() returns e.g. "job/explain-error/5/" (no leading slash).
+        String link = HyperlinkNote.encodeTo("/" + run.getUrl() + action.getUrlName() + '/', label);
         return "Explanation saved to the build. Open " + link + ".";
     }
 
