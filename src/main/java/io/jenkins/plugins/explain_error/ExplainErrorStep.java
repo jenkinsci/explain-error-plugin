@@ -35,13 +35,14 @@ public class ExplainErrorStep extends Step {
     // Auto-fix fields
     private boolean autoFix = false;
     private String autoFixCredentialsId = "";
+    private String autoFixRemoteUrl = "";
     private String autoFixScmType = "";
     private String autoFixGithubEnterpriseUrl = "";
     private String autoFixGitlabUrl = "";
     private String autoFixBitbucketUrl = "";
     private String autoFixAllowedPaths = "pom.xml,build.gradle,build.gradle.kts,*.properties,*.yml,*.yaml,Jenkinsfile,Dockerfile,package.json,requirements.txt,go.mod";
     private boolean autoFixDraftPr = false;
-    private int autoFixTimeoutSeconds = 60;
+    private int autoFixTimeoutSeconds = 120;
     private String autoFixPrTemplate = "";
 
     @DataBoundConstructor
@@ -124,6 +125,15 @@ public class ExplainErrorStep extends Step {
     @DataBoundSetter
     public void setAutoFixCredentialsId(String autoFixCredentialsId) {
         this.autoFixCredentialsId = autoFixCredentialsId != null ? autoFixCredentialsId : "";
+    }
+
+    public String getAutoFixRemoteUrl() {
+        return autoFixRemoteUrl;
+    }
+
+    @DataBoundSetter
+    public void setAutoFixRemoteUrl(String autoFixRemoteUrl) {
+        this.autoFixRemoteUrl = autoFixRemoteUrl != null ? autoFixRemoteUrl : "";
     }
 
     public String getAutoFixScmType() {
@@ -267,6 +277,7 @@ public class ExplainErrorStep extends Step {
                         errorLogs,
                         provider,
                         step.getAutoFixCredentialsId(),
+                        step.getAutoFixRemoteUrl().isEmpty() ? null : step.getAutoFixRemoteUrl(),
                         step.getAutoFixScmType().isEmpty() ? null : step.getAutoFixScmType(),
                         step.getAutoFixGithubEnterpriseUrl().isEmpty() ? null : step.getAutoFixGithubEnterpriseUrl(),
                         step.getAutoFixGitlabUrl().isEmpty() ? null : step.getAutoFixGitlabUrl(),

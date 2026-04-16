@@ -122,4 +122,39 @@ class ExplainErrorStepTest {
                 "language parameter should be forwarded to the AI provider");
     }
 
+    // -------------------------------------------------------------------------
+    // autoFix=true — null-guard and skip-path tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testAutoFix_disabledByDefault_noAutoFixSideEffects(JenkinsRule jenkins) throws Exception {
+        // When autoFix is not set (default false), the auto-fix block is never entered
+        // and no credentialsId is required
+        TestProvider provider = new TestProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-autofix-disabled");
+        job.setDefinition(new CpsFlowDefinition(
+                "node { explainError() }", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogNotContains("[AutoFix]", run);
+    }
+
+    @Test
+    void testAutoFix_blankCredentials_logsSkipAndContinues(JenkinsRule jenkins) throws Exception {
+        // autoFix=true but no credentialsId → auto-fix fails early, step still returns explanation
+        TestProvider provider = new TestProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-autofix-no-creds");
+        job.setDefinition(new CpsFlowDefinition(
+                "node { explainError(autoFix: true, autoFixRemoteUrl: 'https://github.com/org/repo') }", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        // The step must still return an explanation despite auto-fix failing
+        jenkins.assertLogContains("[AutoFix]", run);
+        jenkins.assertLogContains("autoFixCredentialsId", run);
+    }
+
 }

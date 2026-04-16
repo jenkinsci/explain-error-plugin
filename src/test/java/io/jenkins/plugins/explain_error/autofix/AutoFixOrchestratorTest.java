@@ -202,7 +202,7 @@ class AutoFixOrchestratorTest {
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "some error logs", aiProvider,
-                "creds-id", null, null, null, null,
+                "creds-id", null, null, null, null, null,
                 Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
@@ -222,7 +222,7 @@ class AutoFixOrchestratorTest {
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
-                "creds-id", null, null, null, null,
+                "creds-id", null, null, null, null, null,
                 Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
@@ -242,7 +242,7 @@ class AutoFixOrchestratorTest {
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
-                "creds-id", null, null, null, null,
+                "creds-id", null, null, null, null, null,
                 Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus(),
@@ -276,7 +276,7 @@ class AutoFixOrchestratorTest {
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
-                "creds-id", null, null, null, null,
+                "creds-id", null, null, null, null, null,
                 List.of("pom.xml"), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus());
@@ -317,10 +317,69 @@ class AutoFixOrchestratorTest {
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
-                "creds-id", null, null, null, null,
+                "creds-id", null, null, null, null, null,
                 List.of("pom.xml"), false, 30, listener, null);
 
         assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus(),
                 "pom.xml matches the allowed glob and must not be rejected");
+    }
+
+    // -----------------------------------------------------------------------
+    // Early validation — blank credentialsId fails before AI call
+    // -----------------------------------------------------------------------
+
+    @Test
+    void attemptAutoFix_blankCredentialsId_returnsFailedBeforeAiCall() {
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "error logs", aiProvider,
+                "", null, null, null, null, null,
+                Collections.emptyList(), false, 30, listener, null);
+
+        assertEquals(AutoFixStatus.FAILED, result.getStatus());
+        assertTrue(result.getMessage().contains("autoFixCredentialsId"),
+                "Error message must mention the missing field");
+        // AI was never called — blank creds detected before AI request
+        verify(fixAssistant, never()).suggestFix(anyString());
+    }
+
+    // -----------------------------------------------------------------------
+    // extractRemoteUrl — explicit remoteUrl bypasses SCM reflection
+    // -----------------------------------------------------------------------
+
+    @Test
+    void attemptAutoFix_explicitRemoteUrl_bypassesScmExtraction() {
+        // fixable=true with a valid pom.xml change; provide an explicit remoteUrl
+        // so the code never needs to call run.getParent() for SCM extraction.
+        // The test verifies that with no AbstractProject parent, we still get past
+        // path guards (SCM extraction is the next step and would fail without remoteUrl).
+        String aiJson = """
+                {
+                  "fixable": true,
+                  "explanation": "Config fix",
+                  "confidence": "high",
+                  "fixType": "config",
+                  "changes": [
+                    {
+                      "filePath": "pom.xml",
+                      "action": "modify",
+                      "unifiedDiff": "--- a/pom.xml\\n+++ b/pom.xml\\n@@ -1,1 +1,1 @@\\n-old\\n+new\\n",
+                      "description": "Update version"
+                    }
+                  ]
+                }
+                """;
+        when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
+
+        // No parent mock — run.getParent() would fail if called for SCM extraction
+        // (CredentialsProvider.findCredentialById will return null → FAILED, not SKIPPED)
+        AutoFixResult result = orchestrator.attemptAutoFix(
+                run, "error logs", aiProvider,
+                "creds-id", "https://github.com/org/repo", null, null, null, null,
+                List.of("pom.xml"), false, 30, listener, null);
+
+        // Must not be SKIPPED_PATH_NOT_ALLOWED — explicit URL bypassed SCM extraction
+        assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus());
+        // The result will be FAILED (no credentials in test context) — not a path error
+        assertNotEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
     }
 }

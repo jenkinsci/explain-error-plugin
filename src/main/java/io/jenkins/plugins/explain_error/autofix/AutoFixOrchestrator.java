@@ -21,6 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +41,16 @@ public class AutoFixOrchestrator {
     private static final Logger LOGGER = Logger.getLogger(AutoFixOrchestrator.class.getName());
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /**
+     * Dedicated thread pool for auto-fix operations. Uses daemon threads so the pool
+     * does not prevent JVM shutdown; avoids polluting the ForkJoinPool.commonPool().
+     */
+    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "jenkins-autofix");
+        t.setDaemon(true);
+        return t;
+    });
 
     /** Matches {@code {word}} placeholder tokens in PR body templates. */
     private static final Pattern TEMPLATE_PLACEHOLDER = Pattern.compile("\\{(\\w+)\\}");
@@ -80,6 +92,7 @@ public class AutoFixOrchestrator {
      * @param errorLogs           the error logs to analyse
      * @param aiProvider          the configured AI provider
      * @param credentialsId       Jenkins credentials ID for SCM token (StringCredentials)
+     * @param remoteUrl           explicit SCM remote URL; if null or blank, extracted from the job's SCM config
      * @param scmTypeOverride     optional override for SCM type detection ("github"/"gitlab"/"bitbucket")
      * @param githubEnterpriseUrl optional GitHub Enterprise API base URL (e.g. https://ghe.example.com)
      * @param gitlabUrl           optional self-hosted GitLab base URL
@@ -95,6 +108,7 @@ public class AutoFixOrchestrator {
             String errorLogs,
             BaseAIProvider aiProvider,
             String credentialsId,
+            String remoteUrl,
             String scmTypeOverride,
             String githubEnterpriseUrl,
             String gitlabUrl,
@@ -111,7 +125,7 @@ public class AutoFixOrchestrator {
         CompletableFuture<AutoFixResult> future = CompletableFuture.supplyAsync(() -> {
             try {
                 return doAttemptAutoFix(
-                        run, errorLogs, aiProvider, credentialsId,
+                        run, errorLogs, aiProvider, credentialsId, remoteUrl,
                         scmTypeOverride, githubEnterpriseUrl, gitlabUrl, bitbucketUrl,
                         allowedPathGlobs, draftPr, listener, createdBranchRef, prTemplate);
             } catch (Exception e) {
@@ -119,7 +133,7 @@ public class AutoFixOrchestrator {
                 listener.getLogger().println("[AutoFix] Error: " + e.getMessage());
                 return AutoFixResult.failed("Auto-fix encountered an unexpected error: " + e.getMessage());
             }
-        });
+        }, EXECUTOR);
 
         try {
             return future.get(timeoutSeconds, TimeUnit.SECONDS);
@@ -129,11 +143,12 @@ public class AutoFixOrchestrator {
             // Best-effort branch cleanup
             if (createdBranchRef[0] != null) {
                 try {
-                    String remoteUrl = extractRemoteUrl(run);
+                    String resolvedUrl = (remoteUrl != null && !remoteUrl.isBlank())
+                            ? remoteUrl : extractRemoteUrl(run);
                     StringCredentials creds = CredentialsProvider.findCredentialById(
                             credentialsId, StringCredentials.class, run, Collections.emptyList());
                     if (creds != null) {
-                        ScmRepo repo = buildScmRepo(remoteUrl, creds.getSecret().getPlainText(),
+                        ScmRepo repo = buildScmRepo(resolvedUrl, creds.getSecret().getPlainText(),
                                 scmTypeOverride, githubEnterpriseUrl, gitlabUrl, bitbucketUrl);
                         ScmApiClient client = ScmClientFactory.create(repo);
                         client.deleteBranch(createdBranchRef[0]);
@@ -162,6 +177,7 @@ public class AutoFixOrchestrator {
             String errorLogs,
             BaseAIProvider aiProvider,
             String credentialsId,
+            String remoteUrl,
             String scmTypeOverride,
             String githubEnterpriseUrl,
             String gitlabUrl,
@@ -173,6 +189,11 @@ public class AutoFixOrchestrator {
             String prTemplate) throws Exception {
 
         listener.getLogger().println("[AutoFix] Requesting fix suggestion from AI provider...");
+
+        // Early validation — fail before spending AI tokens
+        if (credentialsId == null || credentialsId.isBlank()) {
+            return AutoFixResult.failed("autoFixCredentialsId is required for auto-fix");
+        }
 
         // Step 1 — Get AI fix suggestion
         FixAssistant fixAssistant = aiProvider.createFixAssistant();
@@ -222,8 +243,9 @@ public class AutoFixOrchestrator {
         }
 
         // Step 5 — Detect SCM remote URL and credentials
-        String remoteUrl = extractRemoteUrl(run);
-        listener.getLogger().println("[AutoFix] Detected SCM remote: " + remoteUrl);
+        String resolvedRemoteUrl = (remoteUrl != null && !remoteUrl.isBlank())
+                ? remoteUrl : extractRemoteUrl(run);
+        listener.getLogger().println("[AutoFix] SCM remote: " + resolvedRemoteUrl);
 
         StringCredentials creds = CredentialsProvider.findCredentialById(
                 credentialsId, StringCredentials.class, run, Collections.emptyList());
@@ -233,7 +255,7 @@ public class AutoFixOrchestrator {
         String token = creds.getSecret().getPlainText();
 
         // Step 6 — Parse SCM repo (with enterprise overrides)
-        ScmRepo repo = buildScmRepo(remoteUrl, token, scmTypeOverride,
+        ScmRepo repo = buildScmRepo(resolvedRemoteUrl, token, scmTypeOverride,
                 githubEnterpriseUrl, gitlabUrl, bitbucketUrl);
         listener.getLogger().println("[AutoFix] SCM type: " + repo.scmType()
                 + ", owner: " + repo.owner() + ", repo: " + repo.repoName());
@@ -367,7 +389,10 @@ public class AutoFixOrchestrator {
         if (filePath.startsWith("/")) {
             return "Absolute paths are not allowed: " + filePath;
         }
-        if (filePath.contains("../") || filePath.contains("..\\")) {
+        // Normalize to catch trailing ".." segments (e.g. "src/main/..") that would
+        // bypass a simple string-contains check. Also catches Windows-style "..\".
+        Path normalized = Path.of(filePath).normalize();
+        if (normalized.startsWith("..")) {
             return "Path traversal is not allowed: " + filePath;
         }
         if (allowedPathGlobs != null && !allowedPathGlobs.isEmpty()) {
