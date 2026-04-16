@@ -79,7 +79,6 @@ public class UnifiedDiffApplier {
             }
 
             // Apply the hunk: remove old lines, insert new lines
-            int insertionPoint = actualPos;
             int removedCount = 0;
             List<String> insertLines = new ArrayList<>();
 
