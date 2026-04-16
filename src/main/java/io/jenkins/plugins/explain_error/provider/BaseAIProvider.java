@@ -219,6 +219,13 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                 if (!"http".equals(scheme) && !"https".equals(scheme)) {
                     return FormValidation.error("URL must use http or https");
                 }
+                // Reject credentials embedded in the URL (e.g. https://user:pass@host/…).
+                // Such values would be serialised to disk in plaintext; use the dedicated
+                // Secret fields (clientSecret, appKey) for any credentials instead.
+                if (uri.getUserInfo() != null) {
+                    return FormValidation.error(
+                            "Credentials must not be embedded in the URL. Use the dedicated secret fields instead.");
+                }
             } catch (MalformedURLException | URISyntaxException e) {
                 return FormValidation.error(e, "URL is not well formed.");
             }
