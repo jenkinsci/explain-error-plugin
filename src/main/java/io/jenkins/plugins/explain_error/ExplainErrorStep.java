@@ -6,6 +6,7 @@ import hudson.model.TaskListener;
 import io.jenkins.plugins.explain_error.autofix.AutoFixOrchestrator;
 import io.jenkins.plugins.explain_error.autofix.AutoFixResult;
 import io.jenkins.plugins.explain_error.autofix.AutoFixStatus;
+import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -244,6 +245,17 @@ public class ExplainErrorStep extends Step {
 
             if (step.isAutoFix()) {
                 String errorLogs = explainer.getLastErrorLogs();
+                BaseAIProvider provider = explainer.getResolvedProvider(run);
+
+                if (errorLogs == null) {
+                    listener.getLogger().println("[AutoFix] Skipped: no error logs available (explanation may have been disabled or skipped).");
+                    return explanation;
+                }
+                if (provider == null) {
+                    listener.getLogger().println("[AutoFix] Skipped: no AI provider configured.");
+                    return explanation;
+                }
+
                 AutoFixOrchestrator orchestrator = new AutoFixOrchestrator();
                 List<String> allowedPaths = Arrays.stream(step.getAutoFixAllowedPaths().split(","))
                         .map(String::trim)
@@ -253,7 +265,7 @@ public class ExplainErrorStep extends Step {
                 AutoFixResult fixResult = orchestrator.attemptAutoFix(
                         run,
                         errorLogs,
-                        explainer.getResolvedProvider(run),
+                        provider,
                         step.getAutoFixCredentialsId(),
                         step.getAutoFixScmType().isEmpty() ? null : step.getAutoFixScmType(),
                         step.getAutoFixGithubEnterpriseUrl().isEmpty() ? null : step.getAutoFixGithubEnterpriseUrl(),
