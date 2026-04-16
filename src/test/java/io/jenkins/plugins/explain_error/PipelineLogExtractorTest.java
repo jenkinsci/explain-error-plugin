@@ -77,15 +77,20 @@ class PipelineLogExtractorTest {
         PipelineLogExtractor extractor = new PipelineLogExtractor(mockRun, 100);
 
         // Should not throw NullPointerException
-        List<String> logLines = assertDoesNotThrow(() -> extractor.getFailedStepLog());
+        PipelineLogExtractor.ExtractionResult result = assertDoesNotThrow(extractor::extractFailedStepLog);
+        List<String> logLines = result.logLines();
 
         // Should fall back to build log
         assertNotNull(logLines);
         assertEquals(2, logLines.size());
         assertEquals("ERROR: Something failed", logLines.get(1));
 
+        assertTrue(result.fallbackToBuildLog(), "Expected fallback metadata to be set");
+        assertFalse(result.foundFailingNode(),
+                "Mock run without flow execution should not report a failing node");
+
         // URL should be set (either console or stages depending on plugin availability)
-        String url = extractor.getUrl();
+        String url = result.url();
         assertNotNull(url, "URL should not be null after getFailedStepLog()");
         assertTrue(url.contains("job/test/1/"), "URL should reference the build");
     }
@@ -171,6 +176,38 @@ class PipelineLogExtractorTest {
         String log = String.join("\n", lines);
         assertTrue(log.contains("static analysis failed") || log.contains("ANALYSIS_FAILURE_MARKER"),
                 "Strategy 3 should find the sh step output from inside catchError.\nActual log:\n" + log);
+    }
+
+    /**
+     * catchError + sh(returnStatus:true) + error() — FlowGraph traversal.
+     * <p>
+     * The error() step has ErrorAction but no LogAction. The sh step has LogAction but no
+     * ErrorAction. {@code findImmediateParentWithLog} checks the immediate parent of the
+     * error() node and returns it when it is the sole parent and carries a LogAction — the sh step.
+     * Expected: extracted log contains the sh step output from inside the catchError block.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void catchError_returnStatusPattern_immediateParentShLogExtracted(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-catcherror-sibling");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        def exitCode = sh(returnStatus: true, script: '"
+                + "echo \"CATCHERROR_SIBLING_MARKER\" && exit 1')\n"
+                + "        if (exitCode != 0) { error('Command failed') }\n"
+                + "    }\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.FAILURE, job.scheduleBuild2(0));
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        List<String> lines = extractor.getFailedStepLog();
+
+        String log = String.join("\n", lines);
+        assertTrue(log.contains("CATCHERROR_SIBLING_MARKER"),
+                "FlowGraph traversal should find the sh output inside the catchError block.\nActual log:\n" + log);
     }
 
     /**
@@ -538,7 +575,8 @@ class PipelineLogExtractorTest {
         WorkflowRun parentRun = jenkins.assertBuildStatus(Result.FAILURE, parentJob.scheduleBuild2(0));
 
         PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-job-failure");
-        List<String> lines = extractor.getFailedStepLog();
+        PipelineLogExtractor.ExtractionResult result = extractor.extractFailedStepLog();
+        List<String> lines = result.logLines();
         String log = String.join("\n", lines);
 
         assertTrue(log.contains("### Downstream Job: sub-job-failure"),
@@ -547,6 +585,10 @@ class PipelineLogExtractorTest {
                 "Downstream section must be labelled Result: FAILURE.\nActual log:\n" + log);
         assertTrue(log.contains("SUB_JOB_ERROR_MARKER"),
                 "Downstream section must include the sub-job's error output.\nActual log:\n" + log);
+        assertTrue(result.downstreamCollectionEnabled(), "Downstream collection should be enabled");
+        assertEquals(1, result.downstreamMatchedCount(), "Expected one downstream build to be matched");
+        assertEquals(0, result.downstreamReusedExplanationCount(),
+                "Expected raw log extraction instead of explanation reuse");
     }
 
     /**
@@ -721,7 +763,8 @@ class PipelineLogExtractorTest {
 
         // Now extract logs from the parent — the fast path should kick in
         PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, true, "sub-with-explanation");
-        List<String> lines = extractor.getFailedStepLog();
+        PipelineLogExtractor.ExtractionResult result = extractor.extractFailedStepLog();
+        List<String> lines = result.logLines();
         String log = String.join("\n", lines);
 
         // The pre-computed explanation must appear
@@ -732,6 +775,9 @@ class PipelineLogExtractorTest {
         // Raw log lines from the sub-job's sh step must NOT be extracted again
         assertFalse(log.contains("RAW_SUB_LOG_SHOULD_NOT_APPEAR"),
                 "Raw sub-job log lines must not appear when explanation is reused.\nActual log:\n" + log);
+        assertEquals(1, result.downstreamMatchedCount(), "Expected one downstream build to be matched");
+        assertEquals(1, result.downstreamReusedExplanationCount(),
+                "Expected the downstream explanation to be reused");
     }
 
     /**
@@ -819,7 +865,10 @@ class PipelineLogExtractorTest {
         try (ACLContext ignored = ACL.as2(viewer)) {
             PipelineLogExtractor extractor = new PipelineLogExtractor(parentRun, 500, viewer, true,
                     "hidden-build-step-sub");
-            log = String.join("\n", extractor.getFailedStepLog());
+            PipelineLogExtractor.ExtractionResult result = extractor.extractFailedStepLog();
+            log = String.join("\n", result.logLines());
+            assertEquals(1, result.downstreamPermissionSkippedCount(),
+                    "Expected one downstream build to be skipped due to permissions");
         }
 
         assertTrue(log.contains("### Downstream Job: [hidden] ###"),

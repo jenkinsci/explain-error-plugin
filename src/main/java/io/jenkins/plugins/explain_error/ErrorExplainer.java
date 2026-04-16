@@ -23,12 +23,21 @@ import org.springframework.security.core.Authentication;
 public class ErrorExplainer {
     static final String DOWNSTREAM_SECTION_START = "### Downstream Job: ";
     static final String DOWNSTREAM_SECTION_END = "### END OF DOWNSTREAM JOB: ";
+    private static final String CONSOLE_PREFIX = "[explain-error] ";
 
     private String providerName;
     private String urlString;
-    private String lastErrorLogs;
+    private final UsageRecorder usageRecorder;
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
+
+    public ErrorExplainer() {
+        this(UsageRecorders.get());
+    }
+
+    ErrorExplainer(UsageRecorder usageRecorder) {
+        this.usageRecorder = usageRecorder;
+    }
 
     public String getProviderName() {
         return providerName;
@@ -75,41 +84,89 @@ public class ErrorExplainer {
     String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
                         String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
                         Authentication authentication) {
+        return explainError(run, listener, logPattern, maxLines, language, customContext,
+                collectDownstreamLogs, downstreamJobPattern, authentication, UsageEvent.EntryPoint.PIPELINE_STEP);
+    }
+
+    String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
+                        String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
+                        Authentication authentication, UsageEvent.EntryPoint entryPoint) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
+        long startTimeNanos = System.nanoTime();
+        ProviderResolution providerResolution = resolveProvider(run);
+        BaseAIProvider provider = providerResolution.provider();
+        int inputLogLineCount = 0;
         try {
+            logToConsole(listener, "Starting explanation for " + jobInfo + ".");
+
             // Check if explanation is enabled (folder-level or global)
             if (!isExplanationEnabled(run)) {
-                listener.getLogger().println("AI error explanation is disabled.");
+                logToConsole(listener, "Explanation is disabled by configuration.");
+                recordUsage(entryPoint, UsageEvent.Result.DISABLED, provider, startTimeNanos, 0,
+                        collectDownstreamLogs);
                 return null;
             }
 
-            // Resolve provider (folder-level first, then global)
-            BaseAIProvider provider = resolveProvider(run);
             if (provider == null) {
-                listener.getLogger().println("No AI provider configured.");
+                logToConsole(listener, "No AI provider is configured.");
+                recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, null, startTimeNanos, 0,
+                        collectDownstreamLogs);
+                return null;
+            }
+            this.providerName = provider.getProviderName();
+            logToConsole(listener, "Explanation is enabled via " + providerResolution.sourceLabel()
+                    + " configuration.");
+            logToConsole(listener, "Using provider " + provider.getProviderName() + ", model " + provider.getModel()
+                    + ".");
+
+            if (provider.isNotValid(listener)) {
+                logToConsole(listener, "Provider configuration is invalid.");
+                recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, provider, startTimeNanos, 0,
+                        collectDownstreamLogs);
+                return null;
+            }
+
+            // Check quota before making a real provider call (folder-level overrides global)
+            QuotaCheckResult quotaCheck = tryAcquireQuota(run);
+            if (!quotaCheck.allowed()) {
+                logToConsole(listener, quotaCheck.rejectionMessage());
+                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos, 0,
+                        collectDownstreamLogs);
                 return null;
             }
 
             // Extract error logs
-            String errorLogs = extractErrorLogs(run, logPattern, maxLines, collectDownstreamLogs,
-                    downstreamJobPattern, authentication);
-            this.lastErrorLogs = errorLogs;
+            logToConsole(listener, "Extracting failure logs.");
+            PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
+                    collectDownstreamLogs, downstreamJobPattern, authentication);
+            String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
+            inputLogLineCount = countLines(errorLogs);
+            logExtractionSummary(listener, extractionResult, maxLines);
 
             // Use step-level customContext if provided, otherwise fallback to global
             String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
+            logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
 
             // Get AI explanation
             try {
+                logToConsole(listener, "Sending AI request.");
                 String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
+                logToConsole(listener, "AI request completed successfully.");
 
                 // Store explanation in build action
-                ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs, provider.getProviderName());
+                ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
+                        provider.getProviderName(), provider.getModel(), inputLogLineCount);
                 run.addOrReplaceAction(action);
-                
+                logToConsole(listener, "Explanation saved to the build.");
+                recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
+                        collectDownstreamLogs);
+
                 return explanation;
             } catch (ExplanationException ee) {
-                listener.getLogger().println(ee.getMessage());
+                logToConsole(listener, "AI request failed: " + ee.getMessage());
+                recordUsage(entryPoint, UsageEvent.Result.PROVIDER_ERROR, provider, startTimeNanos,
+                        inputLogLineCount, collectDownstreamLogs);
                 return null;
             }
 
@@ -117,20 +174,21 @@ public class ErrorExplainer {
 
         } catch (IOException e) {
             LOGGER.severe(jobInfo + " Failed to explain error: " + e.getMessage());
-            listener.getLogger().println(jobInfo + " Failed to explain error: " + e.getMessage());
+            logToConsole(listener, "Failed to explain error: " + e.getMessage());
             return null;
         }
     }
 
-    private String extractErrorLogs(Run<?, ?> run, String logPattern, int maxLines,
-                                    boolean collectDownstreamLogs, String downstreamJobPattern,
-                                    Authentication authentication) throws IOException {
+    private PipelineLogExtractor.ExtractionResult extractErrorLogs(Run<?, ?> run, int maxLines,
+                                                                   boolean collectDownstreamLogs,
+                                                                   String downstreamJobPattern,
+                                                                   Authentication authentication)
+            throws IOException {
         PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, authentication,
                 collectDownstreamLogs, downstreamJobPattern);
-        List<String> logLines =  logExtractor.getFailedStepLog();
-        this.urlString = logExtractor.getUrl();
-
-        return filterErrorLogs(logLines, logPattern);
+        PipelineLogExtractor.ExtractionResult result = logExtractor.extractFailedStepLog();
+        this.urlString = result.url();
+        return result;
     }
 
     String filterErrorLogs(List<String> logLines, String logPattern) {
@@ -172,28 +230,63 @@ public class ErrorExplainer {
      * Used for console output error explanation.
      */
     public ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull  Run<?, ?> run) throws IOException, ExplanationException {
+        return explainErrorText(errorText, url, run, UsageEvent.EntryPoint.CONSOLE_ACTION);
+    }
+
+    ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull Run<?, ?> run,
+                                            UsageEvent.EntryPoint entryPoint)
+            throws IOException, ExplanationException {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
+        long startTimeNanos = System.nanoTime();
+        int inputLogLineCount = countLines(errorText);
+        ProviderResolution providerResolution = resolveProvider(run);
+        BaseAIProvider provider = providerResolution.provider();
 
         // Check if explanation is enabled (folder-level or global)
         if (!isExplanationEnabled(run)) {
+            recordUsage(entryPoint, UsageEvent.Result.DISABLED, provider, startTimeNanos,
+                    inputLogLineCount, false);
             throw new ExplanationException("error", "AI error explanation is disabled.");
         }
-        // Resolve provider (folder-level first, then global)
-        BaseAIProvider provider = resolveProvider(run);
         if (provider == null) {
+            recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, null, startTimeNanos, inputLogLineCount,
+                    false);
             throw new ExplanationException("error", "No AI provider configured.");
         }
-
-        // Get AI explanation with global custom context
-        String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null, GlobalConfigurationImpl.get().getCustomContext());
-        LOGGER.fine(jobInfo + " AI error explanation succeeded.");
-        LOGGER.fine("Explanation length: " + explanation.length());
         this.providerName = provider.getProviderName();
-        ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText, provider.getProviderName());
-        run.addOrReplaceAction(action);
-        run.save();
 
-        return action;
+        if (provider.isNotValid(null)) {
+            recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, provider, startTimeNanos,
+                    inputLogLineCount, false);
+            throw new ExplanationException("error", "The provider is not properly configured.");
+        }
+
+        // Check quota before making a real provider call (folder-level overrides global)
+        QuotaCheckResult quotaCheck = tryAcquireQuota(run);
+        if (!quotaCheck.allowed()) {
+            recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
+                    inputLogLineCount, false);
+            throw new ExplanationException("warning", quotaCheck.rejectionMessage());
+        }
+
+        try {
+            // Get AI explanation with global custom context
+            String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null,
+                    GlobalConfigurationImpl.get().getCustomContext());
+            LOGGER.fine(jobInfo + " AI error explanation succeeded.");
+            LOGGER.fine("Explanation length: " + explanation.length());
+            ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
+                    provider.getProviderName(), provider.getModel(), inputLogLineCount);
+            run.addOrReplaceAction(action);
+            run.save();
+            recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount, false);
+
+            return action;
+        } catch (ExplanationException e) {
+            recordUsage(entryPoint, UsageEvent.Result.PROVIDER_ERROR, provider, startTimeNanos,
+                    inputLogLineCount, false);
+            throw e;
+        }
     }
 
     /**
@@ -205,15 +298,14 @@ public class ErrorExplainer {
      * @param run the build run to resolve configuration for
      * @return the resolved AI provider, or null if not configured
      */
-    @CheckForNull
-    private BaseAIProvider resolveProvider(@CheckForNull Run<?, ?> run) {
+    private ProviderResolution resolveProvider(@CheckForNull Run<?, ?> run) {
         if (run != null) {
             // Try folder-level configuration first
             BaseAIProvider folderProvider = ExplainErrorFolderProperty.findFolderProvider(run.getParent().getParent());
             if (folderProvider != null) {
                 String jobInfo = "[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
                 LOGGER.fine(jobInfo + " Using FOLDER-LEVEL AI provider: " + folderProvider.getProviderName() + ", Model: " + folderProvider.getModel());
-                return folderProvider;
+                return new ProviderResolution(folderProvider, "folder");
             }
         }
 
@@ -224,7 +316,7 @@ public class ErrorExplainer {
             String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
             LOGGER.fine(jobInfo + " Using GLOBAL AI provider: " + globalProvider.getProviderName() + ", Model: " + globalProvider.getModel());
         }
-        return globalProvider;
+        return new ProviderResolution(globalProvider, "global");
     }
 
     /**
@@ -296,5 +388,114 @@ public class ErrorExplainer {
         }
 
         return null;
+    }
+
+    private void logToConsole(TaskListener listener, String message) {
+        listener.getLogger().println(CONSOLE_PREFIX + message);
+    }
+
+    /**
+     * Attempts to acquire a quota slot. Folder-level quota (nearest ancestor with
+     * {@code enableQuota=true}) takes precedence over the global quota.
+     *
+     * @param run the current build run (may be null)
+     * @return a {@link QuotaCheckResult} indicating whether the call is allowed
+     */
+    private QuotaCheckResult tryAcquireQuota(@CheckForNull Run<?, ?> run) {
+        // Walk up the folder hierarchy to find the nearest folder-level quota
+        if (run != null) {
+            ExplainErrorFolderProperty folderQuota =
+                    ExplainErrorFolderProperty.findFolderWithQuota(run.getParent().getParent());
+            if (folderQuota != null) {
+                boolean allowed = folderQuota.tryAcquireQuota();
+                if (!allowed) {
+                    String msg = "Provider call quota exceeded (folder level). Limit: "
+                            + folderQuota.getMaxProviderCallsPerWindow()
+                            + " calls per " + folderQuota.getQuotaWindow().getDisplayName().toLowerCase()
+                            + " window.";
+                    return new QuotaCheckResult(false, msg);
+                }
+                return QuotaCheckResult.ALLOWED;
+            }
+        }
+
+        // Fall back to global quota
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        if (!config.tryAcquireQuota()) {
+            String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
+                    + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";
+            return new QuotaCheckResult(false, msg);
+        }
+        return QuotaCheckResult.ALLOWED;
+    }
+
+    private record QuotaCheckResult(boolean allowed, String rejectionMessage) {
+        static final QuotaCheckResult ALLOWED = new QuotaCheckResult(true, null);
+    }
+
+    private void logExtractionSummary(TaskListener listener, PipelineLogExtractor.ExtractionResult result,
+                                      int maxLines) {
+        if (result.fallbackToBuildLog()) {
+            logToConsole(listener, "No failing step log found; using the last " + maxLines + " console lines.");
+        } else if (result.foundFailingNode()) {
+            logToConsole(listener, "Extracted " + result.getExtractedLineCount() + " log lines from the failing step.");
+        } else {
+            logToConsole(listener, "Extracted " + result.getExtractedLineCount() + " log lines.");
+        }
+
+        if (!result.downstreamCollectionEnabled()) {
+            logToConsole(listener, "Downstream log collection is disabled.");
+            return;
+        }
+
+        logToConsole(listener, "Downstream log collection enabled; matched "
+                + result.downstreamMatchedCount() + " builds, reused "
+                + result.downstreamReusedExplanationCount() + " existing explanations, skipped "
+                + result.downstreamPermissionSkippedCount() + " due to permissions.");
+    }
+
+    private String resolveCustomContextSource(String stepCustomContext) {
+        if (StringUtils.isNotBlank(stepCustomContext)) {
+            return "step";
+        }
+        if (StringUtils.isNotBlank(GlobalConfigurationImpl.get().getCustomContext())) {
+            return "global";
+        }
+        return "none";
+    }
+
+    private void recordUsage(UsageEvent.EntryPoint entryPoint, UsageEvent.Result result,
+                             @CheckForNull BaseAIProvider provider, long startTimeNanos,
+                             int inputLogLineCount, boolean downstreamLogsCollected) {
+        usageRecorder.record(new UsageEvent(
+                System.currentTimeMillis(),
+                entryPoint,
+                result,
+                provider != null ? provider.getProviderName() : null,
+                provider != null ? provider.getModel() : null,
+                nanosToMillis(startTimeNanos),
+                inputLogLineCount,
+                downstreamLogsCollected));
+    }
+
+    private long nanosToMillis(long startTimeNanos) {
+        return Math.max(0L, (System.nanoTime() - startTimeNanos) / 1_000_000L);
+    }
+
+    static int countLines(String text) {
+        if (StringUtils.isBlank(text)) {
+            return 0;
+        }
+
+        int lineCount = 1;
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) == '\n') {
+                lineCount++;
+            }
+        }
+        return lineCount;
+    }
+
+    private record ProviderResolution(@CheckForNull BaseAIProvider provider, String sourceLabel) {
     }
 }

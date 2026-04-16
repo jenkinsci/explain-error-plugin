@@ -11,21 +11,34 @@ public class ErrorExplanationAction implements RunAction2 {
     private final String explanation;
     private final String urlString;
     private final transient String originalErrorLogs;
+    private final int inputLogLineCount;
     private final long timestamp;
     private String providerName = "Unknown";
+    private String providerModel = "Unknown";
     private transient Run<?, ?> run;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
+        this(explanation, urlString, originalErrorLogs, providerName, null,
+                ErrorExplainer.countLines(originalErrorLogs));
+    }
+
+    public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs,
+                                  String providerName, String providerModel, int inputLogLineCount) {
         this.explanation = explanation;
         this.originalErrorLogs = originalErrorLogs;
         this.timestamp = System.currentTimeMillis();
         this.providerName = providerName;
+        this.providerModel = providerModel;
         this.urlString = urlString;
+        this.inputLogLineCount = Math.max(0, inputLogLineCount);
     }
 
     public Object readResolve() {
         if (providerName == null) {
             providerName = "Unknown";
+        }
+        if (providerModel == null) {
+            providerModel = "Unknown";
         }
         return this;
     }
@@ -65,8 +78,16 @@ public class ErrorExplanationAction implements RunAction2 {
         return providerName;
     }
 
+    public String getProviderModel() {
+        return providerModel;
+    }
+
     public String getUrlString() {
         return urlString;
+    }
+
+    public int getInputLogLineCount() {
+        return inputLogLineCount;
     }
 
     @Override

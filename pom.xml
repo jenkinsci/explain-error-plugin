@@ -22,7 +22,7 @@
     <gitHubRepo>jenkinsci/explain-error-plugin</gitHubRepo>
     <jenkins.baseline>2.528</jenkins.baseline>
     <jenkins.version>${jenkins.baseline}.3</jenkins.version>
-    <langchain4j.version>1.11.0</langchain4j.version>
+    <langchain4j.version>1.12.2</langchain4j.version>
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
     <hpi.strictBundledArtifacts>true</hpi.strictBundledArtifacts>
     <hpi.bundledArtifacts>bedrockruntime,jtokkit,langchain4j,langchain4j-bedrock,langchain4j-core,langchain4j-google-ai-gemini,langchain4j-http-client,langchain4j-http-client-jdk,langchain4j-ollama,langchain4j-open-ai,opennlp-tools</hpi.bundledArtifacts>
@@ -69,7 +69,7 @@
       <dependency>
         <groupId>io.jenkins.tools.bom</groupId>
         <artifactId>bom-${jenkins.baseline}.x</artifactId>
-        <version>6077.v303e2d08985d</version>
+        <version>6210.v69ea_fd8a_f010</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -108,6 +108,14 @@
     <dependency>
       <groupId>io.jenkins.plugins</groupId>
       <artifactId>pipeline-graph-view</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Optional Dropwizard metrics integration via Jenkins Metrics plugin.
+         When absent the MetricsUsageRecorder extension will silently not load. -->
+    <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>metrics</artifactId>
       <optional>true</optional>
     </dependency>
 

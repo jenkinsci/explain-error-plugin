@@ -149,4 +149,34 @@ class ExplainErrorFolderPropertyTest {
         // Should return null for null
         assertNull(ExplainErrorFolderProperty.findFolderProvider(null));
     }
+
+    @Test
+    void testSetEnableExplanationFalseNullifiesProvider() {
+        // Setting a provider then disabling should clear the provider (documented side effect)
+        ExplainErrorFolderProperty property = new ExplainErrorFolderProperty();
+        property.setAiProvider(new OpenAIProvider(null, "gpt-4", Secret.fromString("key")));
+        assertNotNull(property.getAiProvider(), "Provider should be set before disabling");
+
+        property.setEnableExplanation(false);
+
+        assertNull(property.getAiProvider(),
+                "setEnableExplanation(false) should clear the provider to ensure fallback to global");
+        assertFalse(property.isEnableExplanation());
+    }
+
+    @Test
+    void testFindFolderProvider_threeDeepHierarchy_findsGrandparentProvider(JenkinsRule jenkins) throws Exception {
+        // Grandparent has provider; parent and child do not — verifies recursion walks up two levels
+        Folder grandparent = jenkins.jenkins.createProject(Folder.class, "grandparent-folder");
+        ExplainErrorFolderProperty grandparentProp = new ExplainErrorFolderProperty();
+        grandparentProp.setAiProvider(new OpenAIProvider(null, "gpt-4", Secret.fromString("gp-key")));
+        grandparent.addProperty(grandparentProp);
+
+        Folder parent = grandparent.createProject(Folder.class, "parent-folder-3");
+        Folder child = parent.createProject(Folder.class, "child-folder-3");
+
+        BaseAIProvider foundProvider = ExplainErrorFolderProperty.findFolderProvider(child);
+        assertNotNull(foundProvider, "Should walk up two levels to find grandparent's provider");
+        assertEquals("gpt-4", foundProvider.getModel());
+    }
 }

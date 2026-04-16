@@ -1,7 +1,9 @@
 package io.jenkins.plugins.explain_error;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -33,7 +35,10 @@ class ExplainErrorStepTest {
         WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
 
         // Check that the explain error step was called and logged the expected error
-        jenkins.assertLogContains("The provider is not properly configured.", run);
+        jenkins.assertLogContains("[explain-error] Starting explanation", run);
+        jenkins.assertLogContains("[explain-error] Using provider OpenAI", run);
+        jenkins.assertLogContains("No Api key configured for OpenAI.", run);
+        jenkins.assertLogContains("[explain-error] Provider configuration is invalid.", run);
     }
 
     @Test
@@ -55,6 +60,10 @@ class ExplainErrorStepTest {
         WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
         ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
         assertNotNull(action);
+        jenkins.assertLogContains("[explain-error] Starting explanation", run);
+        jenkins.assertLogContains("[explain-error] Using provider Test, model test-model.", run);
+        jenkins.assertLogContains("[explain-error] AI request completed successfully.", run);
+        jenkins.assertLogContains("[explain-error] Explanation saved to the build.", run);
     }
 
     @Test
@@ -79,6 +88,38 @@ class ExplainErrorStepTest {
         
         ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
         assertNotNull(action);
+    }
+
+    @Test
+    void testExplainErrorStepDisabled(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(false);
+        config.setAiProvider(new TestProvider());
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-explain-error-disabled");
+        job.setDefinition(new CpsFlowDefinition("node {\n"
+                + "    explainError()\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
+
+        jenkins.assertLogContains("[explain-error] Starting explanation", run);
+        jenkins.assertLogContains("[explain-error] Explanation is disabled by configuration.", run);
+    }
+
+    @Test
+    void testExplainErrorStepPassesLanguageToAI(JenkinsRule jenkins) throws Exception {
+        TestProvider provider = new TestProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-language");
+        job.setDefinition(new CpsFlowDefinition(
+                "node { explainError(language: 'Chinese') }", true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertEquals("Chinese", provider.getLastLanguage(),
+                "language parameter should be forwarded to the AI provider");
     }
 
 }

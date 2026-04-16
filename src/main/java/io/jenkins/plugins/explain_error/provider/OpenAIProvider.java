@@ -25,6 +25,7 @@ import org.kohsuke.stapler.verb.POST;
 public class OpenAIProvider extends BaseAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(OpenAIProvider.class.getName());
+    public static final String DEFAULT_MODEL = "gpt-4.1";
 
     protected Secret apiKey;
 
@@ -99,7 +100,7 @@ public class OpenAIProvider extends BaseAIProvider {
         }
 
         public String getDefaultModel() {
-            return "gpt-4.1";
+            return DEFAULT_MODEL;
         }
 
         @GET

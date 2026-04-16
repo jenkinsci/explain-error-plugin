@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.logging.Logger;
+import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.StaplerRequest2;
@@ -61,12 +62,19 @@ public class ConsoleExplainErrorAction implements RunAction2 {
      */
     @RequirePOST
     public void doExplainConsoleError(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
+        long startTimeNanos = System.nanoTime();
         try {
             run.checkPermission(hudson.model.Item.READ);
 
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
             if (!config.isEnableExplanation()) {
-                writeJsonResponse(rsp, "warning", "Unkown" , "AI error explanation is disabled in global configuration.");
+                BaseAIProvider provider = config.getAiProvider();
+                recordUsage(UsageEvent.Result.DISABLED,
+                        provider != null ? provider.getProviderName() : null,
+                        provider != null ? provider.getModel() : null,
+                        startTimeNanos,
+                        0);
+                writeJsonResponse(rsp, "warning", "Unknown", "AI error explanation is disabled in global configuration.");
                 return;
             }
 
@@ -76,6 +84,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             // Check if an explanation already exists
             ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
             if (!forceNew && existingAction != null && existingAction.hasValidExplanation()) {
+                recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
+                        existingAction.getProviderModel(), startTimeNanos, existingAction.getInputLogLineCount());
                 // Return existing explanation with a flag indicating it's cached
                 writeJsonResponse(rsp, "success", existingAction.getProviderName(), createCachedResponse(existingAction.getExplanation()));
                 return;
@@ -106,7 +116,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         } catch (Exception e) {
             LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
             LOGGER.severe("Error explaining console error: " + e.getMessage());
-            writeJsonResponse(rsp, "error", "Unkown" , "Error: " + e.getMessage());
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
         }
     }
 
@@ -169,5 +179,18 @@ public class ConsoleExplainErrorAction implements RunAction2 {
 
     public Run<?, ?> getRun() {
         return run;
+    }
+
+    private void recordUsage(UsageEvent.Result result, String providerName, String model,
+                             long startTimeNanos, int inputLogLineCount) {
+        UsageRecorders.get().record(new UsageEvent(
+                System.currentTimeMillis(),
+                UsageEvent.EntryPoint.CONSOLE_ACTION,
+                result,
+                providerName,
+                model,
+                Math.max(0L, (System.nanoTime() - startTimeNanos) / 1_000_000L),
+                inputLogLineCount,
+                false));
     }
 }

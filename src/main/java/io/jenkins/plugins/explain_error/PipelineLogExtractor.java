@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
 import com.google.common.annotations.VisibleForTesting;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.model.Item;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
@@ -62,7 +63,6 @@ public class PipelineLogExtractor {
 
     private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
     public static final String URL_NAME = "stages";
-
     /**
      * Pattern to detect error-related content in build logs.
      * Matches common error indicators: error(s), exception(s), failed, fatal (case-insensitive).
@@ -89,6 +89,39 @@ public class PipelineLogExtractor {
     private final boolean collectDownstreamLogs;
     private final Pattern downstreamJobPattern;
     private final Authentication authentication;
+    private final ExtractionStats stats;
+
+    public record ExtractionResult(
+            List<String> logLines,
+            @CheckForNull String url,
+            boolean fallbackToBuildLog,
+            boolean foundFailingNode,
+            @CheckForNull String primaryNodeId,
+            boolean downstreamCollectionEnabled,
+            int downstreamMatchedCount,
+            int downstreamReusedExplanationCount,
+            int downstreamPermissionSkippedCount) {
+
+        public ExtractionResult {
+            logLines = List.copyOf(logLines);
+        }
+
+        public int getExtractedLineCount() {
+            return logLines.size();
+        }
+    }
+
+    private static final class ExtractionStats {
+        private int downstreamMatchedCount;
+        private int downstreamReusedExplanationCount;
+        private int downstreamPermissionSkippedCount;
+
+        void reset() {
+            downstreamMatchedCount = 0;
+            downstreamReusedExplanationCount = 0;
+            downstreamPermissionSkippedCount = 0;
+        }
+    }
 
     /**
      * Reads the provided log text and returns at most the last {@code maxLines} lines.
@@ -231,6 +264,35 @@ public class PipelineLogExtractor {
     }
 
     /**
+     * Handles the {@code catchError + sh(returnStatus:true) + error()} pipeline pattern.
+     * <p>
+     * In this pattern, the {@code error()} step records an {@link ErrorAction} but has no
+     * {@link LogAction} — the actual failure output lives in the preceding {@code sh} step,
+     * which ran with {@code returnStatus:true} so it never threw an exception and carries
+     * no {@link ErrorAction}.
+     * <p>
+     * This method checks the immediate parent of the {@code error()} node. It only proceeds
+     * when there is exactly one parent (ruling out parallel-merge join points where the
+     * relevant log cannot be determined unambiguously).
+     *
+     * @param errorOrigin the {@code error()} step node (has {@link ErrorAction}, no {@link LogAction})
+     * @return the immediate parent node if it has a {@link LogAction}, or {@code null} otherwise
+     */
+    private FlowNode findImmediateParentWithLog(FlowNode errorOrigin) {
+        // Go one level up, only if errorOrigin has exactly one parent.
+        // If there are multiple parents we are at a parallel-merge join point and
+        // cannot determine which parent's log is relevant.
+        List<FlowNode> parents = errorOrigin.getParents();
+        if (parents.size() == 1) {
+            FlowNode parent = parents.get(0);
+            if (parent.getAction(LogAction.class) != null) {
+                return parent;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Extracts the log output of the step(s) that caused the pipeline failure,
      * combining results from multiple strategies so that parallel failures
      * (e.g. both a Rspec test failure and a RuboCop offense) are all captured.
@@ -239,7 +301,11 @@ public class PipelineLogExtractor {
      *       logs from <em>all</em> nodes with {@link ErrorAction} and an associated
      *       {@link LogAction} (explicit uncaught exceptions). Unlike the original single-return
      *       approach, this accumulates logs from every failing step up to {@code maxLines}
-     *       total, covering parallel failures such as multiple Rspec pod crashes.</li>
+     *       total, covering parallel failures such as multiple Rspec pod crashes.
+     *       When a failing node has no {@link LogAction} (e.g. the {@code error()} step in a
+     *       {@code catchError + sh(returnStatus:true) + error()} pipeline), the immediate
+     *       parent node is checked and used if, and only if, there is exactly one parent
+     *       and it has a {@link LogAction}.</li>
      * </ol>
      * Falls back to {@code run.getLog(maxLines)} (last N lines of console) only if all
      * strategies produce no results.
@@ -249,9 +315,22 @@ public class PipelineLogExtractor {
      * @throws IOException if there is an error reading the build logs.
      */
     public List<String> getFailedStepLog() throws IOException {
+        return extractFailedStepLog().logLines();
+    }
+
+    public ExtractionResult extractFailedStepLog() throws IOException {
+        return extractFailedStepLog(true);
+    }
+
+    private ExtractionResult extractFailedStepLog(boolean resetStats) throws IOException {
+        if (resetStats) {
+            stats.reset();
+        }
+
         List<String> accumulated = new ArrayList<>();
         Set<FlowNode> nodes = new HashSet<>();
         String primaryNodeId = null;
+        boolean fallbackToBuildLog = false;
 
         if (this.run instanceof WorkflowRun) {
             FlowExecution execution = ((WorkflowRun) this.run).getExecution();
@@ -288,6 +367,16 @@ public class PipelineLogExtractor {
                         continue;
                     }
                     LogAction logAction = origin.getAction(LogAction.class);
+                    // catchError + sh(returnStatus:true) + error() fallback:
+                    // error() has ErrorAction but no LogAction. Check the immediate parent;
+                    // if it is the only parent and carries a LogAction, use it instead.
+                    if (logAction == null && errorAction != null) {
+                        FlowNode immediateParent = findImmediateParentWithLog(origin);
+                        if (immediateParent != null && !seenOriginIds.contains(immediateParent.getId())) {
+                            origin = immediateParent;
+                            logAction = immediateParent.getAction(LogAction.class);
+                        }
+                    }
                     if (logAction == null) {
                         continue;
                     }
@@ -318,6 +407,7 @@ public class PipelineLogExtractor {
             setUrl(primaryNodeId != null ? primaryNodeId : "0");
         } else {
             // Final fallback: last N lines of the full build console log
+            fallbackToBuildLog = true;
             setUrl("0");
             accumulated.addAll(run.getLog(maxLines));
         }
@@ -329,7 +419,16 @@ public class PipelineLogExtractor {
             collectDownstreamLogs(accumulated, visitedRunIds);
         }
 
-        return accumulated;
+        return new ExtractionResult(
+                accumulated,
+                url,
+                fallbackToBuildLog,
+                primaryNodeId != null,
+                primaryNodeId,
+                collectDownstreamLogs && downstreamJobPattern != null,
+                stats.downstreamMatchedCount,
+                stats.downstreamReusedExplanationCount,
+                stats.downstreamPermissionSkippedCount);
     }
 
     /**
@@ -399,12 +498,21 @@ public class PipelineLogExtractor {
                                  boolean collectDownstreamLogs,
                                  Pattern downstreamJobPattern)
     {
+        this(run, maxLines, downstreamDepth, authentication, collectDownstreamLogs, downstreamJobPattern,
+                new ExtractionStats());
+    }
+
+    private PipelineLogExtractor(Run<?, ?> run, int maxLines, int downstreamDepth, Authentication authentication,
+                                 boolean collectDownstreamLogs, Pattern downstreamJobPattern,
+                                 ExtractionStats stats)
+    {
         this.run = run;
         this.maxLines = maxLines;
         this.downstreamDepth = downstreamDepth;
         this.collectDownstreamLogs = collectDownstreamLogs;
         this.downstreamJobPattern = downstreamJobPattern;
         this.authentication = authentication != null ? authentication : Jenkins.getAuthentication2();
+        this.stats = stats;
         if (Jenkins.get().getPlugin("pipeline-graph-view") != null) {
             isGraphViewPluginAvailable = true;
         }
@@ -630,7 +738,9 @@ public class PipelineLogExtractor {
         if (remaining <= 0) {
             return;
         }
+        stats.downstreamMatchedCount++;
         if (!canReadDownstreamRun(downstreamRun)) {
+            stats.downstreamPermissionSkippedCount++;
             appendHiddenDownstreamPlaceholder(accumulated);
             return;
         }
@@ -651,6 +761,7 @@ public class PipelineLogExtractor {
         // Fast path: sub-job already has an AI explanation — reuse it directly.
         ErrorExplanationAction existingExplanation = downstreamRun.getAction(ErrorExplanationAction.class);
         if (existingExplanation != null && existingExplanation.hasValidExplanation()) {
+            stats.downstreamReusedExplanationCount++;
             // Redirect "View failure output" to the sub-job's own explanation URL when available.
             if (!failFastAborted && existingExplanation.getUrlString() != null && this.url != null
                     && runUrl != null && this.url.contains(runUrl)) {
@@ -667,18 +778,19 @@ public class PipelineLogExtractor {
 
         // Slow path: no existing explanation — extract raw logs as before.
         PipelineLogExtractor subExtractor = new PipelineLogExtractor(downstreamRun, remaining, downstreamDepth + 1,
-                authentication, collectDownstreamLogs, downstreamJobPattern);
-        List<String> subLog = subExtractor.getFailedStepLog();
-        if (subLog == null || subLog.isEmpty()) {
+                authentication, collectDownstreamLogs, downstreamJobPattern, stats);
+        ExtractionResult subResult = subExtractor.extractFailedStepLog(false);
+        List<String> subLog = subResult.logLines();
+        if (subLog.isEmpty()) {
             return;
         }
 
         // If this sub-job genuinely failed (not just aborted by fail-fast) and the parent
         // URL still points to the parent job (i.e. no prior real sub-job failure has already
         // claimed the URL), redirect "View failure output" to the sub-job's failing node.
-        if (!failFastAborted && subExtractor.getUrl() != null && this.url != null
+        if (!failFastAborted && subResult.url() != null && this.url != null
                 && runUrl != null && this.url.contains(runUrl)) {
-            this.url = subExtractor.getUrl();
+            this.url = subResult.url();
         }
 
         int remainingCapacity = maxLines - accumulated.size();
