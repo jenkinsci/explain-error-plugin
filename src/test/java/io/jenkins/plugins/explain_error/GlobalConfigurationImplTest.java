@@ -120,31 +120,6 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
-    void testSetAiProviderPreservesExistingCustomOktaAppKeyWhenSubmittedBlank() {
-        CustomOktaAIProvider existingProvider = new CustomOktaAIProvider(
-                "https://chat-ai.example.com/openai/deployments/{model}/chat/completions",
-                "https://id.example.com/oauth2/default/v1/token",
-                "gpt-5-nano",
-                "client-id",
-                Secret.fromString("client-secret"));
-        existingProvider.setAppKey(Secret.fromString("existing-app-key"));
-        config.setAiProvider(existingProvider);
-
-        CustomOktaAIProvider submittedProvider = new CustomOktaAIProvider(
-                "https://chat-ai.example.com/openai/deployments/{model}/chat/completions",
-                "https://id.example.com/oauth2/default/v1/token",
-                "gpt-5-nano",
-                "client-id",
-                Secret.fromString("client-secret"));
-        config.setAiProvider(submittedProvider);
-
-        BaseAIProvider reloaded = config.getAiProvider();
-        assertThat(reloaded, instanceOf(CustomOktaAIProvider.class));
-        CustomOktaAIProvider customOkta = (CustomOktaAIProvider) reloaded;
-        assertEquals("existing-app-key", customOkta.getAppKey().getPlainText());
-    }
-
-    @Test
     void testEnableExplanationSetterAndGetter() {
         config.setEnableExplanation(false);
         assertFalse(config.isEnableExplanation());

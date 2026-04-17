@@ -12,7 +12,6 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
-import io.jenkins.plugins.explain_error.GlobalConfigurationImpl;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import java.io.IOException;
 import java.net.URI;
@@ -122,11 +121,6 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @DataBoundSetter
-    public void setAppKey(String appKey) {
-        String value = Util.fixEmptyAndTrim(appKey);
-        this.appKey = value == null ? null : Secret.fromString(value);
-    }
-
     public void setAppKey(Secret appKey) {
         this.appKey = appKey;
     }
@@ -303,15 +297,12 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         if (userMetadata != null) {
             payload.put("user", userMetadata);
         } else {
-            LOGGER.warning("Custom Okta AI: No App Key or User ID configured — "
+            LOGGER.fine("Custom Okta AI: No App Key or User ID configured; "
                     + "'user' metadata field will be omitted from the request. "
                     + "This may cause a 400 error if the API requires an App Key.");
         }
 
-        String body = OBJECT_MAPPER.writeValueAsString(payload);
-        LOGGER.fine(() -> "Custom Okta AI request body (user field present: " + (userMetadata != null) + "): "
-                + body.replaceAll("(\"content\":\s*\")[^\"]{10}", "$1[truncated]"));
-        return body;
+        return OBJECT_MAPPER.writeValueAsString(payload);
     }
 
     private String buildUserMetadata() throws IOException {
@@ -512,7 +503,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("accessTokenHeader") String accessTokenHeader,
                                                   @QueryParameter("accessTokenPrefix") String accessTokenPrefix,
                                                   @QueryParameter("apiVersion") String apiVersion,
-                                                  @QueryParameter("appKey") String appKey,
+                                                  @QueryParameter("appKey") Secret appKey,
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
                 throws ExplanationException {
@@ -523,7 +514,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             provider.setAccessTokenHeader(accessTokenHeader);
             provider.setAccessTokenPrefix(accessTokenPrefix);
             provider.setApiVersion(apiVersion);
-            provider.setAppKey(resolveTestAppKey(appKey));
+            provider.setAppKey(appKey);
             provider.setUserId(userId);
             provider.setTimeoutSeconds(timeoutSeconds);
 
@@ -533,20 +524,6 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             } catch (ExplanationException e) {
                 return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
             }
-        }
-
-        private Secret resolveTestAppKey(String submittedAppKey) {
-            String submitted = Util.fixEmptyAndTrim(submittedAppKey);
-            if (submitted != null) {
-                return Secret.fromString(submitted);
-            }
-
-            BaseAIProvider configuredProvider = GlobalConfigurationImpl.get().getAiProvider();
-            if (configuredProvider instanceof CustomOktaAIProvider configuredOktaProvider) {
-                return configuredOktaProvider.getAppKey();
-            }
-
-            return null;
         }
     }
 }

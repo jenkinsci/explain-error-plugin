@@ -384,10 +384,11 @@ public class ErrorExplainer {
 
     private String buildSavedExplanationMessage(Run<?, ?> run, ErrorExplanationAction action) {
         String label = action.getDisplayName();
-        // Use a root-relative absolute path so the link resolves correctly from any
-        // page that embeds the console log (build root, /console, pipeline step view, etc.).
-        // run.getUrl() returns e.g. "job/explain-error/5/" (no leading slash).
-        String link = HyperlinkNote.encodeTo("/" + run.getUrl() + action.getUrlName() + '/', label);
+        String runUrl = run.getAbsoluteUrl();
+        String actionUrl = runUrl != null
+                ? runUrl + action.getUrlName() + '/'
+                : "../" + action.getUrlName() + '/';
+        String link = HyperlinkNote.encodeTo(actionUrl, label);
         return "Explanation saved to the build. Open " + link + ".";
     }
 

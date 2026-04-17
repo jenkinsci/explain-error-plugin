@@ -175,7 +175,7 @@ unclassified:
         scope: "custom.scope"                                                          # Optional
         apiVersion: "2025-04-01-preview"                                               # Optional
         accessTokenHeader: "api-key"                                                   # Optional (default: Authorization)
-        accessTokenPrefix: ""                                                          # Optional (default: Bearer)
+        accessTokenPrefix: ""                                                          # Optional (default: empty; sends raw token)
         appKey: "${CUSTOM_AI_APP_KEY}"                                                 # Optional
         userId: "svc-jenkins"                                                          # Optional
         timeoutSeconds: 180                                                             # Optional (default: 180)

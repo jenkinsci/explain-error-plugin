@@ -1,12 +1,10 @@
 package io.jenkins.plugins.explain_error;
 
 import hudson.Extension;
-import hudson.Util;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
-import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
@@ -78,22 +76,8 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     }
 
     public void setAiProvider(BaseAIProvider aiProvider) {
-        this.aiProvider = preserveCustomOktaSecrets(aiProvider, this.aiProvider);
+        this.aiProvider = aiProvider;
         save();
-    }
-
-    private BaseAIProvider preserveCustomOktaSecrets(BaseAIProvider submittedProvider,
-                                                     BaseAIProvider existingProvider) {
-        if (!(submittedProvider instanceof CustomOktaAIProvider submittedOkta)
-                || !(existingProvider instanceof CustomOktaAIProvider existingOkta)) {
-            return submittedProvider;
-        }
-
-        if (Util.fixEmptyAndTrim(Secret.toString(submittedOkta.getAppKey())) == null) {
-            submittedOkta.setAppKey(existingOkta.getAppKey());
-        }
-
-        return submittedProvider;
     }
 
     public Secret getApiKey() {
