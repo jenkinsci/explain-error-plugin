@@ -168,7 +168,7 @@ unclassified:
     aiProvider:
       customOkta:
         url: "https://chat-ai.example.com/openai/deployments/{model}/chat/completions" # Required
-        tokenUrl: "https://id.example.com/oauth2/default/v1/token"                      # Required
+        tokenUrl: "https://id.example.com/oauth2/default/v1/token"                     # Required
         model: "gpt-5-nano"                                                            # Required
         clientId: "${OKTA_CLIENT_ID}"                                                  # Required
         clientSecret: "${OKTA_CLIENT_SECRET}"                                          # Required
@@ -178,7 +178,7 @@ unclassified:
         accessTokenPrefix: ""                                                          # Optional (default: empty; sends raw token)
         appKey: "${CUSTOM_AI_APP_KEY}"                                                 # Optional
         userId: "svc-jenkins"                                                          # Optional
-        timeoutSeconds: 180                                                             # Optional (default: 180)
+        timeoutSeconds: 180                                                            # Optional (default: 180)
     enableExplanation: true
 ```
 
