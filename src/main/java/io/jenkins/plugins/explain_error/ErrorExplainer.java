@@ -384,11 +384,7 @@ public class ErrorExplainer {
 
     private String buildSavedExplanationMessage(Run<?, ?> run, ErrorExplanationAction action) {
         String label = action.getDisplayName();
-        String runUrl = run.getAbsoluteUrl();
-        String actionUrl = runUrl != null
-                ? runUrl + action.getUrlName() + '/'
-                : "../" + action.getUrlName() + '/';
-        String link = HyperlinkNote.encodeTo(actionUrl, label);
+        String link = HyperlinkNote.encodeTo(run.getAbsoluteUrl() + action.getUrlName() + '/', label);
         return "Explanation saved to the build. Open " + link + ".";
     }
 
