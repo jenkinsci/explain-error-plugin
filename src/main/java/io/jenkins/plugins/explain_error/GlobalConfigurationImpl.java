@@ -47,6 +47,10 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
      * @return the GlobalConfigurationImpl instance
      */
     public static GlobalConfigurationImpl get() {
+        GlobalConfigurationImpl config = GlobalConfiguration.all().get(GlobalConfigurationImpl.class);
+        if (config != null) {
+            return config;
+        }
         return Jenkins.get().getDescriptorByType(GlobalConfigurationImpl.class);
     }
 

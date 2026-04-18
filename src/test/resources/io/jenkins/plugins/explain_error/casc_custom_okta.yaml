@@ -1,0 +1,17 @@
+unclassified:
+  explainError:
+    aiProvider:
+      customOkta:
+        url: "https://chat-ai.example.com/openai/deployments/{model}/chat/completions"
+        tokenUrl: "https://id.example.com/oauth2/default/v1/token"
+        model: "gpt-5-nano"
+        clientId: "test-client-id"
+        clientSecret: "test-client-secret"
+        scope: "custom.scope"
+        accessTokenHeader: "api-key"
+        accessTokenPrefix: ""
+        apiVersion: "2025-04-01-preview"
+        appKey: "test-app-key"
+        userId: "cec123"
+        timeoutSeconds: 150
+    enableExplanation: true

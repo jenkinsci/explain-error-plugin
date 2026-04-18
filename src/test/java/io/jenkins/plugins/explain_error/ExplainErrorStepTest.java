@@ -64,6 +64,7 @@ class ExplainErrorStepTest {
         jenkins.assertLogContains("[explain-error] Using provider Test, model test-model.", run);
         jenkins.assertLogContains("[explain-error] AI request completed successfully.", run);
         jenkins.assertLogContains("[explain-error] Explanation saved to the build.", run);
+        jenkins.assertLogContains("AI Error Explanation", run);
     }
 
     @Test

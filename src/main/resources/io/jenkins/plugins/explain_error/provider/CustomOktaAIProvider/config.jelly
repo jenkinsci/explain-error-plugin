@@ -1,0 +1,63 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="Chat API URL" field="url"
+           description="Full chat completions endpoint or endpoint template. Use {model} where the model should be inserted. If omitted, the plugin appends /{model}/chat/completions.">
+    <f:textbox clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Okta Token URL" field="tokenUrl"
+           description="OAuth token endpoint used to exchange client_id and client_secret for an access token.">
+    <f:textbox clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Model" field="model">
+    <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
+  </f:entry>
+
+  <f:entry title="Client ID" field="clientId">
+    <f:textbox clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Client Secret" field="clientSecret">
+    <f:password clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Scope" field="scope"
+           description="Optional OAuth scope for the client credentials grant.">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="API Version" field="apiVersion"
+           description="Optional api-version query parameter appended to the chat URL.">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="Access Token Header" field="accessTokenHeader"
+           description="Header that carries the Okta access token when calling the chat API.">
+    <f:textbox default="${descriptor.defaultAccessTokenHeader}"/>
+  </f:entry>
+
+  <f:entry title="Access Token Prefix" field="accessTokenPrefix"
+           description="Optional prefix prepended before the token value, for example Bearer. Leave empty to send the raw access token.">
+    <f:textbox default="${descriptor.defaultAccessTokenPrefix}"/>
+  </f:entry>
+
+  <f:entry title="App Key" field="appKey"
+           description="Optional application key sent inside the OpenAI-style user metadata payload for providers that require it.">
+    <f:password/>
+  </f:entry>
+
+  <f:entry title="End User" field="userId"
+           description="Optional end-user identifier sent alongside the app key in the user metadata payload.">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="Timeout (seconds)" field="timeoutSeconds"
+           description="Request timeout for both token retrieval and chat completion calls.">
+    <f:number default="${descriptor.defaultTimeoutSeconds}" min="1" step="1"/>
+  </f:entry>
+
+  <f:validateButton title="Test Configuration" progress="Testing..."
+                    method="testConfiguration"
+                    with="url,tokenUrl,model,clientId,clientSecret,scope,apiVersion,accessTokenHeader,accessTokenPrefix,appKey,userId,timeoutSeconds" />
+</j:jelly>

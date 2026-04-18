@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import java.util.List;
@@ -81,6 +82,41 @@ class GlobalConfigurationImplTest {
             assertEquals(1, selectedOptions.size());
             assertEquals("OpenAI", selectedOptions.get(0).getText().trim());
         }
+    }
+
+    @Test
+    void testConfigurePageIncludesCustomOktaProviderOption() throws Exception {
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            client.getOptions().setJavaScriptEnabled(false);
+            HtmlPage page = client.goTo("configure");
+            HtmlSelect providerSelect = findProviderSelect(page);
+
+            boolean hasCustomOkta = providerSelect.getOptions().stream()
+                    .anyMatch(option -> "Custom Okta AI".equals(option.getText().trim()));
+            assertTrue(hasCustomOkta, "AI provider dropdown should include the 'Custom Okta AI' option");
+        }
+    }
+
+    @Test
+    void testConfigurationPersistenceForCustomOktaProvider() {
+        CustomOktaAIProvider provider = new CustomOktaAIProvider(
+                "https://chat-ai.example.com/openai/deployments/{model}/chat/completions",
+                "https://id.example.com/oauth2/default/v1/token",
+                "gpt-5-nano",
+                "client-id",
+                Secret.fromString("client-secret"));
+        provider.setAppKey(Secret.fromString("app-key"));
+        config.setAiProvider(provider);
+        config.save();
+
+        config.load();
+
+        BaseAIProvider reloaded = config.getAiProvider();
+        assertThat(reloaded, instanceOf(CustomOktaAIProvider.class));
+        CustomOktaAIProvider customOkta = (CustomOktaAIProvider) reloaded;
+        assertEquals("client-id", customOkta.getClientId());
+        assertEquals("client-secret", customOkta.getClientSecret().getPlainText());
+        assertEquals("app-key", customOkta.getAppKey().getPlainText());
     }
 
     @Test

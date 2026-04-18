@@ -171,4 +171,45 @@ class ProviderTest {
 
         assertEquals("The provider is not properly configured.", result.getMessage());
     }
+
+    @Test
+    void testCustomOktaProviderNullChatUrl() {
+        BaseAIProvider provider = new CustomOktaAIProvider(null, "https://id.example.com/oauth2/default/v1/token",
+                "test-model", "client-id", Secret.fromString("test-secret"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomOktaProviderNullTokenUrl() {
+        BaseAIProvider provider = new CustomOktaAIProvider("https://chat.example.com/openai/deployments",
+                null, "test-model", "client-id", Secret.fromString("test-secret"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomOktaProviderNullClientId() {
+        BaseAIProvider provider = new CustomOktaAIProvider("https://chat.example.com/openai/deployments",
+                "https://id.example.com/oauth2/default/v1/token", "test-model", null,
+                Secret.fromString("test-secret"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testCustomOktaProviderNullClientSecret() {
+        BaseAIProvider provider = new CustomOktaAIProvider("https://chat.example.com/openai/deployments",
+                "https://id.example.com/oauth2/default/v1/token", "test-model", "client-id", null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
 }
