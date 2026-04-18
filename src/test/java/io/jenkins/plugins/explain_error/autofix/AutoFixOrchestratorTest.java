@@ -3,12 +3,16 @@ package io.jenkins.plugins.explain_error.autofix;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.scm.SCM;
+import hudson.scm.NullSCM;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -381,5 +385,61 @@ class AutoFixOrchestratorTest {
         assertNotEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus());
         // The result will be FAILED (no credentials in test context) — not a path error
         assertNotEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void extractRemoteUrl_workflowJobWithScms_returnsFirstGitRemote() {
+        WorkflowJob job = mock(WorkflowJob.class);
+        when(run.getParent()).thenReturn((Job) job);
+        Collection<? extends SCM> scms = List.of(new FakeGitScm("https://github.com/acme/pipeline-repo.git"));
+        doReturn(scms).when(job).getSCMs();
+
+        String remoteUrl = orchestrator.extractRemoteUrl(run);
+
+        assertEquals("https://github.com/acme/pipeline-repo.git", remoteUrl);
+    }
+
+    @Test
+    void resolveBitbucketBaseUrl_selfHostedUrl_throwsIllegalArgumentException() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> orchestrator.resolveBitbucketBaseUrl("https://bitbucket.internal.example"));
+
+        assertTrue(exception.getMessage().contains("Self-hosted Bitbucket is not supported"));
+    }
+
+    @Test
+    void resolveBitbucketBaseUrl_cloudHost_normalizesToCloudApi() {
+        assertEquals("https://api.bitbucket.org/2.0",
+                orchestrator.resolveBitbucketBaseUrl("https://bitbucket.org"));
+        assertEquals("https://api.bitbucket.org/2.0",
+                orchestrator.resolveBitbucketBaseUrl("https://api.bitbucket.org"));
+    }
+
+    private static final class FakeGitScm extends NullSCM {
+
+        private final List<FakeRemoteConfig> repositories;
+
+        private FakeGitScm(String remoteUrl) {
+            this.repositories = List.of(new FakeRemoteConfig(remoteUrl));
+        }
+
+        public List<FakeRemoteConfig> getRepositories() {
+            return repositories;
+        }
+    }
+
+    private static final class FakeRemoteConfig {
+
+        private final String remoteUrl;
+
+        private FakeRemoteConfig(String remoteUrl) {
+            this.remoteUrl = remoteUrl;
+        }
+
+        public List<String> getURIs() {
+            return List.of(remoteUrl);
+        }
     }
 }

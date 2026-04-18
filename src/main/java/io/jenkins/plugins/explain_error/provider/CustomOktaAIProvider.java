@@ -155,6 +155,17 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @Override
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        return errorLogs -> {
+            try {
+                return requestFixSuggestion(errorLogs);
+            } catch (ExplanationException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        };
+    }
+
+    @Override
     public boolean isNotValid(@CheckForNull TaskListener listener) {
         String urlValue = Util.fixEmptyAndTrim(getUrl());
         String tokenUrlValue = Util.fixEmptyAndTrim(getTokenUrl());
@@ -189,6 +200,22 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         try {
             String accessToken = fetchAccessToken(client);
             return requestAnalysis(client, accessToken, errorLogs, language, customContext);
+        } catch (IOException e) {
+            throw new ExplanationException("error", "Failed to communicate with Custom Okta AI provider", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ExplanationException("error", "Interrupted while communicating with Custom Okta AI provider", e);
+        }
+    }
+
+    private String requestFixSuggestion(String errorLogs) throws ExplanationException {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(resolveTimeoutSeconds()))
+                .build();
+
+        try {
+            String accessToken = fetchAccessToken(client);
+            return requestRawContent(client, accessToken, buildFixRequestBody(errorLogs));
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Custom Okta AI provider", e);
         } catch (InterruptedException e) {
@@ -234,12 +261,18 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     private JenkinsLogAnalysis requestAnalysis(HttpClient client, String accessToken, String errorLogs,
                                                String language, String customContext)
             throws IOException, InterruptedException, ExplanationException {
+        String content = requestRawContent(client, accessToken, buildChatRequestBody(errorLogs, language, customContext));
+        return parseAnalysis(content);
+    }
+
+    private String requestRawContent(HttpClient client, String accessToken, String requestBody)
+            throws IOException, InterruptedException, ExplanationException {
         HttpRequest request = HttpRequest.newBuilder(buildChatUri())
                 .timeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .header(resolveAccessTokenHeader(), buildAccessTokenHeaderValue(accessToken))
-                .POST(HttpRequest.BodyPublishers.ofString(buildChatRequestBody(errorLogs, language, customContext)))
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
         if (LOGGER.isLoggable(Level.FINE)) {
@@ -253,8 +286,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         }
 
         JsonNode json = OBJECT_MAPPER.readTree(response.body());
-        String content = extractAssistantContent(json);
-        return parseAnalysis(content);
+        return extractAssistantContent(json);
     }
 
     private URI buildChatUri() {
@@ -300,6 +332,53 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             LOGGER.fine("Custom Okta AI: No App Key or User ID configured; "
                     + "'user' metadata field will be omitted from the request. "
                     + "This may cause a 400 error if the API requires an App Key.");
+        }
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private String buildFixRequestBody(String errorLogs) throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getModel());
+        payload.put("temperature", 0.3);
+
+        ArrayNode messages = payload.putArray("messages");
+        messages.addObject()
+                .put("role", "system")
+                .put("content", """
+                        You are an expert Jenkins CI/CD engineer. You analyze build failure logs and generate structured fix suggestions.
+
+                        You MUST respond ONLY with valid JSON matching this exact schema (no other text before or after):
+                        {
+                          "fixable": <boolean>,
+                          "explanation": "<one paragraph explaining the root cause>",
+                          "confidence": "<high|medium|low>",
+                          "fixType": "<dependency|config|code|unknown>",
+                          "changes": [
+                            {
+                              "filePath": "<path relative to repo root, e.g. pom.xml>",
+                              "action": "<modify|create>",
+                              "unifiedDiff": "<standard unified diff, properly escaped for JSON>",
+                              "description": "<one sentence explaining this change>"
+                            }
+                          ]
+                        }
+
+                        Rules:
+                        - Only set fixable=true when confidence is "high" or "medium"
+                        - Only suggest changes to source/config files. NEVER modify: target/, build/, dist/, node_modules/, .gradle/, lock files (package-lock.json, yarn.lock, Pipfile.lock), secrets (.env*, credentials*)
+                        - For unifiedDiff: use standard unified diff format with @@ -line,count +line,count @@ headers
+                        - filePath must be relative to repo root (no leading /, no ../ traversal)
+                        - If you cannot determine a fix with at least medium confidence, set fixable=false and return an empty changes array
+                        - Supported file types: pom.xml, build.gradle, build.gradle.kts, package.json, requirements.txt, go.mod, Gemfile, Jenkinsfile, Dockerfile, *.yaml, *.yml, *.json (config), *.properties, *.xml (config), *.java, *.py, *.js, *.ts (small targeted fixes only)
+                        """);
+        messages.addObject()
+                .put("role", "user")
+                .put("content", "Jenkins build failed. Analyze and suggest a fix.\n\nError logs:\n" + errorLogs);
+
+        String userMetadata = buildUserMetadata();
+        if (userMetadata != null) {
+            payload.put("user", userMetadata);
         }
 
         return OBJECT_MAPPER.writeValueAsString(payload);

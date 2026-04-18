@@ -2,21 +2,28 @@ package io.jenkins.plugins.explain_error.autofix;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import hudson.model.AbstractProject;
+import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.scm.SCM;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmApiClient;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmClientFactory;
+import io.jenkins.plugins.explain_error.autofix.scm.PullRequest;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmRepo;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmType;
-import io.jenkins.plugins.explain_error.autofix.scm.PullRequest;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.util.Collections;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -422,38 +429,108 @@ public class AutoFixOrchestrator {
      * a hard compile-time dependency on the git plugin).
      */
     String extractRemoteUrl(Run<?, ?> run) {
-        if (!(run.getParent() instanceof hudson.model.AbstractProject<?,?> project)) {
-            throw new IllegalStateException("Job type " + run.getParent().getClass().getName() + " does not support SCM URL extraction");
-        }
-        hudson.scm.SCM scm = project.getScm();
+        SCM scm = extractConfiguredScm(run.getParent());
         if (scm == null) {
             throw new IllegalStateException("No SCM configured on this job");
         }
+        return extractGitRemoteUrl(scm);
+    }
 
-        String scmClassName = scm.getClass().getName();
-
-        // Support hudson.plugins.git.GitSCM via reflection
-        if (scmClassName.equals("hudson.plugins.git.GitSCM")) {
-            try {
-                java.lang.reflect.Method getRepositories = scm.getClass().getMethod("getRepositories");
-                @SuppressWarnings("unchecked")
-                java.util.List<?> repos = (java.util.List<?>) getRepositories.invoke(scm);
-                if (!repos.isEmpty()) {
-                    Object repo = repos.get(0);
-                    java.lang.reflect.Method getUrls = repo.getClass().getMethod("getURIs");
-                    @SuppressWarnings("unchecked")
-                    java.util.List<?> uris = (java.util.List<?>) getUrls.invoke(repo);
-                    if (!uris.isEmpty()) {
-                        return uris.get(0).toString();
-                    }
-                }
-            } catch (Exception e) {
-                throw new IllegalStateException("Failed to extract remote URL from GitSCM: " + e.getMessage(), e);
-            }
+    private SCM extractConfiguredScm(Item job) {
+        if (job instanceof AbstractProject<?, ?> project) {
+            return project.getScm();
         }
 
-        throw new IllegalStateException(
-                "Unsupported SCM type: " + scmClassName + ". Only GitSCM is currently supported.");
+        SCM fromScmsMethod = extractFirstScmFromMethod(job, "getSCMs");
+        if (fromScmsMethod != null) {
+            return fromScmsMethod;
+        }
+
+        try {
+            Method getDefinition = job.getClass().getMethod("getDefinition");
+            Object definition = getDefinition.invoke(job);
+            if (definition != null) {
+                SCM fromDefinition = extractScmFromDefinition(definition);
+                if (fromDefinition != null) {
+                    return fromDefinition;
+                }
+            }
+        } catch (NoSuchMethodException e) {
+            LOGGER.fine("Job type does not expose getDefinition(): " + job.getClass().getName());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Failed to inspect SCM definition for job type "
+                    + job.getClass().getName() + ": " + e.getMessage(), e);
+        }
+
+        throw new IllegalStateException("Job type " + job.getClass().getName()
+                + " does not support SCM URL extraction");
+    }
+
+    private SCM extractScmFromDefinition(Object definition) throws ReflectiveOperationException {
+        SCM scm = extractScmFromMethod(definition, "getScm");
+        if (scm != null) {
+            return scm;
+        }
+        return extractFirstScmFromMethod(definition, "getSCMs");
+    }
+
+    private SCM extractScmFromMethod(Object target, String methodName) throws ReflectiveOperationException {
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            Object result = method.invoke(target);
+            if (result instanceof SCM scm) {
+                return scm;
+            }
+            return null;
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+
+    private SCM extractFirstScmFromMethod(Object target, String methodName) {
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            Object result = method.invoke(target);
+            if (result instanceof Collection<?> collection) {
+                Iterator<?> iterator = collection.iterator();
+                while (iterator.hasNext()) {
+                    Object candidate = iterator.next();
+                    if (candidate instanceof SCM scm) {
+                        return scm;
+                    }
+                }
+            }
+            return null;
+        } catch (NoSuchMethodException e) {
+            return null;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Failed to inspect SCMs via " + methodName + ": " + e.getMessage(), e);
+        }
+    }
+
+    private String extractGitRemoteUrl(SCM scm) {
+        String scmClassName = scm.getClass().getName();
+
+        try {
+            Method getRepositories = scm.getClass().getMethod("getRepositories");
+            @SuppressWarnings("unchecked")
+            List<?> repos = (List<?>) getRepositories.invoke(scm);
+            if (!repos.isEmpty()) {
+                Object repo = repos.get(0);
+                Method getUrls = repo.getClass().getMethod("getURIs");
+                @SuppressWarnings("unchecked")
+                List<?> uris = (List<?>) getUrls.invoke(repo);
+                if (!uris.isEmpty()) {
+                    return uris.get(0).toString();
+                }
+            }
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException(
+                    "Unsupported SCM type: " + scmClassName + ". Only GitSCM is currently supported.");
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to extract remote URL from GitSCM: " + e.getMessage(), e);
+        }
+        throw new IllegalStateException("No Git remote URLs configured for SCM type: " + scmClassName);
     }
 
     /**
@@ -491,9 +568,7 @@ public class AutoFixOrchestrator {
                                 : "https://gitlab.com/api/v4";
                         break;
                     case BITBUCKET:
-                        baseUrl = (bitbucketUrl != null && !bitbucketUrl.isBlank())
-                                ? bitbucketUrl.stripTrailing() + "/2.0"
-                                : "https://api.bitbucket.org/2.0";
+                        baseUrl = resolveBitbucketBaseUrl(bitbucketUrl);
                         break;
                     default:
                         baseUrl = null; // unreachable
@@ -510,10 +585,38 @@ public class AutoFixOrchestrator {
         } else if (repo.scmType() == ScmType.GITLAB && gitlabUrl != null && !gitlabUrl.isBlank()) {
             repo = repo.withBaseUrl(gitlabUrl.stripTrailing() + "/api/v4");
         } else if (repo.scmType() == ScmType.BITBUCKET && bitbucketUrl != null && !bitbucketUrl.isBlank()) {
-            repo = repo.withBaseUrl(bitbucketUrl.stripTrailing() + "/2.0");
+            repo = repo.withBaseUrl(resolveBitbucketBaseUrl(bitbucketUrl));
         }
 
         return repo;
+    }
+
+    String resolveBitbucketBaseUrl(String bitbucketUrl) {
+        if (bitbucketUrl == null || bitbucketUrl.isBlank()) {
+            return "https://api.bitbucket.org/2.0";
+        }
+
+        String normalized = bitbucketUrl.stripTrailing();
+        URI uri = URI.create(normalized);
+        String host = uri.getHost();
+        if (host == null) {
+            throw new IllegalArgumentException("Bitbucket URL is not a valid absolute URL: " + bitbucketUrl);
+        }
+
+        String lowerHost = host.toLowerCase();
+        if (!"bitbucket.org".equals(lowerHost) && !"api.bitbucket.org".equals(lowerHost)) {
+            throw new IllegalArgumentException(
+                    "Self-hosted Bitbucket is not supported for auto-fix yet. "
+                            + "Use Bitbucket Cloud or leave autoFixBitbucketUrl empty.");
+        }
+
+        if (normalized.endsWith("/2.0")) {
+            return normalized;
+        }
+        if ("bitbucket.org".equals(lowerHost)) {
+            return "https://api.bitbucket.org/2.0";
+        }
+        return normalized + "/2.0";
     }
 
     /**
