@@ -13,6 +13,14 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
     private static final Pattern HTTPS_PATTERN =
             Pattern.compile("https?://(?:[^@]+@)?([^/]+)/([^/]+)/(.+?)(?:\\.git)?$");
 
+    // Bitbucket Server HTTPS clone URL: https://host/scm/PROJECT/repo.git
+    private static final Pattern BB_SERVER_HTTPS_PATTERN =
+            Pattern.compile("https?://[^/]+/scm/([^/]+)/(.+?)(?:\\.git)?$");
+
+    // Bitbucket Server SSH clone URL: ssh://git@host:7999/PROJECT/repo.git
+    private static final Pattern BB_SERVER_SSH_PATTERN =
+            Pattern.compile("ssh://[^@]+@[^:/]+(?::\\d+)?/([^/]+)/(.+?)(?:\\.git)?$");
+
     /**
      * Parses a remote URL (SSH or HTTPS) and detects the SCM type, owner, and repo name.
      *
@@ -27,43 +35,57 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
         }
 
         String url = remoteUrl.trim();
-        String host;
-        String owner;
-        String repoName;
 
+        Matcher bbServerSshMatcher = BB_SERVER_SSH_PATTERN.matcher(url);
+        Matcher bbServerHttpsMatcher = BB_SERVER_HTTPS_PATTERN.matcher(url);
         Matcher sshMatcher = SSH_PATTERN.matcher(url);
         Matcher httpsMatcher = HTTPS_PATTERN.matcher(url);
 
+        // Bitbucket Server SSH: ssh://git@host:7999/PROJECT/repo.git
+        if (bbServerSshMatcher.matches()) {
+            String baseUrl = extractBitbucketServerBaseUrl(url) + "/rest/api/1.0";
+            return new ScmRepo(ScmType.BITBUCKET_SERVER, baseUrl,
+                    bbServerSshMatcher.group(1), bbServerSshMatcher.group(2), token);
+        }
+
+        // Bitbucket Server HTTPS: https://host/scm/PROJECT/repo.git
+        if (bbServerHttpsMatcher.matches()) {
+            String baseUrl = extractBitbucketServerBaseUrl(url) + "/rest/api/1.0";
+            return new ScmRepo(ScmType.BITBUCKET_SERVER, baseUrl,
+                    bbServerHttpsMatcher.group(1), bbServerHttpsMatcher.group(2), token);
+        }
+
+        // Standard SSH: git@github.com:owner/repo.git
         if (sshMatcher.matches()) {
-            host = sshMatcher.group(1).toLowerCase();
-            owner = sshMatcher.group(2);
-            repoName = sshMatcher.group(3);
-        } else if (httpsMatcher.matches()) {
-            host = httpsMatcher.group(1).toLowerCase();
-            owner = httpsMatcher.group(2);
-            repoName = httpsMatcher.group(3);
-        } else {
-            throw new IllegalArgumentException("Cannot parse remote URL: " + remoteUrl);
+            String host = sshMatcher.group(1).toLowerCase();
+            String owner = sshMatcher.group(2);
+            String repoName = sshMatcher.group(3);
+            return new ScmRepo(detectType(host, remoteUrl), detectBaseUrl(host), owner, repoName, token);
         }
 
-        ScmType scmType;
-        String baseUrl;
-
-        if (host.contains("github.com")) {
-            scmType = ScmType.GITHUB;
-            baseUrl = "https://api.github.com";
-        } else if (host.contains("gitlab.com")) {
-            scmType = ScmType.GITLAB;
-            baseUrl = "https://gitlab.com/api/v4";
-        } else if (host.contains("bitbucket.org")) {
-            scmType = ScmType.BITBUCKET;
-            baseUrl = "https://api.bitbucket.org/2.0";
-        } else {
-            throw new IllegalArgumentException(
-                    "Cannot detect SCM type from host '" + host + "' in URL: " + remoteUrl);
+        // Standard HTTPS: https://github.com/owner/repo.git
+        if (httpsMatcher.matches()) {
+            String host = httpsMatcher.group(1).toLowerCase();
+            String owner = httpsMatcher.group(2);
+            String repoName = httpsMatcher.group(3);
+            return new ScmRepo(detectType(host, remoteUrl), detectBaseUrl(host), owner, repoName, token);
         }
 
-        return new ScmRepo(scmType, baseUrl, owner, repoName, token);
+        throw new IllegalArgumentException("Cannot parse remote URL: " + remoteUrl);
+    }
+
+    private static ScmType detectType(String host, String remoteUrl) {
+        if (host.contains("github.com")) return ScmType.GITHUB;
+        if (host.contains("gitlab.com")) return ScmType.GITLAB;
+        if (host.contains("bitbucket.org")) return ScmType.BITBUCKET;
+        throw new IllegalArgumentException(
+                "Cannot detect SCM type from host '" + host + "' in URL: " + remoteUrl);
+    }
+
+    private static String detectBaseUrl(String host) {
+        if (host.contains("github.com")) return "https://api.github.com";
+        if (host.contains("gitlab.com")) return "https://gitlab.com/api/v4";
+        return "https://api.bitbucket.org/2.0";
     }
 
     /**
@@ -83,11 +105,19 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
             throw new IllegalArgumentException("Remote URL must not be null or blank");
         }
         String url = remoteUrl.trim();
+        Matcher bbServerSshMatcher = BB_SERVER_SSH_PATTERN.matcher(url);
+        Matcher bbServerHttpsMatcher = BB_SERVER_HTTPS_PATTERN.matcher(url);
         Matcher sshMatcher = SSH_PATTERN.matcher(url);
         Matcher httpsMatcher = HTTPS_PATTERN.matcher(url);
         String owner;
         String repoName;
-        if (sshMatcher.matches()) {
+        if (bbServerSshMatcher.matches()) {
+            owner = bbServerSshMatcher.group(1);
+            repoName = bbServerSshMatcher.group(2);
+        } else if (bbServerHttpsMatcher.matches()) {
+            owner = bbServerHttpsMatcher.group(1);
+            repoName = bbServerHttpsMatcher.group(2);
+        } else if (sshMatcher.matches()) {
             owner = sshMatcher.group(2);
             repoName = sshMatcher.group(3);
         } else if (httpsMatcher.matches()) {
@@ -117,5 +147,20 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
     public String toString() {
         return "ScmRepo[scmType=" + scmType + ", baseUrl=" + baseUrl
                 + ", owner=" + owner + ", repoName=" + repoName + ", token=[REDACTED]]";
+    }
+
+    // -------------------------------------------------------------------------
+    // Private URL parsing helpers
+    // -------------------------------------------------------------------------
+
+    private static String extractBitbucketServerBaseUrl(String url) {
+        if (url.startsWith("ssh://")) {
+            // ssh://git@host:7999/PROJECT/repo.git → https://host
+            java.util.regex.Matcher m = Pattern.compile("ssh://[^@]+@([^:/]+)").matcher(url);
+            return m.find() ? "https://" + m.group(1) : "";
+        }
+        // https://host/scm/PROJECT/repo.git → https://host
+        java.util.regex.Matcher m = Pattern.compile("(https?://[^/]+)").matcher(url);
+        return m.find() ? m.group(1) : "";
     }
 }

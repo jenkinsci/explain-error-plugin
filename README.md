@@ -346,14 +346,31 @@ post {
 
 The pull request is created on the same repository the build checks out from. The URL appears in the Jenkins build sidebar as soon as the PR is opened.
 
-**Self-hosted SCM (GitHub Enterprise / GitLab self-managed / Bitbucket Server):**
+**Self-hosted SCM (GitHub Enterprise / GitLab self-managed / Bitbucket Server / Data Center):**
 
 ```groovy
+// GitHub Enterprise
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'github-pat',
+    autoFixScmType: 'github',
+    autoFixGithubEnterpriseUrl: 'https://github.company.com'
+)
+
+// GitLab self-managed
 explainError(
     autoFix: true,
     autoFixCredentialsId: 'gitlab-pat',
     autoFixScmType: 'gitlab',
     autoFixGitlabUrl: 'https://gitlab.company.com'
+)
+
+// Bitbucket Server / Data Center
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'bitbucket-server-pat',
+    autoFixScmType: 'bitbucketserver',
+    autoFixBitbucketUrl: 'https://bitbucket.company.com'
 )
 ```
 

@@ -401,20 +401,19 @@ class AutoFixOrchestratorTest {
     }
 
     @Test
-    void resolveBitbucketBaseUrl_selfHostedUrl_throwsIllegalArgumentException() {
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> orchestrator.resolveBitbucketBaseUrl("https://bitbucket.internal.example"));
-
-        assertTrue(exception.getMessage().contains("Self-hosted Bitbucket is not supported"));
+    void resolveCloudBitbucketBaseUrl_cloudHost_normalizesToCloudApi() {
+        assertEquals("https://api.bitbucket.org/2.0",
+                orchestrator.resolveCloudBitbucketBaseUrl("https://bitbucket.org"));
+        assertEquals("https://api.bitbucket.org/2.0",
+                orchestrator.resolveCloudBitbucketBaseUrl("https://api.bitbucket.org"));
     }
 
     @Test
-    void resolveBitbucketBaseUrl_cloudHost_normalizesToCloudApi() {
+    void resolveCloudBitbucketBaseUrl_selfHostedUrl_normalizesToCloudApi() {
+        // Self-hosted instances configured with scmTypeOverride='bitbucketserver' use a
+        // separate code path; the Cloud resolver always returns the Cloud API URL.
         assertEquals("https://api.bitbucket.org/2.0",
-                orchestrator.resolveBitbucketBaseUrl("https://bitbucket.org"));
-        assertEquals("https://api.bitbucket.org/2.0",
-                orchestrator.resolveBitbucketBaseUrl("https://api.bitbucket.org"));
+                orchestrator.resolveCloudBitbucketBaseUrl("https://bitbucket.internal.example"));
     }
 
     private static final class FakeGitScm extends NullSCM {

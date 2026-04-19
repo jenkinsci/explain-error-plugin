@@ -28,11 +28,9 @@ build is marked with status `FAILED` — the original build result is not affect
 | Jenkins | 2.528.3 or higher |
 | Java | 17+ |
 | AI provider | Any supported provider configured in global settings (OpenAI, Gemini, Bedrock, Ollama, Custom Okta) |
-| SCM | GitHub.com, GitHub Enterprise, GitLab.com, GitLab self-managed, or Bitbucket Cloud |
+| SCM | GitHub.com, GitHub Enterprise, GitLab.com, GitLab self-managed, Bitbucket Cloud, or Bitbucket Server / Data Center |
 | Token | Personal Access Token (PAT) with **read + write** access to the repository |
 
-> **Note:** Self-hosted Bitbucket Server / Data Center is not supported yet. Only Bitbucket Cloud
-> (`bitbucket.org`) works at this time.
 
 ---
 
@@ -149,7 +147,63 @@ explainError(
 )
 ```
 
----
+### Bitbucket Server / Data Center
+
+Bitbucket Server uses a completely different REST API (`/rest/api/1.0`) from Bitbucket Cloud.
+URL auto-detection works for standard Server clone URLs; use `autoFixScmType: 'bitbucketserver'`
+to force it for non-standard hostnames.
+
+**Create a PAT on Bitbucket Server:**
+
+1. Log in → **Account Settings → HTTP access tokens**
+2. Click **Create token**
+3. Grant permissions: **Repository: Write**, **Pull requests: Write**
+4. Copy the generated token
+
+> HTTP access tokens require Bitbucket Server **5.5+** (Data Center 7.x+).
+> For older instances, store credentials as `username:password` — the client will use Basic Auth.
+
+**Auto-detection (SSH clone URL):**
+
+Bitbucket Server SSH clone URLs look like `ssh://git@bitbucket.company.com:7999/PROJ/repo.git`.
+The plugin detects the port-7999 SSH scheme and configures Server API automatically.
+
+```groovy
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'bitbucket-server-pat'
+    // autoFixScmType not needed — auto-detected from ssh://.../:7999/... URL
+)
+```
+
+**Auto-detection (HTTPS clone URL):**
+
+Bitbucket Server HTTPS clone URLs use `/scm/` in the path:
+`https://bitbucket.company.com/scm/PROJ/repo.git`.
+
+```groovy
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'bitbucket-server-pat'
+    // auto-detected from .../scm/... URL
+)
+```
+
+**Manual override (custom hostname):**
+
+```groovy
+explainError(
+    autoFix: true,
+    autoFixCredentialsId: 'bitbucket-server-pat',
+    autoFixScmType: 'bitbucketserver',
+    autoFixBitbucketUrl: 'https://bitbucket.company.com'
+)
+```
+
+> `autoFixBitbucketUrl` is the base URL of your Bitbucket Server instance (no `/rest/api/1.0` suffix —
+> the plugin appends it automatically).
+
+
 
 ## Step 3 — Check the result
 
@@ -174,10 +228,10 @@ The PR description includes:
 | `autoFix` | boolean | `false` | Enable auto-fix. Must be `true` to activate the feature |
 | `autoFixCredentialsId` | string | `''` | **Required.** Jenkins StringCredentials ID for the SCM token |
 | `autoFixRemoteUrl` | string | `''` | SCM remote URL. Auto-detected from job SCM config if empty |
-| `autoFixScmType` | string | `''` | Force SCM type: `github`, `gitlab`, or `bitbucket`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` |
+| `autoFixScmType` | string | `''` | Force SCM type: `github`, `gitlab`, `bitbucket`, or `bitbucketserver`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` |
 | `autoFixGithubEnterpriseUrl` | string | `''` | Base URL of GitHub Enterprise (e.g. `https://github.mycompany.com`) |
 | `autoFixGitlabUrl` | string | `''` | Base URL of self-hosted GitLab (e.g. `https://gitlab.mycompany.com`) |
-| `autoFixBitbucketUrl` | string | `''` | Base URL of Bitbucket Cloud (leave empty; self-hosted not yet supported) |
+| `autoFixBitbucketUrl` | string | `''` | Base URL of Bitbucket Server (e.g. `https://bitbucket.mycompany.com`). Leave empty for Bitbucket Cloud |
 | `autoFixAllowedPaths` | string | see below | Comma-separated glob patterns for files the AI may modify |
 | `autoFixDraftPr` | boolean | `false` | Open the PR as a draft (GitHub and GitLab only) |
 | `autoFixTimeoutSeconds` | int | `120` | Max seconds to wait for the entire auto-fix workflow |
@@ -321,15 +375,17 @@ timeout so no orphaned branches are left behind.
 
 ### Draft PR not appearing as draft
 
-Draft PRs are only supported on **GitHub** and **GitLab**. Bitbucket Cloud does not have a
-native draft PR concept; the PR will be created as a regular open PR regardless of
+Draft PRs are only supported on **GitHub** and **GitLab**. Bitbucket Cloud and Bitbucket Server
+do not have a native draft PR concept; the PR will be created as a regular open PR regardless of
 `autoFixDraftPr: true`.
 
 ---
 
 ## Known limitations
 
-- **Bitbucket Server / Data Center**: not supported. Only Bitbucket Cloud works.
+- **Bitbucket Server multi-file commits**: Unlike Bitbucket Cloud (atomic), Bitbucket Server
+  commits each file separately in sequence. This is not atomic, but the fix runs on a dedicated
+  branch so partial commits are harmless.
 - **Multi-SCM jobs**: only the first configured SCM remote is used for URL extraction.
 - **SSH remotes**: SSH URLs (`git@github.com:org/repo.git`) are parsed and converted to HTTPS
   for API calls. The PAT must be a HTTPS token, not an SSH key.

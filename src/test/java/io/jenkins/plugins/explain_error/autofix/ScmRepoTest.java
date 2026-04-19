@@ -101,6 +101,65 @@ class ScmRepoTest {
     }
 
     // -----------------------------------------------------------------------
+    // Bitbucket Server URL parsing
+    // -----------------------------------------------------------------------
+
+    @Test
+    void parse_bitbucketServerSsh_detectsServerType() {
+        ScmRepo repo = ScmRepo.parse("ssh://git@bitbucket.company.com:7999/PROJ/my-repo.git", "tok");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("https://bitbucket.company.com/rest/api/1.0", repo.baseUrl());
+        assertEquals("PROJ", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+    }
+
+    @Test
+    void parse_bitbucketServerHttps_detectsServerType() {
+        ScmRepo repo = ScmRepo.parse("https://bitbucket.company.com/scm/PROJ/my-repo.git", "tok");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("https://bitbucket.company.com/rest/api/1.0", repo.baseUrl());
+        assertEquals("PROJ", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+    }
+
+    @Test
+    void parse_bitbucketServerSsh_withoutDotGit_detectsServerType() {
+        ScmRepo repo = ScmRepo.parse("ssh://git@bitbucket.company.com:7999/TEAM/service", "tok");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("TEAM", repo.owner());
+        assertEquals("service", repo.repoName());
+    }
+
+    @Test
+    void parse_bitbucketServerHttps_withoutDotGit_detectsServerType() {
+        ScmRepo repo = ScmRepo.parse("https://bitbucket.company.com/scm/TEAM/service", "tok");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("TEAM", repo.owner());
+        assertEquals("service", repo.repoName());
+    }
+
+    @Test
+    void parseWithOverride_bitbucketServerSshUrl_extractsProjectAndRepo() {
+        ScmRepo repo = ScmRepo.parseWithOverride(
+                "ssh://git@bitbucket.company.com:7999/PROJ/my-repo.git", "tok",
+                ScmType.BITBUCKET_SERVER, "https://bitbucket.company.com/rest/api/1.0");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("https://bitbucket.company.com/rest/api/1.0", repo.baseUrl());
+        assertEquals("PROJ", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+    }
+
+    @Test
+    void parseWithOverride_bitbucketServerHttpsUrl_extractsProjectAndRepo() {
+        ScmRepo repo = ScmRepo.parseWithOverride(
+                "https://bitbucket.company.com/scm/PROJ/my-repo.git", "tok",
+                ScmType.BITBUCKET_SERVER, "https://bitbucket.company.com/rest/api/1.0");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("PROJ", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+    }
+
+    // -----------------------------------------------------------------------
     // ScmRepo.withBaseUrl()
     // -----------------------------------------------------------------------
 

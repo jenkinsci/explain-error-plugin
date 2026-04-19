@@ -546,9 +546,10 @@ public class AutoFixOrchestrator {
         if (scmTypeOverride != null && !scmTypeOverride.isBlank()) {
             ScmType forcedType;
             switch (scmTypeOverride.trim().toLowerCase()) {
-                case "github":    forcedType = ScmType.GITHUB;    break;
-                case "gitlab":    forcedType = ScmType.GITLAB;    break;
-                case "bitbucket": forcedType = ScmType.BITBUCKET; break;
+                case "github":          forcedType = ScmType.GITHUB;          break;
+                case "gitlab":          forcedType = ScmType.GITLAB;          break;
+                case "bitbucket":       forcedType = ScmType.BITBUCKET;       break;
+                case "bitbucketserver": forcedType = ScmType.BITBUCKET_SERVER; break;
                 default:
                     LOGGER.warning("Unrecognised scmTypeOverride '" + scmTypeOverride
                             + "' — falling back to URL-based detection");
@@ -568,7 +569,14 @@ public class AutoFixOrchestrator {
                                 : "https://gitlab.com/api/v4";
                         break;
                     case BITBUCKET:
-                        baseUrl = resolveBitbucketBaseUrl(bitbucketUrl);
+                        baseUrl = resolveCloudBitbucketBaseUrl(bitbucketUrl);
+                        break;
+                    case BITBUCKET_SERVER:
+                        if (bitbucketUrl == null || bitbucketUrl.isBlank()) {
+                            throw new IllegalArgumentException(
+                                    "autoFixBitbucketUrl must be set when scmTypeOverride is 'bitbucketserver'");
+                        }
+                        baseUrl = bitbucketUrl.stripTrailing() + "/rest/api/1.0";
                         break;
                     default:
                         baseUrl = null; // unreachable
@@ -585,13 +593,15 @@ public class AutoFixOrchestrator {
         } else if (repo.scmType() == ScmType.GITLAB && gitlabUrl != null && !gitlabUrl.isBlank()) {
             repo = repo.withBaseUrl(gitlabUrl.stripTrailing() + "/api/v4");
         } else if (repo.scmType() == ScmType.BITBUCKET && bitbucketUrl != null && !bitbucketUrl.isBlank()) {
-            repo = repo.withBaseUrl(resolveBitbucketBaseUrl(bitbucketUrl));
+            repo = repo.withBaseUrl(resolveCloudBitbucketBaseUrl(bitbucketUrl));
+        } else if (repo.scmType() == ScmType.BITBUCKET_SERVER && bitbucketUrl != null && !bitbucketUrl.isBlank()) {
+            repo = repo.withBaseUrl(bitbucketUrl.stripTrailing() + "/rest/api/1.0");
         }
 
         return repo;
     }
 
-    String resolveBitbucketBaseUrl(String bitbucketUrl) {
+    String resolveCloudBitbucketBaseUrl(String bitbucketUrl) {
         if (bitbucketUrl == null || bitbucketUrl.isBlank()) {
             return "https://api.bitbucket.org/2.0";
         }
@@ -603,20 +613,10 @@ public class AutoFixOrchestrator {
             throw new IllegalArgumentException("Bitbucket URL is not a valid absolute URL: " + bitbucketUrl);
         }
 
-        String lowerHost = host.toLowerCase();
-        if (!"bitbucket.org".equals(lowerHost) && !"api.bitbucket.org".equals(lowerHost)) {
-            throw new IllegalArgumentException(
-                    "Self-hosted Bitbucket is not supported for auto-fix yet. "
-                            + "Use Bitbucket Cloud or leave autoFixBitbucketUrl empty.");
-        }
-
         if (normalized.endsWith("/2.0")) {
             return normalized;
         }
-        if ("bitbucket.org".equals(lowerHost)) {
-            return "https://api.bitbucket.org/2.0";
-        }
-        return normalized + "/2.0";
+        return "https://api.bitbucket.org/2.0";
     }
 
     /**
