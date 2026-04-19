@@ -39,7 +39,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
-* **AI auto-fix** — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
+* **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
 * **AI-powered explanations** via OpenAI GPT models, Google Gemini, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
@@ -325,7 +325,9 @@ Output appears in the sidebar of the failed job.
 
 ![Side Panel - AI Error Explanation](docs/images/side-panel.png)
 
-### Auto-Fix: Automatic Pull Request Creation
+### Auto-Fix: Automatic Pull Request Creation *(Experimental)*
+
+> ⚠️ **Experimental feature.** Auto-fix is opt-in and disabled by default. AI-generated diffs can be incorrect or incomplete — always review the PR before merging. See [docs/auto-fix.md](docs/auto-fix.md) for a full setup guide, supported SCM providers, limitations, and best practices.
 
 When `autoFix: true` is set, the plugin goes one step further than explaining the error — it asks the AI to generate a code fix, commits the changes to a new branch, and opens a pull request for your review.
 
