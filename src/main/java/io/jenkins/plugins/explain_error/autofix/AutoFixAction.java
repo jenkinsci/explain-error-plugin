@@ -1,5 +1,7 @@
 package io.jenkins.plugins.explain_error.autofix;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
 
@@ -45,16 +47,19 @@ public class AutoFixAction implements RunAction2 {
     }
 
     @Override
+    @NonNull
     public String getIconFileName() {
         return "symbol-git-pull-request-outline plugin-ionicons-api";
     }
 
     @Override
+    @NonNull
     public String getDisplayName() {
         return "AI Auto-Fix";
     }
 
     @Override
+    @NonNull
     public String getUrlName() {
         return "auto-fix";
     }
@@ -81,22 +86,27 @@ public class AutoFixAction implements RunAction2 {
     // Getters
     // -------------------------------------------------------------------------
 
+    @NonNull
     public AutoFixStatus getStatus() {
         return status;
     }
 
+    @CheckForNull
     public String getPrUrl() {
         return prUrl;
     }
 
+    @CheckForNull
     public String getBranchName() {
         return branchName;
     }
 
+    @NonNull
     public String getMessage() {
         return message;
     }
 
+    @CheckForNull
     public String getPrTitle() {
         return prTitle;
     }
@@ -105,10 +115,12 @@ public class AutoFixAction implements RunAction2 {
         return timestamp;
     }
 
+    @CheckForNull
     public String getScmType() {
         return scmType;
     }
 
+    @CheckForNull
     public Run<?, ?> getRun() {
         return run;
     }
@@ -127,6 +139,7 @@ public class AutoFixAction implements RunAction2 {
     /**
      * Returns a human-readable label for the current status.
      */
+    @NonNull
     public String getStatusDisplayName() {
         if (status == null) {
             return "Unknown";
@@ -144,6 +157,7 @@ public class AutoFixAction implements RunAction2 {
     /**
      * Returns a formatted date/time string for the action timestamp.
      */
+    @NonNull
     public String getFormattedTimestamp() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
         return sdf.format(new Date(timestamp));
