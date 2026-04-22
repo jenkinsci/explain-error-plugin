@@ -53,6 +53,7 @@ public class OpenAIProvider extends BaseAIProvider {
 
     private ChatModel buildChatModel() {
         return OpenAiChatModel.builder()
+                .httpClientBuilder(newLangChainHttpClientBuilder())
                 .baseUrl(Util.fixEmptyAndTrim(getUrl())) // Will use default if null
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())

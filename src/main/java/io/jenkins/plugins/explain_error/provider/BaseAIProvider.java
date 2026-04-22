@@ -1,9 +1,12 @@
 package io.jenkins.plugins.explain_error.provider;
 
+import dev.langchain4j.http.client.HttpClientBuilder;
+import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.http.HttpClient;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.StringUtils;
@@ -14,6 +17,7 @@ import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import hudson.ProxyConfiguration;
 import hudson.ExtensionPoint;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
@@ -21,6 +25,7 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
+import jenkins.model.Jenkins;
 
 public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvider> implements ExtensionPoint {
 
@@ -197,6 +202,20 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             .replace("{{language}}", language)
             .replace("{{customContext}}", customContext)
             .replace("{{errorLogs}}", errorLogs);
+    }
+
+    protected final HttpClient.Builder newJenkinsHttpClientBuilder() {
+        Jenkins jenkins = Jenkins.getInstanceOrNull();
+        ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
+        if (proxyConfiguration != null) {
+            return proxyConfiguration.newHttpClientBuilder();
+        }
+        return HttpClient.newBuilder();
+    }
+
+    protected final HttpClientBuilder newLangChainHttpClientBuilder() {
+        return new JdkHttpClientBuilder()
+                .httpClientBuilder(newJenkinsHttpClientBuilder());
     }
 
     public String getProviderName() {

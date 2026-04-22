@@ -193,7 +193,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
     private JenkinsLogAnalysis analyzeWithOkta(String errorLogs, String language, String customContext)
             throws ExplanationException {
-        HttpClient client = HttpClient.newBuilder()
+        HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .build();
 
@@ -209,7 +209,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     private String requestFixSuggestion(String errorLogs) throws ExplanationException {
-        HttpClient client = HttpClient.newBuilder()
+        HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .build();
 
