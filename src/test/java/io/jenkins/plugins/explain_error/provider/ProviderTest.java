@@ -227,6 +227,45 @@ class ProviderTest {
     }
 
     @Test
+    void testAzureOpenAiNullEndpoint() {
+        BaseAIProvider provider = new AzureOpenAIProvider(null, "deployment", "2025-01-01-preview", "credentials-id");
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAiNullDeployment() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", null,
+                "2025-01-01-preview", "credentials-id");
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAiNullApiVersion() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", "deployment",
+                null, "credentials-id");
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAzureOpenAiNullCredentialsId() {
+        BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", "deployment",
+                "2025-01-01-preview", null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
     void testJenkinsProxyBuilderRoutesRequestsThroughConfiguredProxy(JenkinsRule jenkins) throws Exception {
         HttpServer proxyServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger requestCount = new AtomicInteger();

@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.util.Secret;
+import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
@@ -98,6 +99,19 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
+    void testConfigurePageIncludesAzureOpenAiProviderOption() throws Exception {
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            client.getOptions().setJavaScriptEnabled(false);
+            HtmlPage page = client.goTo("configure");
+            HtmlSelect providerSelect = findProviderSelect(page);
+
+            boolean hasAzureOpenAi = providerSelect.getOptions().stream()
+                    .anyMatch(option -> "Azure OpenAI".equals(option.getText().trim()));
+            assertTrue(hasAzureOpenAi, "AI provider dropdown should include the 'Azure OpenAI' option");
+        }
+    }
+
+    @Test
     void testConfigurationPersistenceForCustomOktaProvider() {
         CustomOktaAIProvider provider = new CustomOktaAIProvider(
                 "https://chat-ai.example.com/openai/deployments/{model}/chat/completions",
@@ -117,6 +131,27 @@ class GlobalConfigurationImplTest {
         assertEquals("client-id", customOkta.getClientId());
         assertEquals("client-secret", customOkta.getClientSecret().getPlainText());
         assertEquals("app-key", customOkta.getAppKey().getPlainText());
+    }
+
+    @Test
+    void testConfigurationPersistenceForAzureOpenAiProvider() {
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                "https://my-resource.openai.azure.com",
+                "gpt-4o-enterprise",
+                "2025-01-01-preview",
+                "azure-openai-key");
+        config.setAiProvider(provider);
+        config.save();
+
+        config.load();
+
+        BaseAIProvider reloaded = config.getAiProvider();
+        assertThat(reloaded, instanceOf(AzureOpenAIProvider.class));
+        AzureOpenAIProvider azure = (AzureOpenAIProvider) reloaded;
+        assertEquals("https://my-resource.openai.azure.com", azure.getEndpoint());
+        assertEquals("gpt-4o-enterprise", azure.getDeployment());
+        assertEquals("2025-01-01-preview", azure.getApiVersion());
+        assertEquals("azure-openai-key", azure.getCredentialsId());
     }
 
     @Test

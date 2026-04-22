@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
 import hudson.util.Secret;
+import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
@@ -178,5 +179,26 @@ class ExplainErrorFolderPropertyTest {
         BaseAIProvider foundProvider = ExplainErrorFolderProperty.findFolderProvider(child);
         assertNotNull(foundProvider, "Should walk up two levels to find grandparent's provider");
         assertEquals("gpt-4", foundProvider.getModel());
+    }
+
+    @Test
+    void testFolderPropertySupportsAzureOpenAiProvider(JenkinsRule jenkins) throws Exception {
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "azure-folder");
+        ExplainErrorFolderProperty property = new ExplainErrorFolderProperty();
+        property.setEnableExplanation(true);
+        property.setAiProvider(new AzureOpenAIProvider(
+                "https://my-resource.openai.azure.com",
+                "gpt-4o-enterprise",
+                "2025-01-01-preview",
+                "azure-openai-key"));
+
+        folder.addProperty(property);
+
+        ExplainErrorFolderProperty retrieved = folder.getProperties().get(ExplainErrorFolderProperty.class);
+        assertNotNull(retrieved);
+        assertInstanceOf(AzureOpenAIProvider.class, retrieved.getAiProvider());
+        AzureOpenAIProvider azure = (AzureOpenAIProvider) retrieved.getAiProvider();
+        assertEquals("gpt-4o-enterprise", azure.getDeployment());
+        assertEquals("azure-openai-key", azure.getCredentialsId());
     }
 }

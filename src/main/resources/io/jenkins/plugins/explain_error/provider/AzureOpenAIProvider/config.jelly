@@ -1,0 +1,25 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="Endpoint" field="endpoint"
+           description="Azure OpenAI resource endpoint, for example https://my-resource.openai.azure.com">
+    <f:textbox clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Deployment" field="deployment"
+           description="Azure OpenAI deployment name to call for chat completions.">
+    <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
+  </f:entry>
+
+  <f:entry title="API Version" field="apiVersion"
+           description="Azure OpenAI api-version query parameter.">
+    <f:textbox clazz="required" default="${descriptor.defaultApiVersion}"/>
+  </f:entry>
+
+  <f:entry title="Credentials ID" field="credentialsId"
+           description="Jenkins StringCredentials ID containing the Azure OpenAI API key.">
+    <f:textbox clazz="required"/>
+  </f:entry>
+
+  <f:validateButton title="Test Configuration" progress="Testing..."
+                    method="testConfiguration" with="endpoint,deployment,apiVersion,credentialsId" />
+</j:jelly>

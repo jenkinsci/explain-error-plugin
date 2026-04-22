@@ -1,0 +1,17 @@
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              id: "azure-openai-key"
+              scope: GLOBAL
+              secret: "azure-secret-value"
+unclassified:
+  explainError:
+    aiProvider:
+      azureOpenai:
+        endpoint: "https://my-resource.openai.azure.com"
+        deployment: "gpt-4o-enterprise"
+        apiVersion: "2025-01-01-preview"
+        credentialsId: "azure-openai-key"
+    enableExplanation: true

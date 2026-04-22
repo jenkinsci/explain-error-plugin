@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import io.jenkins.plugins.casc.misc.ConfiguredWithCode;
 import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
 import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
+import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
@@ -55,5 +56,19 @@ public class CasCTest {
         assertEquals("test-app-key", customOkta.getAppKey().getPlainText());
         assertEquals("cec123", customOkta.getUserId());
         assertEquals(150, customOkta.getTimeoutSeconds());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_azure_openai.yaml")
+    void loadAzureOpenAiProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(AzureOpenAIProvider.class, provider);
+        AzureOpenAIProvider azure = (AzureOpenAIProvider) provider;
+        assertEquals("https://my-resource.openai.azure.com", azure.getEndpoint());
+        assertEquals("gpt-4o-enterprise", azure.getDeployment());
+        assertEquals("2025-01-01-preview", azure.getApiVersion());
+        assertEquals("azure-openai-key", azure.getCredentialsId());
     }
 }
