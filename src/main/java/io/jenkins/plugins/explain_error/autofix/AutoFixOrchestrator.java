@@ -13,6 +13,7 @@ import io.jenkins.plugins.explain_error.autofix.scm.PullRequest;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmRepo;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmType;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 
 import java.io.IOException;
@@ -203,7 +204,7 @@ public class AutoFixOrchestrator {
         }
 
         // Step 1 — Get AI fix suggestion
-        FixAssistant fixAssistant = aiProvider.createFixAssistant();
+        FixAssistant fixAssistant = aiProvider.createFixAssistant(run.getParent(), Jenkins.getAuthentication2());
         String rawJson = fixAssistant.suggestFix(errorLogs);
         LOGGER.fine("Raw AI response: " + rawJson);
         FixSuggestion suggestion = parseFixSuggestion(rawJson);

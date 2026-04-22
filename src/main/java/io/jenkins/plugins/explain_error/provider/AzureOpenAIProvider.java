@@ -1,6 +1,6 @@
 package io.jenkins.plugins.explain_error.provider;
 
-import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -9,7 +9,9 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Item;
 import hudson.model.TaskListener;
+import hudson.security.ACL;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
@@ -22,6 +24,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,6 +34,7 @@ import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
+import org.springframework.security.core.Authentication;
 
 /**
  * Azure OpenAI provider backed by Jenkins StringCredentials.
@@ -74,7 +78,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     public Assistant createAssistant() {
         return (errorLogs, language, customContext) -> {
             try {
-                return requestAnalysis(errorLogs, language, customContext);
+                return requestAnalysis(errorLogs, language, customContext, null, null);
             } catch (ExplanationException e) {
                 throw new RuntimeException(e.getMessage(), e);
             }
@@ -85,7 +89,30 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
         return errorLogs -> {
             try {
-                return requestFixSuggestion(errorLogs);
+                return requestFixSuggestion(errorLogs, null, null);
+            } catch (ExplanationException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        };
+    }
+
+    @Override
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
+        return (errorLogs, language, customContext) -> {
+            try {
+                return requestAnalysis(errorLogs, language, customContext, item, authentication);
+            } catch (ExplanationException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        };
+    }
+
+    @Override
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(@CheckForNull Item item,
+                                                                                     @CheckForNull Authentication authentication) {
+        return errorLogs -> {
+            try {
+                return requestFixSuggestion(errorLogs, item, authentication);
             } catch (ExplanationException e) {
                 throw new RuntimeException(e.getMessage(), e);
             }
@@ -94,11 +121,20 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
     @Override
     public boolean isNotValid(@CheckForNull TaskListener listener) {
+        return isNotValid(listener, null, null);
+    }
+
+    @Override
+    public boolean isNotValid(@CheckForNull TaskListener listener, @CheckForNull Item item,
+                              @CheckForNull Authentication authentication) {
         String endpoint = Util.fixEmptyAndTrim(getEndpoint());
         String deployment = Util.fixEmptyAndTrim(getDeployment());
         String configuredApiVersion = Util.fixEmptyAndTrim(getApiVersion());
         String configuredCredentialsId = Util.fixEmptyAndTrim(getCredentialsId());
-        StringCredentials credentials = configuredCredentialsId == null ? null : resolveCredentials();
+        StringCredentials credentials = null;
+        if (endpoint != null && deployment != null && configuredApiVersion != null && configuredCredentialsId != null) {
+            credentials = resolveCredentials(item, authentication);
+        }
 
         if (listener != null) {
             if (endpoint == null) {
@@ -118,13 +154,15 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 || configuredCredentialsId == null || credentials == null;
     }
 
-    private JenkinsLogAnalysis requestAnalysis(String errorLogs, String language, String customContext)
+    private JenkinsLogAnalysis requestAnalysis(String errorLogs, String language, String customContext,
+                                               @CheckForNull Item item, @CheckForNull Authentication authentication)
             throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
                 .build();
         try {
-            String content = requestRawContent(client, buildChatRequestBody(errorLogs, language, customContext));
+            String content = requestRawContent(client, buildChatRequestBody(errorLogs, language, customContext),
+                    item, authentication);
             return parseAnalysis(content);
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
@@ -134,12 +172,13 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         }
     }
 
-    private String requestFixSuggestion(String errorLogs) throws ExplanationException {
+    private String requestFixSuggestion(String errorLogs, @CheckForNull Item item,
+                                        @CheckForNull Authentication authentication) throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
                 .build();
         try {
-            return requestRawContent(client, buildFixRequestBody(errorLogs));
+            return requestRawContent(client, buildFixRequestBody(errorLogs), item, authentication);
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
         } catch (InterruptedException e) {
@@ -148,9 +187,10 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         }
     }
 
-    private String requestRawContent(HttpClient client, String requestBody)
+    private String requestRawContent(HttpClient client, String requestBody,
+                                     @CheckForNull Item item, @CheckForNull Authentication authentication)
             throws IOException, InterruptedException, ExplanationException {
-        StringCredentials credentials = resolveCredentials();
+        StringCredentials credentials = resolveCredentials(item, authentication);
         if (credentials == null) {
             throw new ExplanationException("error", "Azure OpenAI credentials not found for ID: " + getCredentialsId());
         }
@@ -330,7 +370,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         return values.isEmpty() ? null : values;
     }
 
-    private StringCredentials resolveCredentials() {
+    private StringCredentials resolveCredentials(@CheckForNull Item item, @CheckForNull Authentication authentication) {
         String id = Util.fixEmptyAndTrim(getCredentialsId());
         if (id == null) {
             return null;
@@ -338,12 +378,12 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         if (Jenkins.getInstanceOrNull() == null) {
             return null;
         }
-        for (var credentials : SystemCredentialsProvider.getInstance().getCredentials()) {
-            if (credentials instanceof StringCredentials stringCredentials && id.equals(stringCredentials.getId())) {
-                return stringCredentials;
-            }
-        }
-        return null;
+        return CredentialsProvider.findCredentialByIdInItem(
+                id,
+                StringCredentials.class,
+                item,
+                authentication != null ? authentication : ACL.SYSTEM2,
+                Collections.emptyList());
     }
 
     private String abbreviate(String value) {

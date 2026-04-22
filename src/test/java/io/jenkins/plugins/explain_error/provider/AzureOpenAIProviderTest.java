@@ -47,7 +47,7 @@ class AzureOpenAIProviderTest {
 
     @Test
     void explainErrorUsesAzureEndpointAndApiKey(JenkinsRule jenkins) throws Exception {
-        addStringCredential(jenkins, "azure-openai-key", "test-azure-key");
+        addStringCredential("azure-openai-key", "test-azure-key");
 
         AtomicReference<String> requestPath = new AtomicReference<>();
         AtomicReference<String> apiKeyHeader = new AtomicReference<>();
@@ -91,7 +91,7 @@ class AzureOpenAIProviderTest {
 
     @Test
     void fixAssistantUsesAzureEndpointAndReturnsRawJson(JenkinsRule jenkins) throws Exception {
-        addStringCredential(jenkins, "azure-fix-key", "fix-key");
+        addStringCredential("azure-fix-key", "fix-key");
 
         AtomicReference<String> requestPath = new AtomicReference<>();
         AtomicReference<String> requestBody = new AtomicReference<>();
@@ -128,7 +128,7 @@ class AzureOpenAIProviderTest {
         assertTrue(result.contains("\"fixable\":true"));
     }
 
-    private void addStringCredential(JenkinsRule jenkins, String id, String secret) throws IOException {
+    private void addStringCredential(String id, String secret) throws IOException {
         StringCredentialsImpl credentials = new StringCredentialsImpl(
                 CredentialsScope.GLOBAL,
                 id,

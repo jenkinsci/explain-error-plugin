@@ -21,11 +21,13 @@ import hudson.ProxyConfiguration;
 import hudson.ExtensionPoint;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
+import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import jenkins.model.Jenkins;
+import org.springframework.security.core.Authentication;
 
 public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvider> implements ExtensionPoint {
 
@@ -151,18 +153,35 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      * @throws ExplanationException if there's a communication error
      */
     public final String explainError(String errorLogs, TaskListener listener, String language, String customContext) throws ExplanationException {
+        return explainError(errorLogs, listener, language, customContext, null, null);
+    }
+
+    /**
+     * Explain error logs using the configured AI provider with item-scoped credentials context.
+     * @param errorLogs the error logs to explain
+     * @param listener the task listener for logging
+     * @param language the preferred response language
+     * @param customContext additional custom context/instructions for the AI
+     * @param item the item defining credentials scope
+     * @param authentication the authentication used for credentials lookup
+     * @return the AI explanation
+     * @throws ExplanationException if there's a communication error
+     */
+    public final String explainError(String errorLogs, TaskListener listener, String language, String customContext,
+                                     @CheckForNull Item item, @CheckForNull Authentication authentication)
+            throws ExplanationException {
         Assistant assistant;
 
         if (StringUtils.isBlank(errorLogs)) {
             throw new ExplanationException("warning", "No error logs provided for explanation.");
         }
 
-        if (isNotValid(listener)) {
+        if (isNotValid(listener, item, authentication)) {
             throw new ExplanationException("error", "The provider is not properly configured.");
         }
 
         try {
-            assistant = createAssistant();
+            assistant = createAssistant(item, authentication);
         } catch (Exception e) {
             throw new ExplanationException("error", "Failed to create assistant", e);
         }
@@ -191,6 +210,20 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         @SystemMessage(SYSTEM_PROMPT)
         @UserMessage(USER_PROMPT_TEMPLATE)
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
+    }
+
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
+        return createAssistant();
+    }
+
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(@CheckForNull Item item,
+                                                                                     @CheckForNull Authentication authentication) {
+        return createFixAssistant();
+    }
+
+    public boolean isNotValid(@CheckForNull TaskListener listener, @CheckForNull Item item,
+                              @CheckForNull Authentication authentication) {
+        return isNotValid(listener);
     }
 
     protected final String buildSystemPrompt() {

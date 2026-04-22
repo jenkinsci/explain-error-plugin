@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import jenkins.model.Jenkins;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
 
@@ -121,7 +122,7 @@ public class ErrorExplainer {
             logToConsole(listener, "Using provider " + provider.getProviderName() + ", model " + provider.getModel()
                     + ".");
 
-            if (provider.isNotValid(listener)) {
+            if (provider.isNotValid(listener, run != null ? run.getParent() : null, authentication)) {
                 logToConsole(listener, "Provider configuration is invalid.");
                 recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, provider, startTimeNanos, 0,
                         collectDownstreamLogs);
@@ -153,7 +154,8 @@ public class ErrorExplainer {
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
-                String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext);
+                String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext,
+                        run != null ? run.getParent() : null, authentication);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
                 logToConsole(listener, "AI request completed successfully.");
 
@@ -265,7 +267,8 @@ public class ErrorExplainer {
         }
         this.providerName = provider.getProviderName();
 
-        if (provider.isNotValid(null)) {
+        Authentication authentication = Jenkins.getAuthentication2();
+        if (provider.isNotValid(null, run.getParent(), authentication)) {
             recordUsage(entryPoint, UsageEvent.Result.MISCONFIGURED, provider, startTimeNanos,
                     inputLogLineCount, false);
             throw new ExplanationException("error", "The provider is not properly configured.");
@@ -282,7 +285,7 @@ public class ErrorExplainer {
         try {
             // Get AI explanation with global custom context
             String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null,
-                    GlobalConfigurationImpl.get().getCustomContext());
+                    GlobalConfigurationImpl.get().getCustomContext(), run.getParent(), authentication);
             LOGGER.fine(jobInfo + " AI error explanation succeeded.");
             LOGGER.fine("Explanation length: " + explanation.length());
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
