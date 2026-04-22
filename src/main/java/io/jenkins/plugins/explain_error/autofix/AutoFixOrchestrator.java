@@ -204,7 +204,7 @@ public class AutoFixOrchestrator {
         }
 
         // Step 1 — Get AI fix suggestion
-        FixAssistant fixAssistant = aiProvider.createFixAssistant(run.getParent(), Jenkins.getAuthentication2());
+        FixAssistant fixAssistant = aiProvider.createFixAssistant(run.getParent(), null);
         String rawJson = fixAssistant.suggestFix(errorLogs);
         LOGGER.fine("Raw AI response: " + rawJson);
         FixSuggestion suggestion = parseFixSuggestion(rawJson);

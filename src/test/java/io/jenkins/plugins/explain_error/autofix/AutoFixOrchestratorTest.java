@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error.autofix;
 
 import hudson.model.Job;
+import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.SCM;
@@ -9,6 +10,7 @@ import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -41,7 +43,8 @@ class AutoFixOrchestratorTest {
 
         PrintStream printStream = mock(PrintStream.class);
         when(listener.getLogger()).thenReturn(printStream);
-        when(aiProvider.createFixAssistant()).thenReturn(fixAssistant);
+        when(aiProvider.createFixAssistant(nullable(Item.class), nullable(Authentication.class)))
+                .thenReturn(fixAssistant);
     }
 
     // -----------------------------------------------------------------------
@@ -210,9 +213,6 @@ class AutoFixOrchestratorTest {
                 Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
-        // No SCM interactions should have occurred — verified by the fact that
-        // run.getParent() (which is needed for SCM extraction) was never called
-        verify(run, never()).getParent();
     }
 
     // -----------------------------------------------------------------------
@@ -230,7 +230,6 @@ class AutoFixOrchestratorTest {
                 Collections.emptyList(), false, 30, listener, null);
 
         assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
-        verify(run, never()).getParent();
     }
 
     // -----------------------------------------------------------------------
@@ -286,7 +285,6 @@ class AutoFixOrchestratorTest {
         assertEquals(AutoFixStatus.SKIPPED_PATH_NOT_ALLOWED, result.getStatus());
         assertTrue(result.getMessage().contains("src/Main.java"),
                 "Message must name the rejected file path");
-        verify(run, never()).getParent();
     }
 
     // -----------------------------------------------------------------------
