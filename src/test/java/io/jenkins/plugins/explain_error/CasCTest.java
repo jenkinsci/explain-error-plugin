@@ -10,7 +10,9 @@ import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
+import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
+import io.jenkins.plugins.explain_error.provider.QwenProvider;
 import org.junit.jupiter.api.Test;
 
 @WithJenkinsConfiguredWithCode
@@ -70,5 +72,31 @@ public class CasCTest {
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
         assertEquals("2025-01-01-preview", azure.getApiVersion());
         assertEquals("azure-openai-key", azure.getCredentialsId());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_deepseek.yaml")
+    void loadDeepSeekProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(DeepSeekProvider.class, provider);
+        DeepSeekProvider deepSeek = (DeepSeekProvider) provider;
+        assertEquals("https://api.deepseek.com", deepSeek.getUrl());
+        assertEquals("deepseek-v4-flash", deepSeek.getModel());
+        assertEquals("test-deepseek-key", deepSeek.getApiKey().getPlainText());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_qwen.yaml")
+    void loadQwenProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(QwenProvider.class, provider);
+        QwenProvider qwen = (QwenProvider) provider;
+        assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1", qwen.getUrl());
+        assertEquals("qwen-plus", qwen.getModel());
+        assertEquals("test-qwen-key", qwen.getApiKey().getPlainText());
     }
 }

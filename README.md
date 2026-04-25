@@ -40,7 +40,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via OpenAI GPT models, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -75,9 +75,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
-| **API Key** | Your AI provider API key | Used by OpenAI and Gemini providers |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs (OpenAI, Gemini). **Required for Custom Okta AI and Ollama providers.** |
+| **AI Provider** | Choose between OpenAI, Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
+| **API Key** | Your AI provider API key | Used by OpenAI, Gemini, DeepSeek, and Qwen providers |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
@@ -137,6 +137,30 @@ unclassified:
         apiKey: "${AI_API_KEY}"
         model: "gemini-2.5-flash"
         # url: "" # Optional, leave empty for default
+    enableExplanation: true
+```
+
+**DeepSeek Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      deepseek:
+        apiKey: "${DEEPSEEK_API_KEY}"
+        model: "deepseek-v4-flash"
+        # url: "https://api.deepseek.com" # Optional, defaults to the official endpoint
+    enableExplanation: true
+```
+
+**Qwen Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      qwen:
+        apiKey: "${DASHSCOPE_API_KEY}"
+        model: "qwen-plus"
+        # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
     enableExplanation: true
 ```
 
@@ -209,6 +233,18 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
 - **Best for**: Fast, efficient analysis with competitive quality
+
+### DeepSeek
+- **Models**: `deepseek-v4-flash`, `deepseek-v4-pro`, etc.
+- **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
+- **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
+- **Best for**: OpenAI-compatible DeepSeek model access
+
+### Qwen
+- **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
+- **API Key**: Get from Alibaba Cloud Model Studio / DashScope
+- **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
+- **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
 
 ### AWS Bedrock
 - **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.

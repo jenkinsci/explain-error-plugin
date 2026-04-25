@@ -138,6 +138,70 @@ class ProviderTest {
     }
 
     @Test
+    void testDeepSeekNullApiKey() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "test-model", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekEmptyApiKey() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "test-model", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekEmptyModel() {
+        BaseAIProvider provider = new DeepSeekProvider(null, "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testDeepSeekNullModel() {
+        BaseAIProvider provider = new DeepSeekProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testQwenNullApiKey() {
+        BaseAIProvider provider = new QwenProvider(null, "test-model", null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testQwenEmptyApiKey() {
+        BaseAIProvider provider = new QwenProvider(null, "test-model", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testQwenEmptyModel() {
+        BaseAIProvider provider = new QwenProvider(null, "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testQwenNullModel() {
+        BaseAIProvider provider = new QwenProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
     void testOllamaNullModel() {
         BaseAIProvider provider = new OllamaProvider("http://localhost:1234", null);
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));

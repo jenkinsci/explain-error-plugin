@@ -1,0 +1,8 @@
+unclassified:
+  explainError:
+    aiProvider:
+      qwen:
+        apiKey: "test-qwen-key"
+        model: "qwen-plus"
+        url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    enableExplanation: true

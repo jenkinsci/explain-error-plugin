@@ -1,0 +1,8 @@
+unclassified:
+  explainError:
+    aiProvider:
+      deepseek:
+        apiKey: "test-deepseek-key"
+        model: "deepseek-v4-flash"
+        url: "https://api.deepseek.com"
+    enableExplanation: true

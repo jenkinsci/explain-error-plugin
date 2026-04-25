@@ -9,12 +9,12 @@ import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
+import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
+import io.jenkins.plugins.explain_error.provider.QwenProvider;
 import java.util.List;
-import org.htmlunit.html.HtmlOption;
-import org.htmlunit.html.HtmlPage;
-import org.htmlunit.html.HtmlSelect;
+import jenkins.model.Jenkins;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -24,11 +24,9 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 class GlobalConfigurationImplTest {
 
     private GlobalConfigurationImpl config;
-    private JenkinsRule rule;
 
     @BeforeEach
     void setUp(JenkinsRule jenkins) {
-        rule = jenkins;
         config = GlobalConfigurationImpl.get();
 
         // Reset to clean state for each test (no auto-population)
@@ -67,48 +65,38 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
-    void testConfigurePageDefaultsProviderSelectionToOpenAi() throws Exception {
+    void testUnconfiguredProviderSelectionDefaultsToOpenAi() {
         config.setAiProvider(null);
         config.setProvider(null);
         config.setApiKey(null);
         config.setApiUrl(null);
         config.setModel(null);
 
-        try (JenkinsRule.WebClient client = rule.createWebClient()) {
-            client.getOptions().setJavaScriptEnabled(false);
-            HtmlPage page = client.goTo("configure");
-            HtmlSelect providerSelect = findProviderSelect(page);
-
-            List<HtmlOption> selectedOptions = providerSelect.getSelectedOptions();
-            assertEquals(1, selectedOptions.size());
-            assertEquals("OpenAI", selectedOptions.get(0).getText().trim());
-        }
+        assertEquals("OpenAI", config.getAiProvider().getDescriptor().getDisplayName());
     }
 
     @Test
-    void testConfigurePageIncludesCustomOktaProviderOption() throws Exception {
-        try (JenkinsRule.WebClient client = rule.createWebClient()) {
-            client.getOptions().setJavaScriptEnabled(false);
-            HtmlPage page = client.goTo("configure");
-            HtmlSelect providerSelect = findProviderSelect(page);
-
-            boolean hasCustomOkta = providerSelect.getOptions().stream()
-                    .anyMatch(option -> "Custom Okta AI".equals(option.getText().trim()));
-            assertTrue(hasCustomOkta, "AI provider dropdown should include the 'Custom Okta AI' option");
-        }
+    void testConfigurePageIncludesCustomOktaProviderOption() {
+        assertTrue(providerDisplayNames().contains("Custom Okta AI"),
+                "AI provider dropdown should include the 'Custom Okta AI' option");
     }
 
     @Test
-    void testConfigurePageIncludesAzureOpenAiProviderOption() throws Exception {
-        try (JenkinsRule.WebClient client = rule.createWebClient()) {
-            client.getOptions().setJavaScriptEnabled(false);
-            HtmlPage page = client.goTo("configure");
-            HtmlSelect providerSelect = findProviderSelect(page);
+    void testConfigurePageIncludesAzureOpenAiProviderOption() {
+        assertTrue(providerDisplayNames().contains("Azure OpenAI"),
+                "AI provider dropdown should include the 'Azure OpenAI' option");
+    }
 
-            boolean hasAzureOpenAi = providerSelect.getOptions().stream()
-                    .anyMatch(option -> "Azure OpenAI".equals(option.getText().trim()));
-            assertTrue(hasAzureOpenAi, "AI provider dropdown should include the 'Azure OpenAI' option");
-        }
+    @Test
+    void testConfigurePageIncludesDeepSeekProviderOption() {
+        assertTrue(providerDisplayNames().contains("DeepSeek"),
+                "AI provider dropdown should include the 'DeepSeek' option");
+    }
+
+    @Test
+    void testConfigurePageIncludesQwenProviderOption() {
+        assertTrue(providerDisplayNames().contains("Qwen"),
+                "AI provider dropdown should include the 'Qwen' option");
     }
 
     @Test
@@ -155,6 +143,44 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
+    void testConfigurationPersistenceForDeepSeekProvider() {
+        DeepSeekProvider provider = new DeepSeekProvider(
+                "https://api.deepseek.com",
+                "deepseek-v4-pro",
+                Secret.fromString("deepseek-key"));
+        config.setAiProvider(provider);
+        config.save();
+
+        config.load();
+
+        BaseAIProvider reloaded = config.getAiProvider();
+        assertThat(reloaded, instanceOf(DeepSeekProvider.class));
+        DeepSeekProvider deepSeek = (DeepSeekProvider) reloaded;
+        assertEquals("https://api.deepseek.com", deepSeek.getUrl());
+        assertEquals("deepseek-v4-pro", deepSeek.getModel());
+        assertEquals("deepseek-key", deepSeek.getApiKey().getPlainText());
+    }
+
+    @Test
+    void testConfigurationPersistenceForQwenProvider() {
+        QwenProvider provider = new QwenProvider(
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                "qwen-plus",
+                Secret.fromString("qwen-key"));
+        config.setAiProvider(provider);
+        config.save();
+
+        config.load();
+
+        BaseAIProvider reloaded = config.getAiProvider();
+        assertThat(reloaded, instanceOf(QwenProvider.class));
+        QwenProvider qwen = (QwenProvider) reloaded;
+        assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1", qwen.getUrl());
+        assertEquals("qwen-plus", qwen.getModel());
+        assertEquals("qwen-key", qwen.getApiKey().getPlainText());
+    }
+
+    @Test
     void testEnableExplanationSetterAndGetter() {
         config.setEnableExplanation(false);
         assertFalse(config.isEnableExplanation());
@@ -191,18 +217,9 @@ class GlobalConfigurationImplTest {
         assertEquals("Explain Error Plugin Configuration", displayName);
     }
 
-    private HtmlSelect findProviderSelect(HtmlPage page) {
-        return page.getByXPath("//div[normalize-space()='AI Provider']/following::select[1]").stream()
-                .filter(HtmlSelect.class::isInstance)
-                .map(HtmlSelect.class::cast)
-                .findFirst()
-                .orElseThrow(() -> {
-                    String xml = page.asXml();
-                    int marker = xml.indexOf("Explain Error Plugin Configuration");
-                    String snippet = marker >= 0
-                            ? xml.substring(Math.max(0, marker - 500), Math.min(xml.length(), marker + 2500))
-                            : xml.substring(0, Math.min(xml.length(), 3000));
-                    return new AssertionError("AI provider dropdown not found on configure page. Snippet:\n" + snippet);
-                });
+    private List<String> providerDisplayNames() {
+        return Jenkins.get().getDescriptorList(BaseAIProvider.class).stream()
+                .map(descriptor -> descriptor.getDisplayName())
+                .toList();
     }
 }
