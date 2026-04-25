@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import io.jenkins.plugins.explain_error.autofix.AutoFixOrchestrator;
@@ -31,6 +32,9 @@ public class ExplainErrorStep extends Step {
     private String customContext;
     private boolean collectDownstreamLogs;
     private String downstreamJobPattern;
+    private boolean includeWorkspaceContext = false;
+    private String workspaceContextPaths = WorkspaceContextCollector.DEFAULT_PATHS;
+    private int workspaceContextMaxBytes = WorkspaceContextCollector.DEFAULT_MAX_BYTES;
 
     // Auto-fix fields
     private boolean autoFix = false;
@@ -107,6 +111,35 @@ public class ExplainErrorStep extends Step {
     @DataBoundSetter
     public void setDownstreamJobPattern(String downstreamJobPattern) {
         this.downstreamJobPattern = downstreamJobPattern != null ? downstreamJobPattern : "";
+    }
+
+    public boolean isIncludeWorkspaceContext() {
+        return includeWorkspaceContext;
+    }
+
+    @DataBoundSetter
+    public void setIncludeWorkspaceContext(boolean includeWorkspaceContext) {
+        this.includeWorkspaceContext = includeWorkspaceContext;
+    }
+
+    public String getWorkspaceContextPaths() {
+        return workspaceContextPaths;
+    }
+
+    @DataBoundSetter
+    public void setWorkspaceContextPaths(String workspaceContextPaths) {
+        this.workspaceContextPaths = workspaceContextPaths != null ? workspaceContextPaths
+                : WorkspaceContextCollector.DEFAULT_PATHS;
+    }
+
+    public int getWorkspaceContextMaxBytes() {
+        return workspaceContextMaxBytes;
+    }
+
+    @DataBoundSetter
+    public void setWorkspaceContextMaxBytes(int workspaceContextMaxBytes) {
+        this.workspaceContextMaxBytes = workspaceContextMaxBytes > 0
+                ? workspaceContextMaxBytes : WorkspaceContextCollector.DEFAULT_MAX_BYTES;
     }
 
     public boolean isAutoFix() {
@@ -248,13 +281,17 @@ public class ExplainErrorStep extends Step {
             Run<?, ?> run = getContext().get(Run.class);
             TaskListener listener = getContext().get(TaskListener.class);
 
+            String workspaceContext = collectWorkspaceContext(listener);
+            String effectiveCustomContext = mergeCustomContext(step.getCustomContext(), workspaceContext);
+
             ErrorExplainer explainer = new ErrorExplainer();
             String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
-                    step.getLanguage(), step.getCustomContext(), step.isCollectDownstreamLogs(),
+                    step.getLanguage(), effectiveCustomContext, step.isCollectDownstreamLogs(),
                     step.getDownstreamJobPattern(), Jenkins.getAuthentication2());
 
             if (step.isAutoFix()) {
                 String errorLogs = explainer.getLastErrorLogs();
+                String autoFixLogs = appendWorkspaceContext(errorLogs, workspaceContext);
                 BaseAIProvider provider = explainer.getResolvedProvider(run);
 
                 if (errorLogs == null) {
@@ -274,7 +311,7 @@ public class ExplainErrorStep extends Step {
 
                 AutoFixResult fixResult = orchestrator.attemptAutoFix(
                         run,
-                        errorLogs,
+                        autoFixLogs,
                         provider,
                         step.getAutoFixCredentialsId(),
                         step.getAutoFixRemoteUrl().isEmpty() ? null : step.getAutoFixRemoteUrl(),
@@ -294,6 +331,47 @@ public class ExplainErrorStep extends Step {
             }
 
             return explanation;
+        }
+
+        private String collectWorkspaceContext(TaskListener listener)
+                throws java.io.IOException, InterruptedException {
+            if (!step.isIncludeWorkspaceContext()) {
+                return "";
+            }
+            FilePath workspace = getContext().get(FilePath.class);
+            if (workspace == null) {
+                listener.getLogger().println("[explain-error] Workspace context skipped: no workspace is available.");
+                return "";
+            }
+            listener.getLogger().println("[explain-error] Collecting workspace context.");
+            String context = new WorkspaceContextCollector().collect(
+                    workspace,
+                    step.getWorkspaceContextPaths(),
+                    step.getWorkspaceContextMaxBytes(),
+                    listener);
+            if (context.isBlank()) {
+                listener.getLogger().println("[explain-error] Workspace context is empty.");
+            } else {
+                listener.getLogger().println("[explain-error] Workspace context collected.");
+            }
+            return context;
+        }
+
+        private String mergeCustomContext(String customContext, String workspaceContext) {
+            if (workspaceContext == null || workspaceContext.isBlank()) {
+                return customContext;
+            }
+            if (customContext == null || customContext.isBlank()) {
+                return workspaceContext;
+            }
+            return customContext.stripTrailing() + "\n\n" + workspaceContext;
+        }
+
+        private String appendWorkspaceContext(String errorLogs, String workspaceContext) {
+            if (workspaceContext == null || workspaceContext.isBlank()) {
+                return errorLogs;
+            }
+            return errorLogs + "\n\n" + workspaceContext;
         }
     }
 }

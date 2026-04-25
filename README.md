@@ -39,6 +39,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
+* **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
 * **AI-powered explanations** via OpenAI GPT models, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
@@ -320,6 +321,9 @@ post {
 | **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 | **collectDownstreamLogs** | Whether to include logs from failed downstream jobs discovered via the `build` step or `Cause.UpstreamCause` | `false` |
 | **downstreamJobPattern** | Regular expression matched against downstream job full names. Used only when downstream collection is enabled. | `''` (collect none) |
+| **includeWorkspaceContext** | Include selected workspace files as supporting context for the AI | `false` |
+| **workspaceContextPaths** | Comma-separated file paths or glob patterns to include when workspace context is enabled | Common build/config files |
+| **workspaceContextMaxBytes** | Maximum total bytes of workspace context to include | `20000` |
 | **autoFix** | Enable AI auto-fix: the plugin will attempt to generate and commit a code fix, then open a pull request | `false` |
 | **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository | `''` |
 | **autoFixScmType** | SCM type override: `github`, `gitlab`, or `bitbucket`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` | Auto-detected from remote URL |
@@ -356,6 +360,19 @@ explainError(
 
 This keeps the default behavior fast and predictable on large controllers. Only downstream jobs
 whose full name matches `downstreamJobPattern` are scanned and included in the AI analysis.
+
+To include selected files from the build workspace, opt in with Workspace Context:
+
+```groovy
+explainError(
+  includeWorkspaceContext: true,
+  workspaceContextPaths: 'pom.xml,Jenkinsfile,src/test/**/*.java',
+  workspaceContextMaxBytes: 30000
+)
+```
+
+Workspace Context only reads explicitly configured paths and skips common secret or generated
+paths such as `.env*`, `credentials*`, `target/`, `build/`, `dist/`, `node_modules/`, and `.git/`.
 
 Output appears in the sidebar of the failed job.
 

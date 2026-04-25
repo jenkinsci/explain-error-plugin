@@ -1,7 +1,9 @@
 package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -102,5 +104,36 @@ class CustomContextTest {
         assertEquals("\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\nThis is a payment service. Check PCI compliance.", 
                      provider.getLastCustomContext(), 
                      "Custom context should be passed with other parameters");
+    }
+
+    @Test
+    void testWorkspaceContextIsAddedToCustomContext(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        TestProvider provider = new TestProvider();
+        config.setAiProvider(provider);
+        config.setEnableExplanation(true);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-workspace-context");
+        String pipelineScript = "node {\n"
+                + "    writeFile file: 'pom.xml', text: '<project>workspace-context</project>'\n"
+                + "    writeFile file: '.env', text: 'TOKEN=secret'\n"
+                + "    explainError(\n"
+                + "        includeWorkspaceContext: true,\n"
+                + "        workspaceContextPaths: 'pom.xml,.env',\n"
+                + "        workspaceContextMaxBytes: 10000\n"
+                + "    )\n"
+                + "}";
+
+        job.setDefinition(new CpsFlowDefinition(pipelineScript, true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
+        ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
+        assertNotNull(action);
+
+        assertNotNull(provider.getLastCustomContext(), "Workspace context should be passed to AI provider");
+        assertTrue(provider.getLastCustomContext().contains("WORKSPACE CONTEXT"));
+        assertTrue(provider.getLastCustomContext().contains("### pom.xml"));
+        assertTrue(provider.getLastCustomContext().contains("<project>workspace-context</project>"));
+        assertFalse(provider.getLastCustomContext().contains("TOKEN=secret"));
     }
 }

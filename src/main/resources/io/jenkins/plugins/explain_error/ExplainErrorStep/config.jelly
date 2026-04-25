@@ -30,6 +30,18 @@
         <f:textbox />
     </f:entry>
 
+    <f:optionalBlock field="includeWorkspaceContext" title="Include Workspace Context" inline="true">
+        <f:entry title="Workspace Context Paths" field="workspaceContextPaths"
+                 description="Comma-separated file paths or glob patterns to include as supporting context. Sensitive and build-output paths are skipped.">
+            <f:textbox />
+        </f:entry>
+
+        <f:entry title="Workspace Context Max Bytes" field="workspaceContextMaxBytes"
+                 description="Maximum total bytes of workspace context to include (default: 20000).">
+            <f:number min="1" default="20000" />
+        </f:entry>
+    </f:optionalBlock>
+
     <f:optionalBlock field="autoFix" title="Enable AI Auto-Fix (create PR)" inline="true">
         <f:entry title="SCM Credentials ID" field="autoFixCredentialsId"
                  description="Jenkins credentials ID for the SCM token (Personal Access Token with write access).">
