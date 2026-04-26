@@ -6,11 +6,10 @@ Step-by-step workflow for reviewing pull requests submitted to the `jenkinsci/ex
 
 ## Tools
 
-- `github-pull-request_openPullRequest` — fetch PR metadata and diff
-- `github-pull-request_doSearch` — look up related issues or prior PRs
-- `file_search` / `grep_search` / `read_file` — inspect source files for context
-- `get_errors` — check for compile/lint errors
-- `run_in_terminal` — run `mvn test` or `mvn checkstyle:check` to validate changes
+- `read` — read file contents
+- `bash` — run shell commands (git, gh CLI, make, grep, find)
+- `edit` — apply precise file edits
+- `write` — create or overwrite files
 
 ---
 
@@ -19,6 +18,17 @@ Step-by-step workflow for reviewing pull requests submitted to the `jenkinsci/ex
 ### Step 1 — Fetch the PR
 
 Load the PR using the PR number or URL provided by the user.
+
+```bash
+# Fetch PR metadata (title, description, state, author)
+gh pr view <number> --repo jenkinsci/explain-error-plugin --json title,body,state,author,labels,assignees
+
+# List changed files
+gh pr diff <number> --repo jenkinsci/explain-error-plugin --name-only
+
+# Get full diff for deep inspection
+gh pr diff <number> --repo jenkinsci/explain-error-plugin
+```
 
 Collect:
 - Title, description, linked issue(s)
@@ -75,7 +85,7 @@ For every changed `.java` file, check:
 #### AI Provider Pattern
 - [ ] New providers extend `BaseAIProvider` and implement `ExtensionPoint`
 - [ ] Provider descriptor extends `BaseProviderDescriptor` with `@Symbol` annotation
-- [ ] `createAssistant()` used for LangChain4j integration (no direct HTTP/JSON)
+- [ ] `createAssistant()` and `createFixAssistant()` implemented using LangChain4j (no direct HTTP/JSON)
 - [ ] `isNotValid()` implemented to guard against empty config
 
 #### Action Management
@@ -95,6 +105,10 @@ For every changed `.java` file, check:
 #### Error Handling
 - [ ] Failures throw `ExplanationException` (not returned as strings)
 - [ ] Exception messages are user-friendly and actionable
+
+#### Feature Documentation
+- [ ] If PR modifies AutoFix or usage quota logic, corresponding doc under `docs/` is updated (`docs/auto-fix.md`, `docs/usage-quota.md`)
+- [ ] New complex features have a matching `docs/<feature>.md`
 
 ---
 
@@ -156,15 +170,15 @@ For `pom.xml` changes:
 
 ### Step 9 — Build Verification
 
-Run these checks locally (or confirm CI passes):
+Confirm CI passes on the PR. Do NOT pull and run locally unless the user explicitly asks.
 
-```bash
-mvn compile          # No compile errors
-mvn test             # All tests pass
-mvn checkstyle:check # No style violations (if configured)
-```
+CI must show:
+- Compile: `make build` passes (no compile errors)
+- Tests: `make test` passes (all tests green)
+- Lint: `make lint` passes (no new Checkstyle/SpotBugs warnings)
+- Full CI: `make verify` passes
 
-Flag any failures as blocking. Flag test-only failures as high priority.
+Flag any CI failures as blocking. Flag test-only failures as high priority.
 
 ---
 
@@ -196,6 +210,7 @@ Structure the output as:
 | CasC Support      | ✅ / ⚠️ / ❌ |
 | Dependencies      | ✅ / ⚠️ / ❌ |
 | Tests             | ✅ / ⚠️ / ❌ |
+| Feature Docs      | ✅ / ⚠️ / ❌ |
 | Build             | ✅ / ⚠️ / ❌ |
 ```
 
@@ -210,7 +225,7 @@ PR opened
 │   └─ Request description before reviewing
 │
 ├─ New AI provider added?
-│   ├─ Extends BaseAIProvider? → Check createAssistant(), isNotValid(), @Symbol
+│   ├─ Extends BaseAIProvider? → Check createAssistant(), createFixAssistant(), isNotValid(), @Symbol
 │   ├─ Has Jelly config.jelly? → Check design library usage
 │   ├─ Has pom.xml dependency? → Check exclusions
 │   └─ Has TestProvider-based tests? → Check success + failure cases
@@ -222,6 +237,9 @@ PR opened
 ├─ Pipeline step parameter added?
 │   ├─ @DataBoundSetter used? → Required for optional params
 │   └─ ExplainErrorStepTest covers it? → Required
+│
+├─ Modifies AutoFix or usage quota logic?
+│   └─ Corresponding doc under docs/ updated? → Required
 │
 └─ UI change (Jelly / JS)?
     ├─ Inline script? → Block: must be extracted
@@ -240,6 +258,7 @@ A PR is ready to merge when:
 4. No `@Symbol` missing on new extension points
 5. At least one test covers the new/changed behavior
 6. UI follows Jenkins design library (if applicable)
+7. Feature docs under `docs/` are updated when relevant logic changes
 
 ---
 
