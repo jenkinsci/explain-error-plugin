@@ -4,7 +4,6 @@ import hudson.FilePath;
 import hudson.model.TaskListener;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -167,11 +166,28 @@ class WorkspaceContextCollector {
         if (normalized.startsWith("/") || normalized.matches("^[A-Za-z]:/.*")) {
             return "absolute paths are not allowed";
         }
-        Path path = Path.of(normalized).normalize();
-        if (path.startsWith("..")) {
+        if (escapesWorkspace(normalized)) {
             return "path traversal is not allowed";
         }
         return null;
+    }
+
+    private boolean escapesWorkspace(String relativePath) {
+        int depth = 0;
+        for (String segment : relativePath.split("/")) {
+            if (segment.isEmpty() || segment.equals(".")) {
+                continue;
+            }
+            if (segment.equals("..")) {
+                depth--;
+                if (depth < 0) {
+                    return true;
+                }
+                continue;
+            }
+            depth++;
+        }
+        return false;
     }
 
     private boolean isSkippedPath(String relativePath) {
