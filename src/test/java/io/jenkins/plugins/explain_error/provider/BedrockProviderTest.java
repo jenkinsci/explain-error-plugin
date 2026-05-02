@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.jenkins.plugins.explain_error.autofix.FixAssistant;
 import org.junit.jupiter.api.Test;
 
 class BedrockProviderTest {
@@ -23,6 +24,26 @@ class BedrockProviderTest {
                 // If it's a configuration error, it will typically be IllegalArgumentException
                 assertFalse(
                     e.getClass().getSimpleName().contains("IllegalArgument") || 
+                    e.getMessage() != null && e.getMessage().contains("Unknown field"),
+                    "Should not fail due to configuration errors: " + e.getMessage()
+                );
+            }
+        });
+    }
+
+    @Test
+    void testCreateFixAssistantDoesNotThrowOnBuild() {
+        // This smoke test catches LangChain4j builder regressions before any real AWS API call is made.
+        BedrockProvider provider = new BedrockProvider(
+                null, "anthropic.claude-3-5-sonnet-20240620-v1:0", "eu-west-1");
+
+        assertDoesNotThrow(() -> {
+            try {
+                FixAssistant assistant = provider.createFixAssistant();
+                assertNotNull(assistant, "Fix assistant should be created");
+            } catch (Exception e) {
+                assertFalse(
+                    e.getClass().getSimpleName().contains("IllegalArgument") ||
                     e.getMessage() != null && e.getMessage().contains("Unknown field"),
                     "Should not fail due to configuration errors: " + e.getMessage()
                 );
