@@ -1,11 +1,15 @@
 package io.jenkins.plugins.explain_error;
 
+import org.kohsuke.stapler.export.Exported;
+import org.kohsuke.stapler.export.ExportedBean;
+import hudson.model.Api;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
 
 /**
  * Build action to store and display error explanations.
  */
+@ExportedBean(defaultVisibility = 999)
 public class ErrorExplanationAction implements RunAction2 {
 
     private final String explanation;
@@ -58,6 +62,11 @@ public class ErrorExplanationAction implements RunAction2 {
         return "error-explanation";
     }
 
+    public Api getApi() {
+        return new Api(this);
+    }
+
+    @Exported
     public String getExplanation() {
         return explanation;
     }
