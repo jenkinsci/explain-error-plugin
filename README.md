@@ -215,13 +215,13 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ## Supported AI Providers
 
 ### OpenAI
-- **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
+- **Models**: `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5-pro`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
 - **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
 - **Best for**: Comprehensive error analysis with excellent reasoning
 
 ### Anthropic (Claude)
-- **Models**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`, etc.
+- **Models**: `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, etc.
 - **API Key**: Get from [Anthropic Console](https://console.anthropic.com/settings/keys)
 - **Endpoint**: Leave empty for official Anthropic API, or specify custom URL for Claude-compatible services
 - **Best for**: High-quality error analysis with strong reasoning capabilities and contextual understanding
@@ -242,13 +242,13 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Best for**: Fast, efficient analysis with competitive quality
 
 ### DeepSeek
-- **Models**: `deepseek-v4-flash`, `deepseek-v4-pro`, etc.
+- **Models**: `deepseek-v4-flash`, `deepseek-v4-pro`, `deepseek-chat`, `deepseek-reasoner`, etc.
 - **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
 - **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
 - **Best for**: OpenAI-compatible DeepSeek model access
 
 ### Qwen
-- **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
+- **Models**: `qwen-plus`, `qwen-flash`, `qwen-turbo`, `qwen3-max`, `qwen3.5-plus`, `qwen3.5-flash`, `qwen3-coder-plus`, `qwen3-coder-flash`, etc.
 - **API Key**: Get from Alibaba Cloud Model Studio / DashScope
 - **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
 - **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
