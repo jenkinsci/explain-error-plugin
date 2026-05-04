@@ -41,7 +41,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Pipeline-ready** with a simple `explainError()` step
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via OpenAI GPT models, Anthropic Claude, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -54,7 +54,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 - Jenkins (2.528.3) or higher required
 - Java 17+
-- AI API Key (OpenAI or Google)
+- AI API Key (OpenAI, Anthropic, or Google)
 
 ### Installation
 
@@ -76,8 +76,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
-| **API Key** | Your AI provider API key | Used by OpenAI, Gemini, DeepSeek, and Qwen providers |
+| **AI Provider** | Choose between OpenAI, Anthropic (Claude), Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
+| **API Key** | Your AI provider API key | Used by OpenAI, Anthropic, Gemini, DeepSeek, and Qwen providers |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
@@ -219,6 +219,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
 - **Best for**: Comprehensive error analysis with excellent reasoning
+
+### Anthropic (Claude)
+- **Models**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`, etc.
+- **API Key**: Get from [Anthropic Console](https://console.anthropic.com/settings/keys)
+- **Endpoint**: Leave empty for official Anthropic API, or specify custom URL for Claude-compatible services
+- **Best for**: High-quality error analysis with strong reasoning capabilities and contextual understanding
 
 ### Custom Okta AI
 - **Models**: Any model exposed by your company AI gateway
