@@ -2,7 +2,6 @@ package io.jenkins.plugins.explain_error.provider;
 
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -58,7 +57,6 @@ public class AnthropicProvider extends BaseAIProvider {
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())
                 .temperature(0.3)
-                .responseFormat(ResponseFormat.JSON)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
                 .build();
@@ -82,11 +80,10 @@ public class AnthropicProvider extends BaseAIProvider {
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
         private static final String[] MODELS = new String[]{
-                "claude-3-5-sonnet-20241022",
-                "claude-3-5-haiku-20241022",
-                "claude-3-opus-20240229",
-                "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307"
+                "claude-opus-4-7",
+                "claude-opus-4-6",
+                "claude-sonnet-4-6",
+                "claude-haiku-4-5-20251001",
         };
 
         @NonNull
