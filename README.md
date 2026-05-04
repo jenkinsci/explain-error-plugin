@@ -225,6 +225,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [Anthropic Console](https://console.anthropic.com/settings/keys)
 - **Endpoint**: Leave empty for official Anthropic API, or specify custom URL for Claude-compatible services
 - **Best for**: High-quality error analysis with strong reasoning capabilities and contextual understanding
+- **Note**: Claude Opus 4.7 and newer models have deprecated the `temperature` parameter. See [model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) for migration details.
 
 ### Custom Okta AI
 - **Models**: Any model exposed by your company AI gateway
