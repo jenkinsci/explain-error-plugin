@@ -92,11 +92,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             }
 
             // Optionally allow maxLines as a parameter, default to 200
-            int maxLines = 200;
-            String maxLinesParam = req.getParameter("maxLines");
-            if (maxLinesParam != null) {
-                try { maxLines = Integer.parseInt(maxLinesParam); } catch (NumberFormatException ignore) {}
-            }
+            int maxLines = parseMaxLines(req, 200);
 
             // Fetch the last N lines of the log
             PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
@@ -116,6 +112,70 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         } catch (Exception e) {
             LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
             LOGGER.severe("Error explaining console error: " + e.getMessage());
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * AJAX endpoint to explain a selected Pipeline Graph View node.
+     */
+    @RequirePOST
+    public void doExplainNodeError(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
+        long startTimeNanos = System.nanoTime();
+        String nodeId = req.getParameter("nodeId");
+        nodeId = nodeId != null ? nodeId.trim() : "";
+
+        try {
+            run.checkPermission(hudson.model.Item.READ);
+
+            if (nodeId.isEmpty()) {
+                recordUsage(UsageEvent.EntryPoint.PIPELINE_GRAPH_NODE, UsageEvent.Result.DISABLED,
+                        null, null, startTimeNanos, 0);
+                writeJsonResponse(rsp, "warning", "Unknown", "No Pipeline node was selected.");
+                return;
+            }
+
+            boolean forceNew = "true".equals(req.getParameter("forceNew"));
+            StepErrorExplanationAction stepAction = run.getAction(StepErrorExplanationAction.class);
+            StepErrorExplanationAction.Entry existing = stepAction != null ? stepAction.getExplanation(nodeId) : null;
+            if (!forceNew && existing != null && existing.hasValidExplanation()) {
+                this.urlString = existing.getUrlString();
+                recordUsage(UsageEvent.EntryPoint.PIPELINE_GRAPH_NODE, UsageEvent.Result.CACHE_HIT,
+                        existing.getProviderName(), existing.getProviderModel(), startTimeNanos,
+                        existing.getInputLogLineCount());
+                writeJsonResponse(rsp, "success", existing.getProviderName(),
+                        createCachedResponse(existing.getExplanation()));
+                return;
+            }
+
+            int maxLines = parseMaxLines(req, 200);
+            PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
+                    false, null);
+            PipelineLogExtractor.ExtractionResult extractionResult = logExtractor.extractNodeLog(nodeId);
+            this.urlString = extractionResult.url();
+            if (extractionResult.logLines().isEmpty()) {
+                recordUsage(UsageEvent.EntryPoint.PIPELINE_GRAPH_NODE, UsageEvent.Result.DISABLED,
+                        null, null, startTimeNanos, 0);
+                writeJsonResponse(rsp, "warning", "Unknown",
+                        "No log output found for the selected Pipeline node.");
+                return;
+            }
+
+            String errorText = String.join("\n", extractionResult.logLines());
+            ErrorExplainer explainer = new ErrorExplainer();
+            try {
+                ErrorExplanationAction explanation = explainer.explainErrorText(errorText, urlString, run,
+                        UsageEvent.EntryPoint.PIPELINE_GRAPH_NODE, false);
+                StepErrorExplanationAction cacheAction = getOrCreateStepAction();
+                cacheAction.putExplanation(nodeId, explanation);
+                run.save();
+                writeJsonResponse(rsp, "success", explanation.getProviderName(), explanation.getExplanation());
+            } catch (ExplanationException ee) {
+                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage());
+            }
+        } catch (Exception e) {
+            LOGGER.severe("=== EXPLAIN PIPELINE NODE REQUEST FAILED ===");
+            LOGGER.severe("Error explaining pipeline node: " + e.getMessage());
             writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
         }
     }
@@ -183,14 +243,43 @@ public class ConsoleExplainErrorAction implements RunAction2 {
 
     private void recordUsage(UsageEvent.Result result, String providerName, String model,
                              long startTimeNanos, int inputLogLineCount) {
+        recordUsage(UsageEvent.EntryPoint.CONSOLE_ACTION, result, providerName, model,
+                startTimeNanos, inputLogLineCount);
+    }
+
+    private void recordUsage(UsageEvent.EntryPoint entryPoint, UsageEvent.Result result, String providerName,
+                             String model, long startTimeNanos, int inputLogLineCount) {
         UsageRecorders.get().record(new UsageEvent(
                 System.currentTimeMillis(),
-                UsageEvent.EntryPoint.CONSOLE_ACTION,
+                entryPoint,
                 result,
                 providerName,
                 model,
                 Math.max(0L, (System.nanoTime() - startTimeNanos) / 1_000_000L),
                 inputLogLineCount,
                 false));
+    }
+
+    private StepErrorExplanationAction getOrCreateStepAction() {
+        StepErrorExplanationAction action = run.getAction(StepErrorExplanationAction.class);
+        if (action != null) {
+            return action;
+        }
+        action = new StepErrorExplanationAction();
+        run.addAction(action);
+        return action;
+    }
+
+    private int parseMaxLines(StaplerRequest2 req, int defaultValue) {
+        String maxLinesParam = req.getParameter("maxLines");
+        if (maxLinesParam == null) {
+            return defaultValue;
+        }
+        try {
+            int value = Integer.parseInt(maxLinesParam);
+            return value > 0 ? value : defaultValue;
+        } catch (NumberFormatException ignore) {
+            return defaultValue;
+        }
     }
 }

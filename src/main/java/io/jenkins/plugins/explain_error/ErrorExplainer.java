@@ -248,6 +248,12 @@ public class ErrorExplainer {
     ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull Run<?, ?> run,
                                             UsageEvent.EntryPoint entryPoint)
             throws IOException, ExplanationException {
+        return explainErrorText(errorText, url, run, entryPoint, true);
+    }
+
+    ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull Run<?, ?> run,
+                                            UsageEvent.EntryPoint entryPoint, boolean storeBuildAction)
+            throws IOException, ExplanationException {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
         long startTimeNanos = System.nanoTime();
         int inputLogLineCount = countLines(errorText);
@@ -289,8 +295,10 @@ public class ErrorExplainer {
             LOGGER.fine("Explanation length: " + explanation.length());
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
                     provider.getProviderName(), provider.getModel(), inputLogLineCount);
-            run.addOrReplaceAction(action);
-            run.save();
+            if (storeBuildAction) {
+                run.addOrReplaceAction(action);
+                run.save();
+            }
             recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount, false);
 
             return action;

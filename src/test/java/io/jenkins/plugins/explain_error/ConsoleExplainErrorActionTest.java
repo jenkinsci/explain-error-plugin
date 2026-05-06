@@ -6,6 +6,7 @@ import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.concurrent.ExecutionException;
@@ -15,6 +16,15 @@ import org.htmlunit.Page;
 import org.htmlunit.WebRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.jenkinsci.plugins.workflow.actions.LogAction;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jvnet.hudson.test.FailureBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.SleepBuilder;
@@ -178,6 +188,78 @@ class ConsoleExplainErrorActionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void testExplainNodeErrorCachesByNodeAndDoesNotCreateBuildExplanation() throws Exception {
+        WorkflowJob workflowJob = rule.createProject(WorkflowJob.class, "graph-node-explain");
+        workflowJob.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"GRAPH_NODE_ENDPOINT_A\" && exit 1'\n"
+                + "    }\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"GRAPH_NODE_ENDPOINT_B\" && exit 1'\n"
+                + "    }\n"
+                + "}",
+                true));
+        WorkflowRun workflowRun = rule.assertBuildStatus(hudson.model.Result.FAILURE,
+                workflowJob.scheduleBuild2(0));
+        String nodeId = findNodeIdWithLog(workflowRun, "GRAPH_NODE_ENDPOINT_B");
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl() + workflowRun.getUrl()
+                    + "console-explain-error/explainNodeError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            request.setRequestParameters(java.util.List.of(
+                    new org.htmlunit.util.NameValuePair("nodeId", nodeId)
+            ));
+            Page page = client.getPage(request);
+            JSONObject responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", responseJson.getString("status"));
+
+            StepErrorExplanationAction stepAction = workflowRun.getAction(StepErrorExplanationAction.class);
+            assertNotNull(stepAction);
+            assertTrue(stepAction.hasExplanation(nodeId));
+            assertNull(workflowRun.getAction(ErrorExplanationAction.class),
+                    "Step explanation must not overwrite the build-level explanation action");
+            assertEquals(1, provider.getCallCount());
+            assertTrue(provider.getLastErrorLogs().contains("GRAPH_NODE_ENDPOINT_B"));
+            assertFalse(provider.getLastErrorLogs().contains("GRAPH_NODE_ENDPOINT_A"));
+
+            provider.setAnswerMessage("Second graph call");
+            page = client.getPage(request);
+            responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", responseJson.getString("status"));
+            assertTrue(responseJson.getString("message").contains("previously generated explanation"));
+            assertEquals(1, provider.getCallCount(), "Second call should use the node cache");
+
+            request.setRequestParameters(java.util.List.of(
+                    new org.htmlunit.util.NameValuePair("nodeId", nodeId),
+                    new org.htmlunit.util.NameValuePair("forceNew", "true")
+            ));
+            client.getPage(request);
+            assertEquals(2, provider.getCallCount(), "forceNew should bypass the node cache");
+            assertEquals("Summary: Second graph call\n",
+                    workflowRun.getAction(StepErrorExplanationAction.class)
+                            .getExplanation(nodeId)
+                            .getExplanation());
+        }
+    }
+
+    @Test
+    void testExplainNodeErrorRequiresNodeId() throws IOException {
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl()
+                    + "console-explain-error/explainNodeError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            Page page = client.getPage(request);
+            JSONObject responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("warning", responseJson.getString("status"));
+            assertTrue(responseJson.getString("message").contains("No Pipeline node"));
+            assertEquals(0, provider.getCallCount());
+        }
+    }
+
+    @Test
     void testCheckBuildStatus() throws IOException, ExecutionException, InterruptedException {
         try (JenkinsRule.WebClient client = rule.createWebClient()) {
             URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl() + "console-explain-error/checkBuildStatus");
@@ -208,5 +290,23 @@ class ConsoleExplainErrorActionTest {
             responseJson = JSONObject.fromObject(content);
             assertEquals(2, responseJson.getInt("buildingStatus"));
         }
+    }
+
+    private String findNodeIdWithLog(WorkflowRun run, String marker) throws Exception {
+        FlowExecution execution = run.getExecution();
+        assertNotNull(execution, "Pipeline execution should be available");
+        FlowGraphWalker walker = new FlowGraphWalker(execution);
+        for (FlowNode node : walker) {
+            LogAction logAction = node.getAction(LogAction.class);
+            if (logAction == null) {
+                continue;
+            }
+            StringWriter writer = new StringWriter();
+            logAction.getLogText().writeLogTo(0, writer);
+            if (writer.toString().contains(marker)) {
+                return node.getId();
+            }
+        }
+        throw new AssertionError("No FlowNode log contained marker: " + marker);
     }
 }

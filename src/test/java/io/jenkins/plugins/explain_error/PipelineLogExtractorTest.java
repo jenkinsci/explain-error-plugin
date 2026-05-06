@@ -24,6 +24,7 @@ import hudson.security.ACL;
 import hudson.security.ACLContext;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +35,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -136,6 +138,62 @@ class PipelineLogExtractorTest {
         String log = String.join("\n", lines);
         assertTrue(log.contains("STANDARD_ERROR_OUTPUT"),
                 "Strategy 1 should extract the sh step log containing the error output.\nActual log:\n" + log);
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void extractNodeLog_returnsOnlySelectedNodeLog(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-selected-node-log");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"SELECTED_NODE_A\" && exit 1'\n"
+                + "    }\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"SELECTED_NODE_B\" && exit 1'\n"
+                + "    }\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0));
+        String nodeId = findNodeIdWithLog(run, "SELECTED_NODE_B");
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        PipelineLogExtractor.ExtractionResult result = extractor.extractNodeLog(nodeId);
+        String log = String.join("\n", result.logLines());
+
+        assertTrue(result.foundFailingNode(), "Selected node extraction should report a node log");
+        assertEquals(nodeId, result.primaryNodeId(), "Selected node should be the primary node");
+        assertTrue(log.contains("SELECTED_NODE_B"), "Selected node log should be included.\nActual log:\n" + log);
+        assertFalse(log.contains("SELECTED_NODE_A"),
+                "Unselected sibling step log must not be included.\nActual log:\n" + log);
+        assertTrue(result.url().contains("selected-node=" + nodeId), "URL should deep-link to the selected node");
+    }
+
+    @Test
+    void extractNodeLog_missingNodeReturnsEmptyResult(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-missing-node-log");
+        job.setDefinition(new CpsFlowDefinition("node { echo 'ok' }", true));
+        WorkflowRun run = jenkins.buildAndAssertSuccess(job);
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        PipelineLogExtractor.ExtractionResult result = extractor.extractNodeLog("missing-node");
+
+        assertTrue(result.logLines().isEmpty(), "Missing node should not fall back to full console log");
+        assertFalse(result.foundFailingNode(), "Missing node should not report a found node");
+        assertEquals("missing-node", result.primaryNodeId());
+    }
+
+    @Test
+    void extractNodeLog_nonPipelineRunReturnsEmptyResult(JenkinsRule jenkins) throws Exception {
+        FreeStyleProject project = jenkins.createFreeStyleProject("test-node-log-freestyle");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(build, 200);
+        PipelineLogExtractor.ExtractionResult result = extractor.extractNodeLog("1");
+
+        assertTrue(result.logLines().isEmpty(), "Non-Pipeline node extraction should not use console fallback");
+        assertFalse(result.foundFailingNode(), "Non-Pipeline run should not report a Pipeline node");
     }
 
     /**
@@ -902,6 +960,24 @@ class PipelineLogExtractorTest {
 
         assertFalse(log.contains("### Downstream Job:"),
                 "UpstreamCause fallback should skip unreadable downstream jobs entirely.\nActual log:\n" + log);
+    }
+
+    private String findNodeIdWithLog(WorkflowRun run, String marker) throws Exception {
+        FlowExecution execution = run.getExecution();
+        assertNotNull(execution, "Pipeline execution should be available");
+        FlowGraphWalker walker = new FlowGraphWalker(execution);
+        for (FlowNode node : walker) {
+            LogAction logAction = node.getAction(LogAction.class);
+            if (logAction == null) {
+                continue;
+            }
+            StringWriter writer = new StringWriter();
+            logAction.getLogText().writeLogTo(0, writer);
+            if (writer.toString().contains(marker)) {
+                return node.getId();
+            }
+        }
+        throw new AssertionError("No FlowNode log contained marker: " + marker);
     }
 
     private Authentication configureReadAccess(JenkinsRule jenkins, String username) {

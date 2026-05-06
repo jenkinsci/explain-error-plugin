@@ -6,7 +6,12 @@
       <j:set var="existingExplanation" value="${it.existingExplanation}" />
       <j:set var="hasExplanation" value="${existingExplanation != null}" />
       <j:if test="${enabled or hasExplanation}">
-        <script src="${rootURL}/plugin/explain-error/js/explain-error-footer.js" type="text/javascript"/>
+        <j:if test="${it.consolePage}">
+          <script src="${rootURL}/plugin/explain-error/js/explain-error-footer.js" type="text/javascript"/>
+        </j:if>
+        <j:if test="${it.pipelineGraphViewPage}">
+          <script src="${rootURL}/plugin/explain-error/js/explain-error-graph.js" type="text/javascript"/>
+        </j:if>
         <j:set var="controls">
           <j:if test="${enabled}">
             <a href="#" tooltip="${%reexplain(it.providerName)}" class="jenkins-card__reveal eep-generate-new-button">

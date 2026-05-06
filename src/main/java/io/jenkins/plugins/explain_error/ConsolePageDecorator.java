@@ -3,6 +3,7 @@ package io.jenkins.plugins.explain_error;
 import hudson.Extension;
 import hudson.model.PageDecorator;
 import hudson.model.Run;
+import jenkins.model.Jenkins;
 import org.kohsuke.stapler.Ancestor;
 import org.kohsuke.stapler.Stapler;
 
@@ -39,11 +40,20 @@ public class ConsolePageDecorator extends PageDecorator {
     }
 
     /**
-     * Helper method used by jelly to checked if we're on a console url.
+     * Helper method used by jelly to check if we're on a supported build page.
      */
     public boolean isPluginActive() {
+        return isConsolePage() || isPipelineGraphViewPage();
+    }
+
+    public boolean isConsolePage() {
         String uri = Stapler.getCurrentRequest2().getRequestURI();
         return uri.matches(".*/console(Full)?$");
+    }
+
+    public boolean isPipelineGraphViewPage() {
+        String uri = Stapler.getCurrentRequest2().getRequestURI();
+        return uri.matches(".*/stages/?$") && Jenkins.get().getPlugin("pipeline-graph-view") != null;
     }
 
     public String getRunUrl() {

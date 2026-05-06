@@ -322,6 +322,48 @@ public class PipelineLogExtractor {
         return extractFailedStepLog(true);
     }
 
+    public ExtractionResult extractNodeLog(String nodeId) throws IOException {
+        stats.reset();
+        String trimmedNodeId = nodeId != null ? nodeId.trim() : "";
+        setUrl(trimmedNodeId.isEmpty() ? "0" : trimmedNodeId);
+
+        if (trimmedNodeId.isEmpty() || !(this.run instanceof WorkflowRun workflowRun)) {
+            return emptyExtractionResult(trimmedNodeId);
+        }
+
+        FlowExecution execution = workflowRun.getExecution();
+        if (execution == null) {
+            return emptyExtractionResult(trimmedNodeId);
+        }
+
+        FlowNode requestedNode = execution.getNode(trimmedNodeId);
+        if (requestedNode == null) {
+            return emptyExtractionResult(trimmedNodeId);
+        }
+
+        FlowNode logNode = resolveNodeWithLog(requestedNode, execution);
+        if (logNode == null) {
+            return emptyExtractionResult(trimmedNodeId);
+        }
+
+        List<String> stepLog = readLimitedLog(logNode.getAction(LogAction.class).getLogText(), maxLines);
+        if (stepLog == null || stepLog.isEmpty()) {
+            return emptyExtractionResult(trimmedNodeId);
+        }
+
+        addHeaderLog(logNode, stepLog);
+        return new ExtractionResult(
+                stepLog,
+                url,
+                false,
+                true,
+                logNode.getId(),
+                false,
+                0,
+                0,
+                0);
+    }
+
     private ExtractionResult extractFailedStepLog(boolean resetStats) throws IOException {
         if (resetStats) {
             stats.reset();
@@ -444,6 +486,39 @@ public class PipelineLogExtractor {
      */
     FlowNode resolveOrigin(Throwable error, FlowExecution execution) {
         return ErrorAction.findOrigin(error, execution);
+    }
+
+    private FlowNode resolveNodeWithLog(FlowNode node, FlowExecution execution) {
+        if (node.getAction(LogAction.class) != null) {
+            return node;
+        }
+
+        ErrorAction errorAction = node.getError();
+        if (errorAction != null) {
+            FlowNode origin = resolveOrigin(errorAction.getError(), execution);
+            if (origin != null && origin.getAction(LogAction.class) != null) {
+                return origin;
+            }
+            FlowNode immediateParent = findImmediateParentWithLog(origin != null ? origin : node);
+            if (immediateParent != null) {
+                return immediateParent;
+            }
+        }
+
+        return findImmediateParentWithLog(node);
+    }
+
+    private ExtractionResult emptyExtractionResult(String nodeId) {
+        return new ExtractionResult(
+                List.of(),
+                url,
+                false,
+                false,
+                nodeId == null || nodeId.isBlank() ? null : nodeId,
+                false,
+                0,
+                0,
+                0);
     }
 
     private void setUrl(String node)

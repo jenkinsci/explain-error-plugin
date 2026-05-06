@@ -42,6 +42,15 @@ class MetricsUsageRecorderTest {
     }
 
     @Test
+    void requestCounterIncrementedForPipelineGraphNode() {
+        recorder.record(event(UsageEvent.EntryPoint.PIPELINE_GRAPH_NODE, UsageEvent.Result.SUCCESS,
+                "OpenAI", "gpt-4o", 100L, 12));
+
+        assertEquals(1, registry.counter("explain_error.requests.pipeline_graph_node.success").getCount());
+        assertEquals(1, registry.counter("explain_error.provider_calls.openai.gpt-4o.success").getCount());
+    }
+
+    @Test
     void requestCounterIncrementedForDisabled() {
         recorder.record(event(UsageEvent.EntryPoint.PIPELINE_STEP, UsageEvent.Result.DISABLED,
                 "OpenAI", "gpt-4o", 0L, 0));
