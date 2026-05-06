@@ -346,7 +346,12 @@ public class PipelineLogExtractor {
             return emptyExtractionResult(trimmedNodeId);
         }
 
-        List<String> stepLog = readLimitedLog(logNode.getAction(LogAction.class).getLogText(), maxLines);
+        LogAction logAction = logNode.getAction(LogAction.class);
+        if (logAction == null) {
+            return emptyExtractionResult(trimmedNodeId);
+        }
+
+        List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
         if (stepLog == null || stepLog.isEmpty()) {
             return emptyExtractionResult(trimmedNodeId);
         }
