@@ -189,15 +189,11 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         try {
             run.checkPermission(hudson.model.Item.READ);
 
-            Integer buildingStatus = run.isBuilding() ? 1 : 0;
-
-            if (buildingStatus == 0) {
-                Result result = run.getResult();
-                if (result == Result.SUCCESS) {
-                    buildingStatus = 0;
-                } else {
-                    buildingStatus = 2;
-                }
+            int buildingStatus = 0;
+            if (run.isBuilding()) {
+                buildingStatus = 1;
+            } else if (run.getResult() == Result.FAILURE) {
+                buildingStatus = 2;
             }
 
             rsp.setContentType("application/json");

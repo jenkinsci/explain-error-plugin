@@ -342,31 +342,130 @@ public class PipelineLogExtractor {
         }
 
         FlowNode logNode = resolveNodeWithLog(requestedNode, execution);
-        if (logNode == null) {
+        List<String> directStepLog = readNodeLog(logNode);
+        if (!directStepLog.isEmpty()) {
+            addHeaderLog(logNode, directStepLog);
+            return new ExtractionResult(
+                    directStepLog,
+                    url,
+                    false,
+                    true,
+                    logNode.getId(),
+                    false,
+                    0,
+                    0,
+                    0);
+        }
+
+        List<String> descendantStepLog = collectDescendantNodeLogs(
+                execution,
+                trimmedNodeId);
+        if (descendantStepLog.isEmpty()) {
             return emptyExtractionResult(trimmedNodeId);
         }
 
-        LogAction logAction = logNode.getAction(LogAction.class);
-        if (logAction == null) {
-            return emptyExtractionResult(trimmedNodeId);
-        }
-
-        List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
-        if (stepLog == null || stepLog.isEmpty()) {
-            return emptyExtractionResult(trimmedNodeId);
-        }
-
-        addHeaderLog(logNode, stepLog);
         return new ExtractionResult(
-                stepLog,
+                descendantStepLog,
                 url,
                 false,
                 true,
-                logNode.getId(),
+                trimmedNodeId,
                 false,
                 0,
                 0,
                 0);
+    }
+
+    private List<String> readNodeLog(final FlowNode node) {
+        if (node == null) {
+            return Collections.emptyList();
+        }
+
+        LogAction logAction = node.getAction(LogAction.class);
+        if (logAction == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
+        return stepLog == null ? Collections.emptyList() : stepLog;
+    }
+
+    private List<String> collectDescendantNodeLogs(
+            final FlowExecution execution,
+            final String selectedNodeId) {
+        List<FlowNode> failureNodes = new ArrayList<>();
+        List<FlowNode> logNodes = new ArrayList<>();
+        FlowGraphWalker walker = new FlowGraphWalker(execution);
+        for (FlowNode node : walker) {
+            if (selectedNodeId.equals(node.getId())
+                    || !hasLogAction(node)
+                    || !hasAncestor(node, selectedNodeId)) {
+                continue;
+            }
+
+            logNodes.add(node);
+            if (hasFailureSignal(node)) {
+                failureNodes.add(node);
+            }
+        }
+
+        List<FlowNode> selectedNodes = failureNodes.isEmpty()
+                ? logNodes
+                : failureNodes;
+        List<String> accumulated = new ArrayList<>();
+        for (FlowNode node : selectedNodes) {
+            int remainingLines = maxLines - accumulated.size();
+            if (remainingLines <= 0) {
+                break;
+            }
+
+            LogAction logAction = node.getAction(LogAction.class);
+            List<String> stepLog = readLimitedLog(
+                    logAction.getLogText(),
+                    remainingLines);
+            if (stepLog == null || stepLog.isEmpty()) {
+                continue;
+            }
+
+            addHeaderLog(node, stepLog);
+            accumulated.addAll(stepLog);
+        }
+        return accumulated;
+    }
+
+    private boolean hasLogAction(final FlowNode node) {
+        return node.getAction(LogAction.class) != null;
+    }
+
+    private boolean hasFailureSignal(final FlowNode node) {
+        if (node.getError() != null) {
+            return true;
+        }
+
+        WarningAction warningAction = node.getAction(WarningAction.class);
+        return warningAction != null
+                && warningAction.getResult() == Result.FAILURE;
+    }
+
+    private boolean hasAncestor(
+            final FlowNode node,
+            final String ancestorNodeId) {
+        Queue<FlowNode> queue = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+        queue.addAll(node.getParents());
+        while (!queue.isEmpty()) {
+            FlowNode current = queue.poll();
+            if (!visited.add(current.getId())) {
+                continue;
+            }
+
+            if (ancestorNodeId.equals(current.getId())) {
+                return true;
+            }
+
+            queue.addAll(current.getParents());
+        }
+        return false;
     }
 
     private ExtractionResult extractFailedStepLog(boolean resetStats) throws IOException {

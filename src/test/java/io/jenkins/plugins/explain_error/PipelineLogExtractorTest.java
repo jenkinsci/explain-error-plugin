@@ -171,6 +171,38 @@ class PipelineLogExtractorTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void extractNodeLog_selectedParentNodeReturnsFailedDescendantLog(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-selected-parent-node-log");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"SELECTED_PARENT_A\" && exit 1'\n"
+                + "    }\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"SELECTED_PARENT_B\" && exit 1'\n"
+                + "    }\n"
+                + "}",
+                true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0));
+        String parentNodeId = findNearestParentNodeIdWithoutLog(run, "SELECTED_PARENT_B");
+
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, 200);
+        PipelineLogExtractor.ExtractionResult result = extractor.extractNodeLog(parentNodeId);
+        String log = String.join("\n", result.logLines());
+
+        assertTrue(result.foundFailingNode(), "Selected parent extraction should report descendant node logs");
+        assertEquals(parentNodeId, result.primaryNodeId(), "Selected parent should remain the primary node");
+        assertTrue(log.contains("SELECTED_PARENT_B"),
+                "Selected parent's descendant failure log should be included.\nActual log:\n" + log);
+        assertFalse(log.contains("SELECTED_PARENT_A"),
+                "Unselected sibling parent log must not be included.\nActual log:\n" + log);
+        assertTrue(result.url().contains("selected-node=" + parentNodeId),
+                "URL should deep-link to the selected parent node");
+    }
+
+    @Test
     void extractNodeLog_missingNodeReturnsEmptyResult(JenkinsRule jenkins) throws Exception {
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-missing-node-log");
         job.setDefinition(new CpsFlowDefinition("node { echo 'ok' }", true));
@@ -978,6 +1010,19 @@ class PipelineLogExtractorTest {
             }
         }
         throw new AssertionError("No FlowNode log contained marker: " + marker);
+    }
+
+    private String findNearestParentNodeIdWithoutLog(WorkflowRun run, String marker) throws Exception {
+        FlowExecution execution = run.getExecution();
+        assertNotNull(execution, "Pipeline execution should be available");
+        FlowNode logNode = execution.getNode(findNodeIdWithLog(run, marker));
+        assertNotNull(logNode, "Log node should be available");
+        for (FlowNode parent : logNode.getParents()) {
+            if (parent.getAction(LogAction.class) == null) {
+                return parent.getId();
+            }
+        }
+        throw new AssertionError("No parent FlowNode without log found for marker: " + marker);
     }
 
     private Authentication configureReadAccess(JenkinsRule jenkins, String username) {

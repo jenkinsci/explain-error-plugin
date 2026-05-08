@@ -1,9 +1,54 @@
 document.addEventListener('DOMContentLoaded', function () {
   installHistoryListener();
-  installGraphExplainButton();
+  checkGraphBuildStatusAndInstallButton();
   updateGraphExplainButton();
   observeGraphViewChanges();
 });
+
+function checkGraphBuildStatusAndInstallButton() {
+  checkGraphBuildStatus(function(buildingStatus) {
+    if (buildingStatus == 2) {
+      installGraphExplainButton();
+      updateGraphExplainButton();
+    } else if (buildingStatus == 1) {
+      setTimeout(checkGraphBuildStatusAndInstallButton, 5000);
+    } else {
+      const button = document.querySelector('.explain-error-graph-btn');
+      if (button) {
+        button.remove();
+      }
+    }
+  });
+}
+
+function checkGraphBuildStatus(callback) {
+  const container = document.getElementById('explain-error-container');
+  if (!container) {
+    callback(0);
+    return;
+  }
+
+  const basePath = container.dataset.runUrl;
+  const rootURL = document.head.getAttribute("data-rooturl");
+  const url = rootURL + '/' + basePath + 'console-explain-error/checkBuildStatus';
+  const headers = crumb.wrap({
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
+
+  fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: ""
+  })
+  .then(response => response.json())
+  .then(data => {
+    callback(data.buildingStatus);
+  })
+  .catch(error => {
+    console.warn('Error checking build status:', error);
+    callback(0);
+  });
+}
 
 function installGraphExplainButton() {
   if (document.querySelector('.explain-error-graph-btn')) {
@@ -15,6 +60,7 @@ function installGraphExplainButton() {
     setTimeout(installGraphExplainButton, 500);
     return;
   }
+  overflowRoot.style.display = 'contents';
 
   const button = document.createElement('button');
   button.type = 'button';
@@ -25,6 +71,7 @@ function installGraphExplainButton() {
   };
   overflowRoot.appendChild(button);
   Behaviour.applySubtree(overflowRoot, true);
+  updateGraphExplainButton();
 }
 
 function installHistoryListener() {

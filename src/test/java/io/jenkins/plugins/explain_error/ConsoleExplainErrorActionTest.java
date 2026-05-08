@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.net.URL;
-import java.util.concurrent.ExecutionException;
 import net.sf.json.JSONObject;
 import org.htmlunit.HttpMethod;
 import org.htmlunit.Page;
@@ -28,6 +28,7 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jvnet.hudson.test.FailureBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.SleepBuilder;
+import org.jvnet.hudson.test.UnstableBuilder;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
@@ -246,6 +247,43 @@ class ConsoleExplainErrorActionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void testExplainNodeErrorUsesSelectedParentNodeDescendantLog() throws Exception {
+        WorkflowJob workflowJob = rule.createProject(WorkflowJob.class, "graph-parent-node-explain");
+        workflowJob.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"GRAPH_PARENT_ENDPOINT_A\" && exit 1'\n"
+                + "    }\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"GRAPH_PARENT_ENDPOINT_B\" && exit 1'\n"
+                + "    }\n"
+                + "}",
+                true));
+        WorkflowRun workflowRun = rule.assertBuildStatus(Result.FAILURE, workflowJob.scheduleBuild2(0));
+        String parentNodeId = findNearestParentNodeIdWithoutLog(workflowRun, "GRAPH_PARENT_ENDPOINT_B");
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl() + workflowRun.getUrl()
+                    + "console-explain-error/explainNodeError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            request.setRequestParameters(java.util.List.of(
+                    new org.htmlunit.util.NameValuePair("nodeId", parentNodeId)
+            ));
+            Page page = client.getPage(request);
+            JSONObject responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", responseJson.getString("status"));
+
+            StepErrorExplanationAction stepAction = workflowRun.getAction(StepErrorExplanationAction.class);
+            assertNotNull(stepAction);
+            assertTrue(stepAction.hasExplanation(parentNodeId));
+            assertEquals(1, provider.getCallCount());
+            assertTrue(provider.getLastErrorLogs().contains("GRAPH_PARENT_ENDPOINT_B"));
+            assertFalse(provider.getLastErrorLogs().contains("GRAPH_PARENT_ENDPOINT_A"));
+        }
+    }
+
+    @Test
     void testExplainNodeErrorRequiresNodeId() throws IOException {
         try (JenkinsRule.WebClient client = rule.createWebClient()) {
             URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl()
@@ -260,7 +298,7 @@ class ConsoleExplainErrorActionTest {
     }
 
     @Test
-    void testCheckBuildStatus() throws IOException, ExecutionException, InterruptedException {
+    void testCheckBuildStatus() throws Exception {
         try (JenkinsRule.WebClient client = rule.createWebClient()) {
             URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl() + "console-explain-error/checkBuildStatus");
             WebRequest request = new WebRequest(url, HttpMethod.POST);
@@ -289,6 +327,31 @@ class ConsoleExplainErrorActionTest {
             content = page.getWebResponse().getContentAsString();
             responseJson = JSONObject.fromObject(content);
             assertEquals(2, responseJson.getInt("buildingStatus"));
+
+            project.getBuildersList().clear();
+            project.getBuildersList().add(new UnstableBuilder());
+            build = project.scheduleBuild2(0).get();
+            url = new URL(rule.jenkins.getRootUrl() + build.getUrl() + "console-explain-error/checkBuildStatus");
+            request = new WebRequest(url, HttpMethod.POST);
+            page = client.getPage(request);
+            content = page.getWebResponse().getContentAsString();
+            responseJson = JSONObject.fromObject(content);
+            assertEquals(0, responseJson.getInt("buildingStatus"));
+
+            WorkflowJob abortedJob = rule.createProject(WorkflowJob.class, "aborted-status");
+            abortedJob.setDefinition(new CpsFlowDefinition(
+                    "node {\n"
+                    + "    currentBuild.result = 'ABORTED'\n"
+                    + "    echo 'aborted status marker'\n"
+                    + "}",
+                    true));
+            WorkflowRun abortedRun = rule.assertBuildStatus(Result.ABORTED, abortedJob.scheduleBuild2(0));
+            url = new URL(rule.jenkins.getRootUrl() + abortedRun.getUrl() + "console-explain-error/checkBuildStatus");
+            request = new WebRequest(url, HttpMethod.POST);
+            page = client.getPage(request);
+            content = page.getWebResponse().getContentAsString();
+            responseJson = JSONObject.fromObject(content);
+            assertEquals(0, responseJson.getInt("buildingStatus"));
         }
     }
 
@@ -308,5 +371,18 @@ class ConsoleExplainErrorActionTest {
             }
         }
         throw new AssertionError("No FlowNode log contained marker: " + marker);
+    }
+
+    private String findNearestParentNodeIdWithoutLog(WorkflowRun run, String marker) throws Exception {
+        FlowExecution execution = run.getExecution();
+        assertNotNull(execution, "Pipeline execution should be available");
+        FlowNode logNode = execution.getNode(findNodeIdWithLog(run, marker));
+        assertNotNull(logNode, "Log node should be available");
+        for (FlowNode parent : logNode.getParents()) {
+            if (parent.getAction(LogAction.class) == null) {
+                return parent.getId();
+            }
+        }
+        throw new AssertionError("No parent FlowNode without log found for marker: " + marker);
     }
 }
