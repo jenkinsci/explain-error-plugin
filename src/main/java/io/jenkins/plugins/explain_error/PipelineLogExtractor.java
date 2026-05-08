@@ -420,6 +420,10 @@ public class PipelineLogExtractor {
             }
 
             LogAction logAction = node.getAction(LogAction.class);
+            if (logAction == null) {
+                continue;
+            }
+
             List<String> stepLog = readLimitedLog(
                     logAction.getLogText(),
                     remainingLines);
