@@ -47,6 +47,7 @@ public class OllamaProvider extends BaseAIProvider {
                 .modelName(getModel())
                 .temperature(0.3)
                 .responseFormat(ResponseFormat.JSON)
+                .think(false)
                 .timeout(Duration.ofSeconds(180))
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE))
