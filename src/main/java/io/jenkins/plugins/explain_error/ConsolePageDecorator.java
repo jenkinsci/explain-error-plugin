@@ -53,7 +53,11 @@ public class ConsolePageDecorator extends PageDecorator {
 
     public boolean isPipelineGraphViewPage() {
         String uri = Stapler.getCurrentRequest2().getRequestURI();
-        return uri.matches(".*/stages/?$") && Jenkins.get().getPlugin("pipeline-graph-view") != null;
+        return isPipelineGraphViewUri(uri) && Jenkins.get().getPlugin("pipeline-graph-view") != null;
+    }
+
+    static boolean isPipelineGraphViewUri(String uri) {
+        return uri != null && uri.matches(".*/(stages|pipeline-overview)/?$");
     }
 
     public String getRunUrl() {

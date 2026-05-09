@@ -1,5 +1,8 @@
+let graphBuildStatus = null;
+
 document.addEventListener('DOMContentLoaded', function () {
   installHistoryListener();
+  installGraphExplainButton();
   checkGraphBuildStatusAndInstallButton();
   updateGraphExplainButton();
   observeGraphViewChanges();
@@ -7,15 +10,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function checkGraphBuildStatusAndInstallButton() {
   checkGraphBuildStatus(function(buildingStatus) {
-    if (buildingStatus == 2) {
+    if (buildingStatus == null) {
       installGraphExplainButton();
       updateGraphExplainButton();
-    } else if (buildingStatus == 1) {
-      setTimeout(checkGraphBuildStatusAndInstallButton, 5000);
+      return;
+    }
+
+    graphBuildStatus = buildingStatus;
+    if (buildingStatus == 0) {
+      removeGraphExplainButton();
     } else {
-      const button = document.querySelector('.explain-error-graph-btn');
-      if (button) {
-        button.remove();
+      installGraphExplainButton();
+      updateGraphExplainButton();
+      if (buildingStatus == 1) {
+        setTimeout(checkGraphBuildStatusAndInstallButton, 5000);
       }
     }
   });
@@ -24,16 +32,19 @@ function checkGraphBuildStatusAndInstallButton() {
 function checkGraphBuildStatus(callback) {
   const container = document.getElementById('explain-error-container');
   if (!container) {
-    callback(0);
+    callback(null);
     return;
   }
 
   const basePath = container.dataset.runUrl;
   const rootURL = document.head.getAttribute("data-rooturl");
   const url = rootURL + '/' + basePath + 'console-explain-error/checkBuildStatus';
-  const headers = crumb.wrap({
+  let headers = {
     "Content-Type": "application/x-www-form-urlencoded",
-  });
+  };
+  if (window.crumb && typeof window.crumb.wrap === 'function') {
+    headers = window.crumb.wrap(headers);
+  }
 
   fetch(url, {
     method: "POST",
@@ -46,11 +57,15 @@ function checkGraphBuildStatus(callback) {
   })
   .catch(error => {
     console.warn('Error checking build status:', error);
-    callback(0);
+    callback(null);
   });
 }
 
 function installGraphExplainButton() {
+  if (graphBuildStatus == 0) {
+    return;
+  }
+
   if (document.querySelector('.explain-error-graph-btn')) {
     return;
   }
@@ -72,6 +87,13 @@ function installGraphExplainButton() {
   overflowRoot.appendChild(button);
   Behaviour.applySubtree(overflowRoot, true);
   updateGraphExplainButton();
+}
+
+function removeGraphExplainButton() {
+  const button = document.querySelector('.explain-error-graph-btn');
+  if (button) {
+    button.remove();
+  }
 }
 
 function installHistoryListener() {
@@ -104,8 +126,16 @@ function observeGraphViewChanges() {
     return;
   }
 
-  const observer = new MutationObserver(updateGraphExplainButton);
+  const observer = new MutationObserver(function() {
+    installGraphExplainButton();
+    updateGraphExplainButton();
+  });
   observer.observe(root, { childList: true, subtree: true });
+
+  const overflowRoot = document.getElementById('console-pipeline-overflow-root');
+  if (overflowRoot) {
+    observer.observe(overflowRoot, { childList: true });
+  }
 }
 
 function getSelectedNodeId() {
@@ -123,8 +153,11 @@ function updateGraphExplainButton() {
   const nodeId = getSelectedNodeId();
   const container = document.getElementById('explain-error-container');
   const enabled = container && container.dataset.pluginEnabled === 'true';
-  button.disabled = !enabled || !nodeId;
-  button.setAttribute('tooltip', nodeId ? 'Explain Pipeline node ' + nodeId : 'Select a Pipeline step first');
+  const building = graphBuildStatus == 1;
+  button.disabled = !enabled || !nodeId || building;
+  button.setAttribute('tooltip', building
+      ? 'Build is still running'
+      : (nodeId ? 'Explain Pipeline node ' + nodeId : 'Select a Pipeline step first'));
 }
 
 Behaviour.specify(".eep-generate-new-button", "ExplainErrorGraphView", 0, function(e) {
