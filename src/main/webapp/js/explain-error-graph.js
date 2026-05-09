@@ -105,18 +105,27 @@ function installHistoryListener() {
   const originalPushState = history.pushState;
   history.pushState = function () {
     const result = originalPushState.apply(this, arguments);
-    setTimeout(updateGraphExplainButton, 0);
+    setTimeout(function() {
+      installGraphExplainButton();
+      updateGraphExplainButton();
+    }, 0);
     return result;
   };
 
   const originalReplaceState = history.replaceState;
   history.replaceState = function () {
     const result = originalReplaceState.apply(this, arguments);
-    setTimeout(updateGraphExplainButton, 0);
+    setTimeout(function() {
+      installGraphExplainButton();
+      updateGraphExplainButton();
+    }, 0);
     return result;
   };
 
-  window.addEventListener('popstate', updateGraphExplainButton);
+  window.addEventListener('popstate', function() {
+    installGraphExplainButton();
+    updateGraphExplainButton();
+  });
 }
 
 function observeGraphViewChanges() {
@@ -136,6 +145,11 @@ function observeGraphViewChanges() {
   if (overflowRoot) {
     observer.observe(overflowRoot, { childList: true });
   }
+
+  // Install the button immediately in case the pipeline graph is already rendered.
+  // This handles the case where the user navigates to this page with ?selected-node
+  // from the pipeline overview and the DOM is already settled.
+  installGraphExplainButton();
 }
 
 function getSelectedNodeId() {
