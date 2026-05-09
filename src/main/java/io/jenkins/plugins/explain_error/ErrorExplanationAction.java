@@ -1,15 +1,15 @@
 package io.jenkins.plugins.explain_error;
 
-import org.kohsuke.stapler.export.Exported;
-import org.kohsuke.stapler.export.ExportedBean;
 import hudson.model.Api;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
+import org.kohsuke.stapler.export.Exported;
+import org.kohsuke.stapler.export.ExportedBean;
 
 /**
  * Build action to store and display error explanations.
  */
-@ExportedBean(defaultVisibility = 999)
+@ExportedBean(defaultVisibility = 0)
 public class ErrorExplanationAction implements RunAction2 {
 
     private final String explanation;
@@ -66,7 +66,7 @@ public class ErrorExplanationAction implements RunAction2 {
         return new Api(this);
     }
 
-    @Exported
+    @Exported(visibility = 1)
     public String getExplanation() {
         return explanation;
     }
@@ -75,26 +75,32 @@ public class ErrorExplanationAction implements RunAction2 {
         return originalErrorLogs;
     }
 
+    @Exported(visibility = 1)
     public long getTimestamp() {
         return timestamp;
     }
 
+    @Exported(visibility = 1)
     public String getFormattedTimestamp() {
         return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date(timestamp));
     }
 
+    @Exported(visibility = 1)
     public String getProviderName() {
         return providerName;
     }
 
+    @Exported(visibility = 1)
     public String getProviderModel() {
         return providerModel;
     }
 
+    @Exported(visibility = 1)
     public String getUrlString() {
         return urlString;
     }
 
+    @Exported(visibility = 1)
     public int getInputLogLineCount() {
         return inputLogLineCount;
     }
