@@ -294,5 +294,12 @@
       <groupId>io.jenkins.plugins.aws-java-sdk2</groupId>
       <artifactId>aws-java-sdk2-core</artifactId>
     </dependency>
+
+    <!-- Resolves javax.annotation.meta.When for SpotBugs/annotation-indexer -->
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 </project>
