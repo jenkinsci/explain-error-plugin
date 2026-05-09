@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.kohsuke.stapler.export.ExportedBean;
 import org.kohsuke.stapler.export.Flavor;
 import org.kohsuke.stapler.export.Model;
 import org.kohsuke.stapler.export.ModelBuilder;
@@ -115,6 +116,14 @@ class ErrorExplanationActionTest {
         assertEquals(apiAction.getFormattedTimestamp(), json.getString("formattedTimestamp"));
         assertFalse(json.containsKey("originalErrorLogs"));
         assertFalse(json.containsKey("run"));
+    }
+
+    @Test
+    void testRestApiExportKeepsNestedExplanationVisibility() {
+        ExportedBean exportedBean = ErrorExplanationAction.class.getAnnotation(ExportedBean.class);
+
+        assertNotNull(exportedBean);
+        assertEquals(999, exportedBean.defaultVisibility());
     }
 
     @Test

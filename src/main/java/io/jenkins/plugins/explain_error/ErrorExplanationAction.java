@@ -9,7 +9,7 @@ import org.kohsuke.stapler.export.ExportedBean;
 /**
  * Build action to store and display error explanations.
  */
-@ExportedBean(defaultVisibility = 0)
+@ExportedBean(defaultVisibility = 999)
 public class ErrorExplanationAction implements RunAction2 {
 
     private final String explanation;
@@ -66,7 +66,7 @@ public class ErrorExplanationAction implements RunAction2 {
         return new Api(this);
     }
 
-    @Exported(visibility = 1)
+    @Exported
     public String getExplanation() {
         return explanation;
     }
