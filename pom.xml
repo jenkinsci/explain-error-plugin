@@ -183,7 +183,7 @@
 
     <!-- WireMock for SCM API integration tests -->
     <dependency>
-      <groupId>com.github.tomakehurst</groupId>
+      <groupId>org.wiremock</groupId>
       <artifactId>wiremock-standalone</artifactId>
       <version>3.0.1</version>
       <scope>test</scope>
