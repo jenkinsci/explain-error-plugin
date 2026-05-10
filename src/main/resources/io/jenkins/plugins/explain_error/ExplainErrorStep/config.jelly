@@ -44,7 +44,7 @@
 
     <f:optionalBlock field="autoFix" title="Enable AI Auto-Fix (create PR)" inline="true">
         <f:entry title="SCM Credentials ID" field="autoFixCredentialsId"
-                 description="Jenkins credentials ID for the SCM token (Personal Access Token with write access).">
+                 description="Jenkins credentials ID for the SCM token. Supports Secret text and Username with password credentials.">
             <f:textbox />
         </f:entry>
 

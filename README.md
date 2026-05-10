@@ -325,7 +325,7 @@ post {
 | **workspaceContextPaths** | Comma-separated file paths or glob patterns to include when workspace context is enabled | Common build/config files |
 | **workspaceContextMaxBytes** | Maximum total bytes of workspace context to include | `20000` |
 | **autoFix** | Enable AI auto-fix: the plugin will attempt to generate and commit a code fix, then open a pull request | `false` |
-| **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository | `''` |
+| **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository. Supports Secret text and Username with password credentials. | `''` |
 | **autoFixScmType** | SCM type override: `github`, `gitlab`, or `bitbucket`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` | Auto-detected from remote URL |
 | **autoFixGithubEnterpriseUrl** | Base URL of your GitHub Enterprise instance (e.g. `https://github.company.com`) | `''` (uses `api.github.com`) |
 | **autoFixGitlabUrl** | Base URL of your self-hosted GitLab instance (e.g. `https://gitlab.company.com`) | `''` (uses `gitlab.com`) |
@@ -391,7 +391,7 @@ post {
     failure {
         explainError(
             autoFix: true,
-            autoFixCredentialsId: 'github-pat'  // Jenkins credential with repo write access
+            autoFixCredentialsId: 'github-pat'  // Secret text or Username with password credential with repo write access
         )
     }
 }
