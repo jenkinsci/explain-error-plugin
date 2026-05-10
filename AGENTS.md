@@ -96,6 +96,7 @@ These commands can destroy other agents' work:
 - `git clean -fd` — deletes untracked files
 - `git stash` — stashes ALL changes including other agents' work
 - `git add -A` / `git add .` — stages other agents' uncommitted work
+- `git push --force` / `git push -f` — overwrites remote history; agents are NEVER allowed to force push under any circumstances
 
 ### Safe Workflow
 
