@@ -195,7 +195,6 @@ function updateGraphExplainButton() {
 Behaviour.specify(".eep-generate-new-button", "ExplainErrorGraphView", 0, function(e) {
   e.onclick = function(event) {
     event.preventDefault();
-    clearGraphExplanationContent();
     sendNodeExplainRequest(true);
   };
 });
@@ -287,8 +286,3 @@ function hideGraphContainer() {
   container.classList.add('jenkins-hidden');
 }
 
-function clearGraphExplanationContent() {
-  const content = document.getElementById('explain-error-content');
-  content.classList.add('jenkins-hidden');
-  content.textContent = '';
-}

@@ -69,7 +69,15 @@ public class ConsolePageDecorator extends PageDecorator {
         }
     }
 
+    /**
+     * Returns the console-level explanation for pre-populating the Jelly view.
+     * Only relevant on console pages; returns null on graph view pages because
+     * graph view uses per-node {@link StepErrorExplanationAction} explanations.
+     */
     public ErrorExplanationAction getExistingExplanation() {
+        if (isPipelineGraphViewPage()) {
+            return null;
+        }
         Ancestor ancestor = Stapler.getCurrentRequest2().findAncestor(Run.class);
         if (ancestor != null && ancestor.getObject() instanceof Run<?, ?> run) {
             return run.getAction(ErrorExplanationAction.class);
