@@ -25,6 +25,9 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     private BaseAIProvider aiProvider;
     private boolean enableExplanation = true;
+    private String language;
+    private String customContext;
+    private Double temperature;
 
     private boolean enableQuota = false;
     private QuotaWindow quotaWindow = QuotaWindow.HOURLY;
@@ -73,6 +76,33 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         if (!enableExplanation) {
             this.aiProvider = null;
         }
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    @DataBoundSetter
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getCustomContext() {
+        return customContext;
+    }
+
+    @DataBoundSetter
+    public void setCustomContext(String customContext) {
+        this.customContext = customContext;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    @DataBoundSetter
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
     }
 
     public boolean isEnableQuota() {
@@ -213,6 +243,75 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         }
 
         return true; // Default to enabled
+    }
+
+    /**
+     * Recursively search for folder-level language configuration.
+     * Walks up the folder hierarchy until a configured value is found.
+     *
+     * @param itemGroup the item group to search from
+     * @return the language if found at folder level, null otherwise
+     */
+    @CheckForNull
+    public static String findFolderLanguage(@CheckForNull ItemGroup<?> itemGroup) {
+        if (itemGroup == null) {
+            return null;
+        }
+        if (itemGroup instanceof AbstractFolder) {
+            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
+            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
+            if (property != null && property.getLanguage() != null && !property.getLanguage().isBlank()) {
+                return property.getLanguage();
+            }
+            return findFolderLanguage(folder.getParent());
+        }
+        return null;
+    }
+
+    /**
+     * Recursively search for folder-level custom context configuration.
+     * Walks up the folder hierarchy until a configured value is found.
+     *
+     * @param itemGroup the item group to search from
+     * @return the custom context if found at folder level, null otherwise
+     */
+    @CheckForNull
+    public static String findFolderCustomContext(@CheckForNull ItemGroup<?> itemGroup) {
+        if (itemGroup == null) {
+            return null;
+        }
+        if (itemGroup instanceof AbstractFolder) {
+            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
+            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
+            if (property != null && property.getCustomContext() != null && !property.getCustomContext().isBlank()) {
+                return property.getCustomContext();
+            }
+            return findFolderCustomContext(folder.getParent());
+        }
+        return null;
+    }
+
+    /**
+     * Recursively search for folder-level temperature configuration.
+     * Walks up the folder hierarchy until a configured value is found.
+     *
+     * @param itemGroup the item group to search from
+     * @return the temperature if found at folder level, null otherwise
+     */
+    @CheckForNull
+    public static Double findFolderTemperature(@CheckForNull ItemGroup<?> itemGroup) {
+        if (itemGroup == null) {
+            return null;
+        }
+        if (itemGroup instanceof AbstractFolder) {
+            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
+            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
+            if (property != null && property.getTemperature() != null) {
+                return property.getTemperature();
+            }
+            return findFolderTemperature(folder.getParent());
+        }
+        return null;
     }
 
     @Extension

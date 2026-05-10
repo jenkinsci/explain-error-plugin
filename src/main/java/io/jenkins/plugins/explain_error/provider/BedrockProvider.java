@@ -39,23 +39,30 @@ public class BedrockProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
-        ChatModel model = buildChatModel();
+        return createAssistant(null);
+    }
+
+    @Override
+    public Assistant createAssistant(@CheckForNull Double temperature) {
+        ChatModel model = buildChatModel(temperature);
         return AiServices.create(Assistant.class, model);
     }
 
     @Override
     public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
-        ChatModel model = buildChatModel();
+        ChatModel model = buildChatModel(null);
         return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
     }
 
-    private ChatModel buildChatModel() {
+    private ChatModel buildChatModel(@CheckForNull Double temperature) {
+        var paramsBuilder = BedrockChatRequestParameters.builder();
+        if (temperature != null) {
+            paramsBuilder.temperature(temperature);
+        }
+
         var builder = BedrockChatModel.builder()
                 .modelId(getModel())
-                .defaultRequestParameters(
-                        BedrockChatRequestParameters.builder()
-                                .temperature(0.3)
-                                .build())
+                .defaultRequestParameters(paramsBuilder.build())
                 .timeout(Duration.ofSeconds(180))
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE));

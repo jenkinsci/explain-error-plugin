@@ -30,6 +30,7 @@ public class ExplainErrorStep extends Step {
     private int maxLines;
     private String language;
     private String customContext;
+    private Double temperature;
     private boolean collectDownstreamLogs;
     private String downstreamJobPattern;
     private boolean includeWorkspaceContext = false;
@@ -93,6 +94,15 @@ public class ExplainErrorStep extends Step {
     @DataBoundSetter
     public void setCustomContext(String customContext) {
         this.customContext = customContext != null ? customContext : "";
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    @DataBoundSetter
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
     }
 
     public boolean isCollectDownstreamLogs() {
@@ -287,7 +297,7 @@ public class ExplainErrorStep extends Step {
             ErrorExplainer explainer = new ErrorExplainer();
             String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
                     step.getLanguage(), effectiveCustomContext, step.isCollectDownstreamLogs(),
-                    step.getDownstreamJobPattern(), Jenkins.getAuthentication2());
+                    step.getDownstreamJobPattern(), Jenkins.getAuthentication2(), step.getTemperature());
 
             if (step.isAutoFix()) {
                 String errorLogs = explainer.getLastErrorLogs();

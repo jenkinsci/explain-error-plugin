@@ -88,12 +88,20 @@ public class ErrorExplainer {
                         String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
                         Authentication authentication) {
         return explainError(run, listener, logPattern, maxLines, language, customContext,
-                collectDownstreamLogs, downstreamJobPattern, authentication, UsageEvent.EntryPoint.PIPELINE_STEP);
+                collectDownstreamLogs, downstreamJobPattern, authentication, null, UsageEvent.EntryPoint.PIPELINE_STEP);
     }
 
     String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
                         String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
-                        Authentication authentication, UsageEvent.EntryPoint entryPoint) {
+                        Authentication authentication, @CheckForNull Double stepTemperature) {
+        return explainError(run, listener, logPattern, maxLines, language, customContext,
+                collectDownstreamLogs, downstreamJobPattern, authentication, stepTemperature, UsageEvent.EntryPoint.PIPELINE_STEP);
+    }
+
+    String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
+                        String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
+                        Authentication authentication, @CheckForNull Double stepTemperature,
+                        UsageEvent.EntryPoint entryPoint) {
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         long startTimeNanos = System.nanoTime();
         ProviderResolution providerResolution = resolveProvider(run);
@@ -147,15 +155,23 @@ public class ErrorExplainer {
             inputLogLineCount = countLines(errorLogs);
             logExtractionSummary(listener, extractionResult, maxLines);
 
-            // Use step-level customContext if provided, otherwise fallback to global
-            String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
-            logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
+            // Resolve language: step → folder → global → null (provider defaults to "English")
+            String effectiveLanguage = resolveEffectiveLanguage(run, language);
+            logToConsole(listener, "Language: " + (effectiveLanguage != null ? effectiveLanguage : "default (English)") + ".");
+
+            // Resolve custom context: step → folder → global
+            String effectiveCustomContext = resolveEffectiveCustomContext(run, customContext);
+            logToConsole(listener, "Custom context source: " + resolveCustomContextSource(run, customContext) + ".");
+
+            // Resolve temperature: step → folder → global → null (provider defaults apply)
+            Double effectiveTemperature = resolveEffectiveTemperature(run, stepTemperature);
+            logToConsole(listener, "Temperature: " + (effectiveTemperature != null ? effectiveTemperature : "unset (provider default)") + ".");
 
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
-                String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext,
-                        run != null ? run.getParent() : null, null);
+                String explanation = provider.explainError(errorLogs, listener, effectiveLanguage, effectiveCustomContext,
+                        run != null ? run.getParent() : null, null, effectiveTemperature);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
                 logToConsole(listener, "AI request completed successfully.");
 
@@ -282,9 +298,14 @@ public class ErrorExplainer {
         }
 
         try {
-            // Get AI explanation with global custom context
-            String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null,
-                    GlobalConfigurationImpl.get().getCustomContext(), run.getParent(), null);
+            // Resolve language, custom context, and temperature from folder/global
+            String effectiveLanguage = resolveEffectiveLanguage(run, null);
+            String effectiveCustomContext = resolveEffectiveCustomContext(run, null);
+            Double effectiveTemperature = resolveEffectiveTemperature(run, null);
+
+            // Get AI explanation with resolved settings
+            String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), effectiveLanguage,
+                    effectiveCustomContext, run.getParent(), null, effectiveTemperature);
             LOGGER.fine(jobInfo + " AI error explanation succeeded.");
             LOGGER.fine("Explanation length: " + explanation.length());
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
@@ -472,14 +493,75 @@ public class ErrorExplainer {
                 + result.downstreamPermissionSkippedCount() + " due to permissions.");
     }
 
-    private String resolveCustomContextSource(String stepCustomContext) {
+    private String resolveCustomContextSource(@CheckForNull Run<?, ?> run, String stepCustomContext) {
         if (StringUtils.isNotBlank(stepCustomContext)) {
             return "step";
+        }
+        if (run != null) {
+            String folderContext = ExplainErrorFolderProperty.findFolderCustomContext(run.getParent().getParent());
+            if (StringUtils.isNotBlank(folderContext)) {
+                return "folder";
+            }
         }
         if (StringUtils.isNotBlank(GlobalConfigurationImpl.get().getCustomContext())) {
             return "global";
         }
         return "none";
+    }
+
+    /**
+     * Resolve effective language: step → folder → global → null (provider defaults to "English").
+     */
+    @CheckForNull
+    private String resolveEffectiveLanguage(@CheckForNull Run<?, ?> run, @CheckForNull String stepLanguage) {
+        if (StringUtils.isNotBlank(stepLanguage)) {
+            return stepLanguage.trim();
+        }
+        if (run != null) {
+            String folderLanguage = ExplainErrorFolderProperty.findFolderLanguage(run.getParent().getParent());
+            if (StringUtils.isNotBlank(folderLanguage)) {
+                return folderLanguage.trim();
+            }
+        }
+        String globalLanguage = GlobalConfigurationImpl.get().getLanguage();
+        if (StringUtils.isNotBlank(globalLanguage)) {
+            return globalLanguage.trim();
+        }
+        return null;
+    }
+
+    /**
+     * Resolve effective custom context: step → folder → global.
+     */
+    @CheckForNull
+    private String resolveEffectiveCustomContext(@CheckForNull Run<?, ?> run, @CheckForNull String stepCustomContext) {
+        if (StringUtils.isNotBlank(stepCustomContext)) {
+            return stepCustomContext;
+        }
+        if (run != null) {
+            String folderContext = ExplainErrorFolderProperty.findFolderCustomContext(run.getParent().getParent());
+            if (StringUtils.isNotBlank(folderContext)) {
+                return folderContext;
+            }
+        }
+        return GlobalConfigurationImpl.get().getCustomContext();
+    }
+
+    /**
+     * Resolve effective temperature: step → folder → global → null (provider defaults apply).
+     */
+    @CheckForNull
+    private Double resolveEffectiveTemperature(@CheckForNull Run<?, ?> run, @CheckForNull Double stepTemperature) {
+        if (stepTemperature != null) {
+            return stepTemperature;
+        }
+        if (run != null) {
+            Double folderTemp = ExplainErrorFolderProperty.findFolderTemperature(run.getParent().getParent());
+            if (folderTemp != null) {
+                return folderTemp;
+            }
+        }
+        return GlobalConfigurationImpl.get().getTemperature();
     }
 
     private void recordUsage(UsageEvent.EntryPoint entryPoint, UsageEvent.Result result,

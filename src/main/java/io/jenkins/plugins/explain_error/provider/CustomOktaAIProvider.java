@@ -145,9 +145,14 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
+        return createAssistant(null);
+    }
+
+    @Override
+    public Assistant createAssistant(@CheckForNull Double temperature) {
         return (errorLogs, language, customContext) -> {
             try {
-                return analyzeWithOkta(errorLogs, language, customContext);
+                return analyzeWithOkta(errorLogs, language, customContext, temperature);
             } catch (ExplanationException e) {
                 throw new RuntimeException(e.getMessage(), e);
             }
@@ -191,7 +196,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                 || clientIdValue == null || clientSecretValue == null;
     }
 
-    private JenkinsLogAnalysis analyzeWithOkta(String errorLogs, String language, String customContext)
+    private JenkinsLogAnalysis analyzeWithOkta(String errorLogs, String language, String customContext,
+                                               @CheckForNull Double temperature)
             throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(resolveTimeoutSeconds()))
@@ -199,7 +205,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
         try {
             String accessToken = fetchAccessToken(client);
-            return requestAnalysis(client, accessToken, errorLogs, language, customContext);
+            return requestAnalysis(client, accessToken, errorLogs, language, customContext, temperature);
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Custom Okta AI provider", e);
         } catch (InterruptedException e) {
@@ -259,9 +265,10 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     private JenkinsLogAnalysis requestAnalysis(HttpClient client, String accessToken, String errorLogs,
-                                               String language, String customContext)
+                                               String language, String customContext,
+                                               @CheckForNull Double temperature)
             throws IOException, InterruptedException, ExplanationException {
-        String content = requestRawContent(client, accessToken, buildChatRequestBody(errorLogs, language, customContext));
+        String content = requestRawContent(client, accessToken, buildChatRequestBody(errorLogs, language, customContext, temperature));
         return parseAnalysis(content);
     }
 
@@ -311,10 +318,13 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         return URI.create(resolvedUrl);
     }
 
-    private String buildChatRequestBody(String errorLogs, String language, String customContext) throws IOException {
+    private String buildChatRequestBody(String errorLogs, String language, String customContext,
+                                        @CheckForNull Double temperature) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getModel());
-        payload.put("temperature", 0.3);
+        if (temperature != null) {
+            payload.put("temperature", temperature);
+        }
 
         ArrayNode messages = payload.putArray("messages");
         messages.addObject()
@@ -340,7 +350,6 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     private String buildFixRequestBody(String errorLogs) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getModel());
-        payload.put("temperature", 0.3);
 
         ArrayNode messages = payload.putArray("messages");
         messages.addObject()

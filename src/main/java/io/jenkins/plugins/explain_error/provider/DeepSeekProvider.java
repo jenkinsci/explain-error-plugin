@@ -42,27 +42,34 @@ public class DeepSeekProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
-        ChatModel model = buildChatModel();
+        return createAssistant(null);
+    }
+
+    @Override
+    public Assistant createAssistant(@CheckForNull Double temperature) {
+        ChatModel model = buildChatModel(temperature);
         return AiServices.create(Assistant.class, model);
     }
 
     @Override
     public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
-        ChatModel model = buildChatModel();
+        ChatModel model = buildChatModel(null);
         return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
     }
 
-    private ChatModel buildChatModel() {
-        return OpenAiChatModel.builder()
+    private ChatModel buildChatModel(@CheckForNull Double temperature) {
+        var builder = OpenAiChatModel.builder()
                 .httpClientBuilder(newLangChainHttpClientBuilder())
                 .baseUrl(getUrl())
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())
-                .temperature(0.3)
                 .responseFormat(ResponseFormat.JSON)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
-                .logResponses(LOGGER.isLoggable(Level.FINE))
-                .build();
+                .logResponses(LOGGER.isLoggable(Level.FINE));
+        if (temperature != null) {
+            builder.temperature(temperature);
+        }
+        return builder.build();
     }
 
     @Override

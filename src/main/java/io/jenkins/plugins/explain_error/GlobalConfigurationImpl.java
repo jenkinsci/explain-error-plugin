@@ -29,6 +29,8 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     private transient String model;
     private boolean enableExplanation = true;
     private String customContext;
+    private String language;
+    private Double temperature;
 
     private BaseAIProvider aiProvider;
 
@@ -143,7 +145,24 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setCustomContext(String customContext) {
         this.customContext = customContext;
+    }
 
+    public String getLanguage() {
+        return language;
+    }
+
+    @DataBoundSetter
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    @DataBoundSetter
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
     }
 
     public boolean isEnableQuota() {

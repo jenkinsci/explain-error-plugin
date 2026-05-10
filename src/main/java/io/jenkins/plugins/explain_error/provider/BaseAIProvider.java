@@ -170,6 +170,25 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public final String explainError(String errorLogs, TaskListener listener, String language, String customContext,
                                      @CheckForNull Item item, @CheckForNull Authentication authentication)
             throws ExplanationException {
+        return explainError(errorLogs, listener, language, customContext, item, authentication, null);
+    }
+
+    /**
+     * Explain error logs using the configured AI provider with item-scoped credentials context.
+     * @param errorLogs the error logs to explain
+     * @param listener the task listener for logging
+     * @param language the preferred response language
+     * @param customContext additional custom context/instructions for the AI
+     * @param item the item defining credentials scope
+     * @param authentication the authentication used for credentials lookup
+     * @param temperature the temperature to use, or null to let provider defaults apply
+     * @return the AI explanation
+     * @throws ExplanationException if there's a communication error
+     */
+    public final String explainError(String errorLogs, TaskListener listener, String language, String customContext,
+                                     @CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature)
+            throws ExplanationException {
         Assistant assistant;
 
         if (StringUtils.isBlank(errorLogs)) {
@@ -181,7 +200,7 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         }
 
         try {
-            assistant = createAssistant(item, authentication);
+            assistant = createAssistant(item, authentication, temperature);
         } catch (Exception e) {
             throw new ExplanationException("error", "Failed to create assistant", e);
         }
@@ -191,7 +210,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             ? "" 
             : "\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\n" + customContext.trim();
         
-        LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length());
+        LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length()
+                + ", temperature: " + (temperature != null ? temperature : "unset (provider default)"));
 
         try {
             return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
@@ -214,6 +234,20 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
 
     public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
         return createAssistant();
+    }
+
+    /**
+     * Create an assistant with a specific temperature setting.
+     * @param temperature the temperature value, or null to let provider defaults apply
+     * @return the assistant
+     */
+    public Assistant createAssistant(@CheckForNull Double temperature) {
+        return createAssistant();
+    }
+
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature) {
+        return createAssistant(temperature);
     }
 
     public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(@CheckForNull Item item,

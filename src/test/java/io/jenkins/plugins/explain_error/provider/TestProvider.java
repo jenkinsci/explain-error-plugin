@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error.provider;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.Secret;
@@ -20,6 +21,7 @@ public class TestProvider extends OpenAIProvider {
     private String lastErrorLogs;
     private String lastLanguage;
     private String lastCustomContext;
+    private Double lastTemperature;
 
     @DataBoundConstructor
     public TestProvider() {
@@ -28,6 +30,11 @@ public class TestProvider extends OpenAIProvider {
 
     @Override
     public Assistant createAssistant() {
+        return createAssistant(null);
+    }
+
+    @Override
+    public Assistant createAssistant(@CheckForNull Double temperature) {
         return new Assistant() {
             @Override
             public JenkinsLogAnalysis analyzeLogs(String errorLogs, String language, String customContext) {
@@ -38,6 +45,7 @@ public class TestProvider extends OpenAIProvider {
                 lastErrorLogs = errorLogs;
                 lastLanguage = language;
                 lastCustomContext = customContext;
+                lastTemperature = temperature;
                 callCount++;
                 return answerMessage;
             }
@@ -74,6 +82,10 @@ public class TestProvider extends OpenAIProvider {
     
     public String getLastCustomContext() {
         return lastCustomContext;
+    }
+
+    public Double getLastTemperature() {
+        return lastTemperature;
     }
 
     public void setProviderName(String providerName) {
