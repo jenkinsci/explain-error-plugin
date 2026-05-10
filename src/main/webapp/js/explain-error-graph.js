@@ -155,7 +155,25 @@ function observeGraphViewChanges() {
 function getSelectedNodeId() {
   const params = new URLSearchParams(window.location.search);
   const nodeId = params.get('selected-node');
-  return nodeId ? nodeId.trim() : '';
+  if (nodeId) {
+    return nodeId.trim();
+  }
+  // Fallback: detect the selected node from the DOM when the URL does not
+  // contain ?selected-node=. The pipeline-graph-view auto-selects the worst
+  // node (e.g. failed) on initial page load via React internal state without
+  // calling history.replaceState, so the URL is not updated.
+  const activeItem = document.querySelector('.pgv-tree-item--active');
+  if (activeItem && activeItem.href) {
+    const q = activeItem.href.indexOf('?');
+    if (q !== -1) {
+      const domParams = new URLSearchParams(activeItem.href.substring(q));
+      const domNodeId = domParams.get('selected-node');
+      if (domNodeId) {
+        return domNodeId.trim();
+      }
+    }
+  }
+  return '';
 }
 
 function updateGraphExplainButton() {
