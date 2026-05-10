@@ -64,6 +64,10 @@ Complex features (e.g., AutoFix, usage quotas) must have a corresponding markdow
 - `docs/auto-fix.md` — experimental auto-fix feature
 - `docs/usage-quota.md` — per-provider/model request quotas
 
+## Branching Rules
+
+- **NEVER push directly to `main`.** All code must enter `main` via pull request (PR) only. Even when working alone, create a feature branch and open a PR — do not commit or push directly to `main`.
+
 ## PR Workflow
 
 - Analyze PRs without pulling locally first
