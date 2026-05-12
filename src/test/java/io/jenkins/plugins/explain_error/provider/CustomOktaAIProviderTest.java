@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -87,6 +88,7 @@ class CustomOktaAIProviderTest {
                 chatPath.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(chatBody.get());
+        assertFalse(payload.has("temperature"), "Unset temperature should be omitted from Custom Okta request payload");
         JsonNode userMetadata = OBJECT_MAPPER.readTree(payload.path("user").asText());
         assertEquals("team-app-key", userMetadata.path("appkey").asText());
         assertEquals("cec-user", userMetadata.path("user").asText());

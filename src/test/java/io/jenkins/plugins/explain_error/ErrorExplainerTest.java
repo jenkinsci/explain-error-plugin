@@ -207,6 +207,36 @@ class ErrorExplainerTest {
     }
 
     @Test
+    void testExplainErrorTextUsesFolderPromptSettings(JenkinsRule jenkins) throws Exception {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(true);
+        config.setLanguage("English");
+        config.setCustomContext("Global context");
+        config.setTemperature(0.1);
+        TestProvider provider = new TestProvider();
+        config.setAiProvider(provider);
+
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "manual-path-folder");
+        ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
+        folderProperty.setLanguage("German");
+        folderProperty.setCustomContext("Folder manual context");
+        folderProperty.setTemperature(0.7);
+        folder.addProperty(folderProperty);
+
+        FreeStyleProject project = folder.createProject(FreeStyleProject.class, "manual-path-project");
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", "", build);
+
+        assertNotNull(action);
+        assertEquals("German", provider.getLastLanguage());
+        assertEquals("\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\nFolder manual context",
+                provider.getLastCustomContext());
+        assertEquals(0.7, provider.getLastTemperature());
+    }
+
+    @Test
     void testFolderLevelProviderFallbackToGlobal(JenkinsRule jenkins) throws Exception {
         ErrorExplainer errorExplainer = new ErrorExplainer();
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
