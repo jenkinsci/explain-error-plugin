@@ -16,8 +16,13 @@
     </f:entry>
 
     <f:entry title="Custom Context" field="customContext"
-             description="Additional instructions or context for the AI. Overrides the global custom context if specified. Leave empty to use global configuration.">
+             description="Additional instructions or context for the AI. Overrides folder and global custom context if specified. Leave empty to inherit configuration.">
         <f:textarea />
+    </f:entry>
+
+    <f:entry title="Temperature" field="temperature"
+             description="Optional model temperature. Overrides folder and global temperature if specified. Leave empty to inherit configuration or use provider defaults.">
+        <f:number min="0" step="0.01" />
     </f:entry>
 
     <f:entry title="Collect Downstream Logs" field="collectDownstreamLogs"

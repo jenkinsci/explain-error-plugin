@@ -515,7 +515,7 @@ public class ErrorExplainer {
     @CheckForNull
     private String resolveEffectiveLanguage(@CheckForNull Run<?, ?> run, @CheckForNull String stepLanguage) {
         if (StringUtils.isNotBlank(stepLanguage)) {
-            return stepLanguage.trim();
+            return StringUtils.trimToNull(stepLanguage);
         }
         if (run != null) {
             String folderLanguage = ExplainErrorFolderProperty.findFolderLanguage(run.getParent().getParent());

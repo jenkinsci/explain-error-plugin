@@ -5,8 +5,16 @@
         <f:dropdownDescriptorSelector title="AI Provider" field="aiProvider"/>
         
         <f:entry title="Custom Context" field="customContext"
-                 description="Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). This can be overridden at the job level.">
+                 description="Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). This can be overridden at the folder or job level.">
           <f:textarea />
+        </f:entry>
+        <f:entry title="Language" field="language"
+                 description="Preferred response language (e.g., English, Chinese, Japanese, Spanish). Leave empty for English. This can be overridden at the folder or job level.">
+          <f:textbox />
+        </f:entry>
+        <f:entry title="Temperature" field="temperature"
+                 description="Optional model temperature. Leave empty to omit the field and use provider defaults. This can be overridden at the folder or job level.">
+          <f:number min="0" step="0.01" />
         </f:entry>
         <f:optionalBlock field="enableQuota" title="Enable Request Quota"
                          checked="${it.enableQuota}" inline="true">

@@ -13,6 +13,8 @@ import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.QwenProvider;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import jenkins.model.Jenkins;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +34,9 @@ class GlobalConfigurationImplTest {
         // Reset to clean state for each test (no auto-population)
         config.setAiProvider(new OpenAIProvider(null, "test-model", Secret.fromString("test-key")));
         config.setEnableExplanation(true);
+        config.setCustomContext(null);
+        config.setLanguage(null);
+        config.setTemperature(null);
     }
 
     @Test
@@ -211,6 +216,29 @@ class GlobalConfigurationImplTest {
     }
 
     @Test
+    void testConfigurationPersistenceForGlobalPromptSettings() {
+        config.setCustomContext("Global troubleshooting context");
+        config.setLanguage("French");
+        config.setTemperature(0.7);
+        config.save();
+
+        config.load();
+
+        assertEquals("Global troubleshooting context", config.getCustomContext());
+        assertEquals("French", config.getLanguage());
+        assertEquals(0.7, config.getTemperature());
+    }
+
+    @Test
+    void testGlobalConfigurationUiExposesPromptSettings() throws IOException {
+        String jelly = resourceText("/io/jenkins/plugins/explain_error/GlobalConfigurationImpl/config.jelly");
+
+        assertTrue(jelly.contains("field=\"customContext\""));
+        assertTrue(jelly.contains("field=\"language\""));
+        assertTrue(jelly.contains("field=\"temperature\""));
+    }
+
+    @Test
     void testGetDisplayName() {
         String displayName = config.getDisplayName();
         assertNotNull(displayName);
@@ -221,5 +249,12 @@ class GlobalConfigurationImplTest {
         return Jenkins.get().getDescriptorList(BaseAIProvider.class).stream()
                 .map(descriptor -> descriptor.getDisplayName())
                 .toList();
+    }
+
+    private String resourceText(String path) throws IOException {
+        try (var stream = getClass().getResourceAsStream(path)) {
+            assertNotNull(stream, "Resource should exist: " + path);
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }

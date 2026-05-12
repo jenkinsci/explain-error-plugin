@@ -6,6 +6,8 @@ import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
@@ -200,5 +202,58 @@ class ExplainErrorFolderPropertyTest {
         AzureOpenAIProvider azure = (AzureOpenAIProvider) retrieved.getAiProvider();
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
         assertEquals("azure-openai-key", azure.getCredentialsId());
+    }
+
+    @Test
+    void testFindFolderPromptSettingsWithNearestFolderOverride(JenkinsRule jenkins) throws Exception {
+        Folder parentFolder = jenkins.jenkins.createProject(Folder.class, "prompt-parent-folder");
+        ExplainErrorFolderProperty parentProperty = new ExplainErrorFolderProperty();
+        parentProperty.setLanguage("French");
+        parentProperty.setCustomContext("Parent folder context");
+        parentProperty.setTemperature(0.6);
+        parentFolder.addProperty(parentProperty);
+
+        Folder childFolder = parentFolder.createProject(Folder.class, "prompt-child-folder");
+        ExplainErrorFolderProperty childProperty = new ExplainErrorFolderProperty();
+        childProperty.setLanguage("German");
+        childProperty.setCustomContext("Child folder context");
+        childProperty.setTemperature(0.2);
+        childFolder.addProperty(childProperty);
+
+        assertEquals("German", ExplainErrorFolderProperty.findFolderLanguage(childFolder));
+        assertEquals("Child folder context", ExplainErrorFolderProperty.findFolderCustomContext(childFolder));
+        assertEquals(0.2, ExplainErrorFolderProperty.findFolderTemperature(childFolder));
+    }
+
+    @Test
+    void testFindFolderPromptSettingsFallsBackToParentFolder(JenkinsRule jenkins) throws Exception {
+        Folder parentFolder = jenkins.jenkins.createProject(Folder.class, "prompt-fallback-parent");
+        ExplainErrorFolderProperty parentProperty = new ExplainErrorFolderProperty();
+        parentProperty.setLanguage("Italian");
+        parentProperty.setCustomContext("Parent fallback context");
+        parentProperty.setTemperature(0.5);
+        parentFolder.addProperty(parentProperty);
+
+        Folder childFolder = parentFolder.createProject(Folder.class, "prompt-fallback-child");
+
+        assertEquals("Italian", ExplainErrorFolderProperty.findFolderLanguage(childFolder));
+        assertEquals("Parent fallback context", ExplainErrorFolderProperty.findFolderCustomContext(childFolder));
+        assertEquals(0.5, ExplainErrorFolderProperty.findFolderTemperature(childFolder));
+    }
+
+    @Test
+    void testFolderConfigurationUiExposesPromptSettings() throws IOException {
+        String jelly = resourceText("/io/jenkins/plugins/explain_error/ExplainErrorFolderProperty/config.jelly");
+
+        assertTrue(jelly.contains("field=\"customContext\""));
+        assertTrue(jelly.contains("field=\"language\""));
+        assertTrue(jelly.contains("field=\"temperature\""));
+    }
+
+    private String resourceText(String path) throws IOException {
+        try (var stream = getClass().getResourceAsStream(path)) {
+            assertNotNull(stream, "Resource should exist: " + path);
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }
