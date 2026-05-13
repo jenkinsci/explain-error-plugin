@@ -114,6 +114,7 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
         }
 
         @POST
+        @Override
         public FormValidation doCheckUrl(@QueryParameter String value) {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value == null || value.isBlank()) {
