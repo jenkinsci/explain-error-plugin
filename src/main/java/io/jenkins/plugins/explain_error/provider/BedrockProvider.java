@@ -6,7 +6,6 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import hudson.Extension;
 import hudson.Util;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
@@ -16,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.variant.OptionalExtension;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -77,7 +77,7 @@ public class BedrockProvider extends BaseAIProvider {
         return Util.fixEmptyAndTrim(getModel()) == null;
     }
 
-    @Extension
+    @OptionalExtension(requirePlugins="aws-java-sdk2-core")
     @Symbol("bedrock")
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
