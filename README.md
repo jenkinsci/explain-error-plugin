@@ -41,7 +41,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Pipeline-ready** with a simple `explainError()` step
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via OpenAI GPT models, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via OpenAI GPT models, Microsoft Foundry, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -54,7 +54,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 - Jenkins (2.528.3) or higher required
 - Java 17+
-- AI API Key (OpenAI or Google)
+- AI provider credentials for your selected provider
 
 ### Installation
 
@@ -76,8 +76,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
-| **API Key** | Your AI provider API key | Used by OpenAI, Gemini, DeepSeek, and Qwen providers |
+| **AI Provider** | Choose between OpenAI, Microsoft Foundry, Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
+| **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Gemini, DeepSeek, and Qwen providers |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
@@ -150,6 +150,18 @@ unclassified:
         apiKey: "${DEEPSEEK_API_KEY}"
         model: "deepseek-v4-flash"
         # url: "https://api.deepseek.com" # Optional, defaults to the official endpoint
+    enableExplanation: true
+```
+
+**Microsoft Foundry Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      microsoftFoundry:
+        apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
+        model: "gpt-4o" # Foundry model deployment name
+        url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
     enableExplanation: true
 ```
 
@@ -240,6 +252,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
 - **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
 - **Best for**: OpenAI-compatible DeepSeek model access
+
+### Microsoft Foundry
+- **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models
+- **API Key**: Use the endpoint key from your Foundry resource
+- **Endpoint**: Resource endpoint such as `https://my-resource.services.ai.azure.com` or full OpenAI v1 base URL such as `https://my-resource.openai.azure.com/openai/v1`
+- **Best for**: Enterprise Microsoft Foundry deployments that need one provider configuration for multiple deployed model families
 
 ### Qwen
 - **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.

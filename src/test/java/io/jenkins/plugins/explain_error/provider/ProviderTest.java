@@ -330,6 +330,64 @@ class ProviderTest {
     }
 
     @Test
+    void testMicrosoftFoundryNullEndpoint() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(null, "deployment", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryEmptyEndpoint() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider("", "deployment", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryNullApiKey() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", "deployment", null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryEmptyApiKey() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", "deployment", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryNullModel() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryEmptyModel() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
     void testJenkinsProxyBuilderRoutesRequestsThroughConfiguredProxy(JenkinsRule jenkins) throws Exception {
         HttpServer proxyServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger requestCount = new AtomicInteger();

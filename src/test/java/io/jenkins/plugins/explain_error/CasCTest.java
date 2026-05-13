@@ -11,6 +11,7 @@ import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
+import io.jenkins.plugins.explain_error.provider.MicrosoftFoundryProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.QwenProvider;
 import org.junit.jupiter.api.Test;
@@ -85,6 +86,19 @@ public class CasCTest {
         assertEquals("https://api.deepseek.com", deepSeek.getUrl());
         assertEquals("deepseek-v4-flash", deepSeek.getModel());
         assertEquals("test-deepseek-key", deepSeek.getApiKey().getPlainText());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_microsoft_foundry.yaml")
+    void loadMicrosoftFoundryProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(MicrosoftFoundryProvider.class, provider);
+        MicrosoftFoundryProvider foundry = (MicrosoftFoundryProvider) provider;
+        assertEquals("https://my-resource.services.ai.azure.com/openai/v1", foundry.getUrl());
+        assertEquals("gpt-4o-enterprise", foundry.getModel());
+        assertEquals("test-foundry-key", foundry.getApiKey().getPlainText());
     }
 
     @Test
