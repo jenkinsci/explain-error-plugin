@@ -99,7 +99,7 @@ class AzureOpenAIProviderTest {
         AtomicReference<String> apiKeyHeader = new AtomicReference<>();
         AtomicReference<String> requestBody = new AtomicReference<>();
 
-        server.createContext("/openai/deployments/gpt-5-pro/responses", new JsonHandler(exchange -> {
+        server.createContext("/openai/responses", new JsonHandler(exchange -> {
             requestPath.set(exchange.getRequestURI().toString());
             apiKeyHeader.set(exchange.getRequestHeaders().getFirst("api-key"));
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
@@ -131,11 +131,12 @@ class AzureOpenAIProviderTest {
 
         String explanation = provider.explainError("FAILURE: responses test", null, "English", null);
 
-        assertEquals("/openai/deployments/gpt-5-pro/responses?api-version=2025-02-01-preview",
+        assertEquals("/openai/responses?api-version=2025-02-01-preview",
                 requestPath.get());
         assertEquals("test-responses-key", apiKeyHeader.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals("gpt-5-pro", payload.path("model").asText());
         assertNotNull(payload.path("input"));
         assertTrue(requestBody.get().contains("Return ONLY valid JSON"));
         assertTrue(explanation.contains("Responses API test worked"));
@@ -189,7 +190,7 @@ class AzureOpenAIProviderTest {
         AtomicReference<String> requestPath = new AtomicReference<>();
         AtomicReference<String> requestBody = new AtomicReference<>();
 
-        server.createContext("/openai/deployments/gpt-5-fix/responses", new JsonHandler(exchange -> {
+        server.createContext("/openai/responses", new JsonHandler(exchange -> {
             requestPath.set(exchange.getRequestURI().toString());
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             return """
@@ -221,8 +222,11 @@ class AzureOpenAIProviderTest {
         FixAssistant assistant = provider.createFixAssistant();
         String result = assistant.suggestFix("FAILURE: obscure error");
 
-        assertEquals("/openai/deployments/gpt-5-fix/responses?api-version=2025-03-01-preview",
+        assertEquals("/openai/responses?api-version=2025-03-01-preview",
                 requestPath.get());
+
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals("gpt-5-fix", payload.path("model").asText());
         assertTrue(result.contains("\"fixable\":false"));
         assertTrue(result.contains("Cannot determine root cause"));
     }
