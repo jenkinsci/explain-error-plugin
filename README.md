@@ -153,6 +153,19 @@ unclassified:
     enableExplanation: true
 ```
 
+**Azure OpenAI Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      azureOpenai:
+        endpoint: "https://my-resource.openai.azure.com"
+        deployment: "gpt-5.4-pro" # Azure OpenAI deployment name
+        apiVersion: "2025-04-01-preview"
+        credentialsId: "azure-openai-key"
+    enableExplanation: true
+```
+
 **Microsoft Foundry Configuration:**
 ```yaml
 unclassified:
@@ -252,6 +265,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
 - **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
 - **Best for**: OpenAI-compatible DeepSeek model access
+
+### Azure OpenAI
+- **Models**: Any Azure OpenAI deployment supported by the Responses API
+- **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
+- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`; the plugin calls `/openai/v1/responses`
+- **Best for**: Azure OpenAI deployments using the latest Responses API
 
 ### Microsoft Foundry
 - **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models

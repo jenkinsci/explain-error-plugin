@@ -6,12 +6,12 @@
   </f:entry>
 
   <f:entry title="Deployment" field="deployment"
-           description="Azure OpenAI deployment name to call for chat completions.">
+           description="Azure OpenAI deployment name to call through the Responses API.">
     <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
   </f:entry>
 
   <f:entry title="API Version" field="apiVersion"
-           description="Azure OpenAI api-version query parameter.">
+           description="Azure OpenAI Responses API api-version query parameter.">
     <f:textbox clazz="required" default="${descriptor.defaultApiVersion}"/>
   </f:entry>
 

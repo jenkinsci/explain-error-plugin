@@ -3,7 +3,6 @@ package io.jenkins.plugins.explain_error.provider;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -161,7 +160,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
                 .build();
         try {
-            String content = requestRawContent(client, buildChatRequestBody(errorLogs, language, customContext),
+            String content = requestRawContent(client, buildAnalysisRequestBody(errorLogs, language, customContext),
                     item, authentication);
             return parseAnalysis(content);
         } catch (IOException e) {
@@ -195,7 +194,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             throw new ExplanationException("error", "Azure OpenAI credentials not found for ID: " + getCredentialsId());
         }
 
-        HttpRequest request = HttpRequest.newBuilder(buildChatUri())
+        HttpRequest request = HttpRequest.newBuilder(buildResponsesUri())
                 .timeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
@@ -207,9 +206,10 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             LOGGER.fine("Sending Azure OpenAI request to " + request.uri());
         }
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        HttpResponse<String> response = client.send(
+                request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() >= 400) {
-            throw new ExplanationException("error", "Chat completion request failed with status "
+            throw new ExplanationException("error", "Responses API request failed with status "
                     + response.statusCode() + ": " + abbreviate(response.body()));
         }
 
@@ -217,41 +217,34 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         return extractAssistantContent(json);
     }
 
-    private URI buildChatUri() {
+    private URI buildResponsesUri() {
         String endpoint = getEndpoint();
         if (endpoint.endsWith("/")) {
             endpoint = endpoint.substring(0, endpoint.length() - 1);
         }
-        String encodedDeployment = URLEncoder.encode(getDeployment(), StandardCharsets.UTF_8);
         String encodedApiVersion = URLEncoder.encode(getApiVersion(), StandardCharsets.UTF_8);
-        return URI.create(endpoint + "/openai/deployments/" + encodedDeployment
-                + "/chat/completions?api-version=" + encodedApiVersion);
+        return URI.create(endpoint + "/openai/v1/responses?api-version=" + encodedApiVersion);
     }
 
-    private String buildChatRequestBody(String errorLogs, String language, String customContext) throws IOException {
+    private String buildAnalysisRequestBody(
+            String errorLogs, String language, String customContext) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getDeployment());
         payload.put("temperature", 0.3);
-
-        ArrayNode messages = payload.putArray("messages");
-        messages.addObject()
-                .put("role", "system")
-                .put("content", buildSystemPrompt());
-        messages.addObject()
-                .put("role", "user")
-                .put("content", buildUserPrompt(errorLogs, language, customContext)
-                        + "\n\nReturn ONLY valid JSON with these keys: errorSummary, resolutionSteps, bestPractices, errorSignature.");
+        payload.put("instructions", buildSystemPrompt());
+        String outputFormatInstruction = "\n\nReturn ONLY valid JSON with these keys: "
+                + "errorSummary, resolutionSteps, bestPractices, errorSignature.";
+        payload.put("input", buildUserPrompt(errorLogs, language, customContext) + outputFormatInstruction);
 
         return OBJECT_MAPPER.writeValueAsString(payload);
     }
 
     private String buildFixRequestBody(String errorLogs) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getDeployment());
         payload.put("temperature", 0.3);
 
-        ArrayNode messages = payload.putArray("messages");
-        messages.addObject()
-                .put("role", "system")
-                .put("content", """
+        payload.put("instructions", """
                         You are an expert Jenkins CI/CD engineer. You analyze build failure logs and generate structured fix suggestions.
 
                         You MUST respond ONLY with valid JSON matching this exact schema (no other text before or after):
@@ -278,38 +271,45 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                         - If you cannot determine a fix with at least medium confidence, set fixable=false and return an empty changes array
                         - Supported file types: pom.xml, build.gradle, build.gradle.kts, package.json, requirements.txt, go.mod, Gemfile, Jenkinsfile, Dockerfile, *.yaml, *.yml, *.json (config), *.properties, *.xml (config), *.java, *.py, *.js, *.ts (small targeted fixes only)
                         """);
-        messages.addObject()
-                .put("role", "user")
-                .put("content", "Jenkins build failed. Analyze and suggest a fix.\n\nError logs:\n" + errorLogs);
+        payload.put("input", "Jenkins build failed. Analyze and suggest a fix.\n\nError logs:\n" + errorLogs);
 
         return OBJECT_MAPPER.writeValueAsString(payload);
     }
 
     private String extractAssistantContent(JsonNode responseJson) throws ExplanationException {
-        JsonNode choices = responseJson.path("choices");
-        if (!choices.isArray() || choices.isEmpty()) {
-            throw new ExplanationException("error", "Chat completion response did not contain any choices.");
+        JsonNode outputText = responseJson.path("output_text");
+        if (outputText.isTextual()) {
+            String text = Util.fixEmptyAndTrim(outputText.asText());
+            if (text != null) {
+                return text;
+            }
         }
 
-        JsonNode content = choices.get(0).path("message").path("content");
-        if (content.isTextual()) {
-            return content.asText();
-        }
-        if (content.isArray()) {
-            StringBuilder text = new StringBuilder();
-            for (JsonNode part : content) {
-                if (part.isTextual()) {
-                    text.append(part.asText());
-                } else if (part.hasNonNull("text")) {
-                    text.append(part.get("text").asText());
+        StringBuilder text = new StringBuilder();
+        JsonNode output = responseJson.path("output");
+        if (output.isArray()) {
+            for (JsonNode outputItem : output) {
+                JsonNode content = outputItem.path("content");
+                if (content.isArray()) {
+                    for (JsonNode contentItem : content) {
+                        if (contentItem.isTextual()) {
+                            text.append(contentItem.asText());
+                        } else if (contentItem.hasNonNull("text")) {
+                            text.append(contentItem.get("text").asText());
+                        }
+                    }
+                } else if (content.isTextual()) {
+                    text.append(content.asText());
                 }
             }
-            if (!text.isEmpty()) {
-                return text.toString();
-            }
         }
 
-        throw new ExplanationException("error", "Chat completion response did not contain message content.");
+        String extractedText = Util.fixEmptyAndTrim(text.toString());
+        if (extractedText != null) {
+            return extractedText;
+        }
+
+        throw new ExplanationException("error", "Responses API response did not contain output text.");
     }
 
     private JenkinsLogAnalysis parseAnalysis(String content) throws IOException {
