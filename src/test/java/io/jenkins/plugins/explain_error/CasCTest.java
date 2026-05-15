@@ -74,6 +74,7 @@ public class CasCTest {
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
         assertEquals("2025-01-01-preview", azure.getApiVersion());
         assertEquals("azure-openai-key", azure.getCredentialsId());
+        assertEquals(AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS, azure.getApiType());
     }
 
     @Test
