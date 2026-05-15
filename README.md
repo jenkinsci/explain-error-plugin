@@ -153,6 +153,20 @@ unclassified:
     enableExplanation: true
 ```
 
+**Azure OpenAI Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      azureOpenai:
+        endpoint: "https://my-resource.openai.azure.com"
+        deployment: "gpt-4o" # Azure OpenAI deployment name
+        apiVersion: "2025-01-01-preview"
+        credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
+        # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
+    enableExplanation: true
+```
+
 **Microsoft Foundry Configuration:**
 ```yaml
 unclassified:
@@ -240,6 +254,13 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **App Key Support**: Optional `appKey` and `userId` fields populate the OpenAI-style `user` metadata payload for providers that require an application key
 - **Access Token Delivery**: Configurable header name and optional prefix so the same provider can support `Authorization: Bearer ...`, `api-key: ...`, and similar patterns
 - **Best for**: Generic company AI providers that use Okta for authentication before invoking a custom chat endpoint
+
+### Azure OpenAI
+- **Models**: Any Azure OpenAI deployment supporting Chat Completions (`/chat/completions`) or Responses API (`/responses`)
+- **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
+- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`
+- **API Type**: Choose between `Chat Completions API` (legacy, default) and `Responses API` (recommended for newer models like gpt-5.x that do not support chat completions)
+- **Best for**: Azure OpenAI deployments, with support for both legacy and latest API endpoints
 
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
