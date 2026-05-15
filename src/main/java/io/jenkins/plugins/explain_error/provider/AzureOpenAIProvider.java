@@ -253,8 +253,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
         String apiPath;
         if (getApiType() == ApiType.RESPONSES) {
-            apiPath = "/openai/deployments/" + encodedDeployment
-                    + "/responses?api-version=" + encodedApiVersion;
+            apiPath = "/openai/responses?api-version=" + encodedApiVersion;
         } else {
             apiPath = "/openai/deployments/" + encodedDeployment
                     + "/chat/completions?api-version=" + encodedApiVersion;
@@ -289,6 +288,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private String buildResponsesAnalysisRequest(String errorLogs, String language, String customContext)
             throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getDeployment());
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -326,6 +326,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
     private String buildResponsesFixRequest(String errorLogs) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getDeployment());
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
