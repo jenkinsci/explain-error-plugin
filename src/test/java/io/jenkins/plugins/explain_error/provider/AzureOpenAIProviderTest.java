@@ -46,7 +46,7 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void explainErrorUsesAzureEndpointAndApiKey(JenkinsRule jenkins) throws Exception {
+    void explainErrorUsesAzureChatCompletionsEndpoint(JenkinsRule jenkins) throws Exception {
         addStringCredential("azure-openai-key", "test-azure-key");
 
         AtomicReference<String> requestPath = new AtomicReference<>();
@@ -75,11 +75,13 @@ class AzureOpenAIProviderTest {
                 endpoint,
                 "my-gpt-4o",
                 "2025-01-01-preview",
-                "azure-openai-key");
+                "azure-openai-key",
+                AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS);
 
         String explanation = provider.explainError("FAILURE: sample error", null, "English", "Prioritize root cause");
 
-        assertEquals("/openai/deployments/my-gpt-4o/chat/completions?api-version=2025-01-01-preview", requestPath.get());
+        assertEquals("/openai/deployments/my-gpt-4o/chat/completions?api-version=2025-01-01-preview",
+                requestPath.get());
         assertEquals("test-azure-key", apiKeyHeader.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
@@ -90,7 +92,58 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void fixAssistantUsesAzureEndpointAndReturnsRawJson(JenkinsRule jenkins) throws Exception {
+    void explainErrorUsesAzureResponsesEndpoint(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-responses-key", "test-responses-key");
+
+        AtomicReference<String> requestPath = new AtomicReference<>();
+        AtomicReference<String> apiKeyHeader = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        server.createContext("/openai/deployments/gpt-5-pro/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            apiKeyHeader.set(exchange.getRequestHeaders().getFirst("api-key"));
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return """
+                    {
+                      "output": [
+                        {
+                          "type": "message",
+                          "role": "assistant",
+                          "content": [
+                            {
+                              "type": "output_text",
+                              "text": "{\\"errorSummary\\":\\"Responses API test worked\\",\\"resolutionSteps\\":[\\"Verify deployment\\"],\\"bestPractices\\":[\\"Use latest API\\"],\\"errorSignature\\":\\"FAILURE: responses path verified\\"}"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """;
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "gpt-5-pro",
+                "2025-02-01-preview",
+                "azure-responses-key",
+                AzureOpenAIProvider.ApiType.RESPONSES);
+
+        String explanation = provider.explainError("FAILURE: responses test", null, "English", null);
+
+        assertEquals("/openai/deployments/gpt-5-pro/responses?api-version=2025-02-01-preview",
+                requestPath.get());
+        assertEquals("test-responses-key", apiKeyHeader.get());
+
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertNotNull(payload.path("input"));
+        assertTrue(requestBody.get().contains("Return ONLY valid JSON"));
+        assertTrue(explanation.contains("Responses API test worked"));
+        assertTrue(explanation.contains("Verify deployment"));
+    }
+
+    @Test
+    void fixAssistantUsesAzureChatCompletionsEndpoint(JenkinsRule jenkins) throws Exception {
         addStringCredential("azure-fix-key", "fix-key");
 
         AtomicReference<String> requestPath = new AtomicReference<>();
@@ -117,7 +170,8 @@ class AzureOpenAIProviderTest {
                 endpoint,
                 "fix-deployment",
                 "2025-02-01-preview",
-                "azure-fix-key");
+                "azure-fix-key",
+                AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS);
 
         FixAssistant assistant = provider.createFixAssistant();
         String result = assistant.suggestFix("FAILURE: job failed");
@@ -126,6 +180,87 @@ class AzureOpenAIProviderTest {
                 requestPath.get());
         assertTrue(requestBody.get().contains("\"Jenkins build failed. Analyze and suggest a fix."));
         assertTrue(result.contains("\"fixable\":true"));
+    }
+
+    @Test
+    void fixAssistantUsesAzureResponsesEndpoint(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-fix-responses-key", "fix-responses-key");
+
+        AtomicReference<String> requestPath = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        server.createContext("/openai/deployments/gpt-5-fix/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return """
+                    {
+                      "output": [
+                        {
+                          "type": "message",
+                          "role": "assistant",
+                          "content": [
+                            {
+                              "type": "output_text",
+                              "text": "{\\"fixable\\":false,\\"explanation\\":\\"Cannot determine root cause\\",\\"confidence\\":\\"low\\",\\"fixType\\":\\"unknown\\",\\"changes\\":[]}"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """;
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "gpt-5-fix",
+                "2025-03-01-preview",
+                "azure-fix-responses-key",
+                AzureOpenAIProvider.ApiType.RESPONSES);
+
+        FixAssistant assistant = provider.createFixAssistant();
+        String result = assistant.suggestFix("FAILURE: obscure error");
+
+        assertEquals("/openai/deployments/gpt-5-fix/responses?api-version=2025-03-01-preview",
+                requestPath.get());
+        assertTrue(result.contains("\"fixable\":false"));
+        assertTrue(result.contains("Cannot determine root cause"));
+    }
+
+    @Test
+    void apiTypeDefaultsToChatCompletionsWhenNull(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-default-key", "default-key");
+
+        AtomicReference<String> requestPath = new AtomicReference<>();
+
+        server.createContext("/openai/deployments/default-gpt/chat/completions", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return """
+                    {
+                      "choices": [
+                        {
+                          "message": {
+                            "content": "{\\"errorSummary\\":\\"Default test passed\\",\\"resolutionSteps\\":[\\"Step 1\\"],\\"bestPractices\\":[],\\"errorSignature\\":\\"test\\"}"
+                          }
+                        }
+                      ]
+                    }
+                    """;
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        // Pass null ApiType — should default to CHAT_COMPLETIONS
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "default-gpt",
+                "2025-01-01-preview",
+                "azure-default-key",
+                null);
+
+        provider.explainError("test error", null, "English", null);
+
+        assertTrue(requestPath.get().contains("/chat/completions"),
+                "Should default to Chat Completions when ApiType is null");
     }
 
     private void addStringCredential(String id, String secret) throws IOException {

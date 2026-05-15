@@ -292,7 +292,7 @@ class ProviderTest {
 
     @Test
     void testAzureOpenAiNullEndpoint() {
-        BaseAIProvider provider = new AzureOpenAIProvider(null, "deployment", "2025-01-01-preview", "credentials-id");
+        BaseAIProvider provider = new AzureOpenAIProvider(null, "deployment", "2025-01-01-preview", "credentials-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -302,7 +302,7 @@ class ProviderTest {
     @Test
     void testAzureOpenAiNullDeployment() {
         BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", null,
-                "2025-01-01-preview", "credentials-id");
+                "2025-01-01-preview", "credentials-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -312,7 +312,7 @@ class ProviderTest {
     @Test
     void testAzureOpenAiNullApiVersion() {
         BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", "deployment",
-                null, "credentials-id");
+                null, "credentials-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -322,7 +322,7 @@ class ProviderTest {
     @Test
     void testAzureOpenAiNullCredentialsId() {
         BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", "deployment",
-                "2025-01-01-preview", null);
+                "2025-01-01-preview", null, null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
