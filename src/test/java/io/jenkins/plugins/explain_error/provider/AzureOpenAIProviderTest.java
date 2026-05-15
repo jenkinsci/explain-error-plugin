@@ -47,8 +47,8 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void explainErrorUsesResponsesEndpointAndApiKey(JenkinsRule jenkins) throws Exception {
-        addStringCredential("azure-openai-key", "test-azure-key");
+    void explainErrorUsesV1ResponsesEndpointAndApiKey(JenkinsRule jenkins) throws Exception {
+        addStringCredential(jenkins, "azure-openai-key", "test-azure-key");
 
         AtomicReference<String> requestPath = new AtomicReference<>();
         AtomicReference<String> apiKeyHeader = new AtomicReference<>();
@@ -67,12 +67,12 @@ class AzureOpenAIProviderTest {
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "my-gpt-4o",
-                "2025-01-01-preview",
+                null,
                 "azure-openai-key");
 
         String explanation = provider.explainError("FAILURE: sample error", null, "English", "Prioritize root cause");
 
-        assertEquals("/openai/v1/responses?api-version=2025-01-01-preview", requestPath.get());
+        assertEquals("/openai/v1/responses", requestPath.get());
         assertEquals("test-azure-key", apiKeyHeader.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
@@ -86,7 +86,7 @@ class AzureOpenAIProviderTest {
 
     @Test
     void explainErrorParsesNestedResponsesOutput(JenkinsRule jenkins) throws Exception {
-        addStringCredential("azure-nested-key", "nested-key");
+        addStringCredential(jenkins, "azure-nested-key", "nested-key");
 
         server.createContext("/openai/v1/responses", new JsonHandler(exchange -> nestedOutputTextResponse("""
                 {"errorSummary":"Nested response worked","resolutionSteps":["Inspect response output"],\
@@ -96,7 +96,7 @@ class AzureOpenAIProviderTest {
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "nested-deployment",
-                "2025-01-01-preview",
+                "v1",
                 "azure-nested-key");
 
         String explanation = provider.explainError("FAILURE: sample error", null, "English", null);
@@ -106,13 +106,13 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void fixAssistantUsesResponsesEndpointAndReturnsRawJson(JenkinsRule jenkins) throws Exception {
-        addStringCredential("azure-fix-key", "fix-key");
+    void fixAssistantUsesPreviewResponsesEndpointAndReturnsRawJson(JenkinsRule jenkins) throws Exception {
+        addStringCredential(jenkins, "azure-fix-key", "fix-key");
 
         AtomicReference<String> requestPath = new AtomicReference<>();
         AtomicReference<String> requestBody = new AtomicReference<>();
 
-        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+        server.createContext("/openai/responses", new JsonHandler(exchange -> {
             requestPath.set(exchange.getRequestURI().toString());
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             return outputTextResponse("""
@@ -120,21 +120,46 @@ class AzureOpenAIProviderTest {
                     "fixType":"config","changes":[]}""");
         }));
 
-        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/openai/";
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "fix-deployment",
-                "2025-02-01-preview",
+                "2025-04-01-preview",
                 "azure-fix-key");
 
         FixAssistant assistant = provider.createFixAssistant();
         String result = assistant.suggestFix("FAILURE: job failed");
 
-        assertEquals("/openai/v1/responses?api-version=2025-02-01-preview", requestPath.get());
+        assertEquals("/openai/responses?api-version=2025-04-01-preview", requestPath.get());
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("fix-deployment", payload.path("model").asText());
         assertTrue(requestBody.get().contains("\"Jenkins build failed. Analyze and suggest a fix."));
         assertTrue(result.contains("\"fixable\":true"));
+    }
+
+    @Test
+    void fixAssistantAcceptsV1BaseEndpoint(JenkinsRule jenkins) throws Exception {
+        addStringCredential(jenkins, "azure-v1-key", "v1-key");
+
+        AtomicReference<String> requestPath = new AtomicReference<>();
+
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return outputTextResponse("""
+                    {"fixable":false,"explanation":"No safe fix","confidence":"low",\
+                    "fixType":"unknown","changes":[]}""");
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/openai/v1/";
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "v1-deployment",
+                null,
+                "azure-v1-key");
+
+        provider.createFixAssistant().suggestFix("FAILURE: job failed");
+
+        assertEquals("/openai/v1/responses", requestPath.get());
     }
 
     private static String outputTextResponse(String text) throws IOException {
@@ -155,7 +180,8 @@ class AzureOpenAIProviderTest {
         return OBJECT_MAPPER.writeValueAsString(response);
     }
 
-    private void addStringCredential(String id, String secret) throws IOException {
+    private void addStringCredential(JenkinsRule jenkins, String id, String secret) throws IOException {
+        assertTrue(jenkins.jenkins != null);
         StringCredentialsImpl credentials = new StringCredentialsImpl(
                 CredentialsScope.GLOBAL,
                 id,

@@ -44,7 +44,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static final String DEFAULT_DEPLOYMENT = "gpt-4o";
-    public static final String DEFAULT_API_VERSION = "2025-01-01-preview";
+    public static final String DEFAULT_API_VERSION = "";
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
 
     private final String apiVersion;
@@ -128,10 +128,9 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                               @CheckForNull Authentication authentication) {
         String endpoint = Util.fixEmptyAndTrim(getEndpoint());
         String deployment = Util.fixEmptyAndTrim(getDeployment());
-        String configuredApiVersion = Util.fixEmptyAndTrim(getApiVersion());
         String configuredCredentialsId = Util.fixEmptyAndTrim(getCredentialsId());
         StringCredentials credentials = null;
-        if (endpoint != null && deployment != null && configuredApiVersion != null && configuredCredentialsId != null) {
+        if (endpoint != null && deployment != null && configuredCredentialsId != null) {
             credentials = resolveCredentials(item, authentication);
         }
 
@@ -140,8 +139,6 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 listener.getLogger().println("No endpoint configured for Azure OpenAI.");
             } else if (deployment == null) {
                 listener.getLogger().println("No deployment configured for Azure OpenAI.");
-            } else if (configuredApiVersion == null) {
-                listener.getLogger().println("No API version configured for Azure OpenAI.");
             } else if (configuredCredentialsId == null) {
                 listener.getLogger().println("No credentials ID configured for Azure OpenAI.");
             } else if (credentials == null) {
@@ -149,8 +146,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             }
         }
 
-        return endpoint == null || deployment == null || configuredApiVersion == null
-                || configuredCredentialsId == null || credentials == null;
+        return endpoint == null || deployment == null || configuredCredentialsId == null || credentials == null;
     }
 
     private JenkinsLogAnalysis requestAnalysis(String errorLogs, String language, String customContext,
@@ -218,12 +214,34 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     }
 
     private URI buildResponsesUri() {
-        String endpoint = getEndpoint();
-        if (endpoint.endsWith("/")) {
-            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        String endpoint = stripTrailingSlash(getEndpoint());
+        String configuredApiVersion = Util.fixEmptyAndTrim(getApiVersion());
+        if (configuredApiVersion == null || "v1".equalsIgnoreCase(configuredApiVersion)) {
+            return URI.create(appendResponsesPath(endpoint, "/openai/v1/responses"));
         }
-        String encodedApiVersion = URLEncoder.encode(getApiVersion(), StandardCharsets.UTF_8);
-        return URI.create(endpoint + "/openai/v1/responses?api-version=" + encodedApiVersion);
+
+        String encodedApiVersion = URLEncoder.encode(configuredApiVersion, StandardCharsets.UTF_8);
+        return URI.create(appendResponsesPath(endpoint, "/openai/responses")
+                + "?api-version=" + encodedApiVersion);
+    }
+
+    private String stripTrailingSlash(String endpoint) {
+        String normalizedEndpoint = endpoint;
+        while (normalizedEndpoint.endsWith("/")) {
+            normalizedEndpoint = normalizedEndpoint.substring(0, normalizedEndpoint.length() - 1);
+        }
+        return normalizedEndpoint;
+    }
+
+    private String appendResponsesPath(String endpoint, String responsesPath) {
+        if (endpoint.endsWith("/responses")) {
+            return endpoint;
+        }
+        String basePath = responsesPath.substring(0, responsesPath.length() - "/responses".length());
+        if (endpoint.endsWith(basePath)) {
+            return endpoint + "/responses";
+        }
+        return endpoint + responsesPath;
     }
 
     private String buildAnalysisRequestBody(
@@ -433,10 +451,12 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         @POST
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckApiVersion(@QueryParameter String value) {
-            if (value == null || value.isBlank()) {
-                return FormValidation.error("API version is required.");
+            String configuredApiVersion = Util.fixEmptyAndTrim(value);
+            if (configuredApiVersion == null || "v1".equalsIgnoreCase(configuredApiVersion)
+                    || configuredApiVersion.matches("\\d{4}-\\d{2}-\\d{2}-preview")) {
+                return FormValidation.ok();
             }
-            return FormValidation.ok();
+            return FormValidation.warning("Use v1, leave empty for v1, or specify a dated preview version.");
         }
 
         @POST

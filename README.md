@@ -161,9 +161,15 @@ unclassified:
       azureOpenai:
         endpoint: "https://my-resource.openai.azure.com"
         deployment: "gpt-5.4-pro" # Azure OpenAI deployment name
-        apiVersion: "2025-04-01-preview"
+        # apiVersion: "" # Optional. Leave empty for /openai/v1/responses.
         credentialsId: "azure-openai-key"
     enableExplanation: true
+```
+
+For the legacy preview Responses API, set a dated API version:
+
+```yaml
+apiVersion: "2025-04-01-preview" # Calls /openai/responses?api-version=2025-04-01-preview
 ```
 
 **Microsoft Foundry Configuration:**
@@ -269,8 +275,9 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ### Azure OpenAI
 - **Models**: Any Azure OpenAI deployment supported by the Responses API
 - **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
-- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`; the plugin calls `/openai/v1/responses`
-- **Best for**: Azure OpenAI deployments using the latest Responses API
+- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`; the plugin calls `/openai/v1/responses` when `apiVersion` is empty or `v1`
+- **API Version**: Optional. Leave empty for the latest v1 API, or set a dated preview version such as `2025-04-01-preview` to call `/openai/responses?api-version=...`
+- **Best for**: Azure OpenAI deployments using the Responses API, including newer deployments that do not support chat completions
 
 ### Microsoft Foundry
 - **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models

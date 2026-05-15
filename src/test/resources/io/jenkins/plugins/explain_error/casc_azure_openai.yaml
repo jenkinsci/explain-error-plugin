@@ -12,6 +12,5 @@ unclassified:
       azureOpenai:
         endpoint: "https://my-resource.openai.azure.com"
         deployment: "gpt-4o-enterprise"
-        apiVersion: "2025-01-01-preview"
         credentialsId: "azure-openai-key"
     enableExplanation: true

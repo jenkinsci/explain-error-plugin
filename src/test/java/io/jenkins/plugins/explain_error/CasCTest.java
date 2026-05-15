@@ -71,7 +71,7 @@ public class CasCTest {
         AzureOpenAIProvider azure = (AzureOpenAIProvider) provider;
         assertEquals("https://my-resource.openai.azure.com", azure.getEndpoint());
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
-        assertEquals("2025-01-01-preview", azure.getApiVersion());
+        assertNull(azure.getApiVersion());
         assertEquals("azure-openai-key", azure.getCredentialsId());
     }
 

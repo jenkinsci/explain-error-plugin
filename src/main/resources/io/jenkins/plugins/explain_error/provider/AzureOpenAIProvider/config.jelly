@@ -11,8 +11,8 @@
   </f:entry>
 
   <f:entry title="API Version" field="apiVersion"
-           description="Azure OpenAI Responses API api-version query parameter.">
-    <f:textbox clazz="required" default="${descriptor.defaultApiVersion}"/>
+           description="Optional. Leave empty or use v1 for the latest Azure OpenAI v1 Responses API. Set a dated preview version such as 2025-04-01-preview for the legacy preview Responses API.">
+    <f:textbox default="${descriptor.defaultApiVersion}"/>
   </f:entry>
 
   <f:entry title="Credentials ID" field="credentialsId"
