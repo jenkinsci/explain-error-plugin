@@ -178,12 +178,7 @@ function sendExplainRequest(forceNew = false) {
     headers: headers,
     body: body
   })
-  .then(response => {
-    if (!response.ok) {
-      notificationBar.show('Explain failed', notificationBar.ERROR);
-    }
-    return response.json();
-  })
+  .then(parseJsonResponse)
   .then(json => {
     try {
       if (json.status == "success") {
@@ -199,12 +194,43 @@ function sendExplainRequest(forceNew = false) {
         hideContainer();
       }
     } catch (e) {
-      notificationBar.show(`Error: ${error.message}`, notificationBar.ERROR);
+      notificationBar.show(`Error: ${e.message}`, notificationBar.ERROR);
     }
   })
   .catch(error => {
     notificationBar.show(`Error: ${error.message}`, notificationBar.ERROR);
+    hideContainer();
   });
+}
+
+function parseJsonResponse(response) {
+  return response.text().then(text => {
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      const message = response.ok
+        ? 'Explain failed: Jenkins returned an invalid response.'
+        : `Explain failed with HTTP ${response.status}: ${summarizeHtmlResponse(text)}`;
+      throw new Error(message);
+    }
+  });
+}
+
+function summarizeHtmlResponse(text) {
+  if (!text) {
+    return 'empty response';
+  }
+  const titleMatch = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch) {
+    return decodeHtml(titleMatch[1]).trim();
+  }
+  return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 200);
+}
+
+function decodeHtml(text) {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
 }
 
 function showErrorExplanation(message, providerName, url) {
