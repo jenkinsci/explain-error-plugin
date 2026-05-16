@@ -11,7 +11,7 @@
   </f:entry>
 
   <f:entry title="API Version" field="apiVersion"
-           description="Azure OpenAI api-version query parameter.">
+           description="Azure OpenAI api-version query parameter. Responses API requires 2025-04-01-preview or later.">
     <f:textbox clazz="required" default="${descriptor.defaultApiVersion}"/>
   </f:entry>
 
@@ -22,9 +22,7 @@
 
   <f:entry title="API Type" field="apiType"
            description="Select the API endpoint type. Use Responses API for newer models (e.g. gpt-5.x) that do not support the legacy Chat Completions API.">
-    <f:enum field="apiType">
-      ${it.getApiType().name()}
-    </f:enum>
+    <f:select />
   </f:entry>
 
   <f:validateButton title="Test Configuration" progress="Testing..."

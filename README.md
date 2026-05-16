@@ -164,6 +164,7 @@ unclassified:
         apiVersion: "2025-01-01-preview"
         credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
         # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
+        # Use apiVersion "2025-04-01-preview" or later when apiType is "RESPONSES".
     enableExplanation: true
 ```
 
@@ -262,6 +263,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
 - **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`
 - **API Type**: Choose between `Chat Completions API` (legacy, default) and `Responses API` (recommended for newer models like gpt-5.x that do not support chat completions)
+- **API Version**: `Responses API` requires `2025-04-01-preview` or later; `Chat Completions API` defaults to `2025-01-01-preview`
 - **Best for**: Azure OpenAI deployments, with support for both legacy and latest API endpoints
 
 ### Google Gemini

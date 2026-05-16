@@ -1,7 +1,9 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
@@ -11,12 +13,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
+import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.autofix.FixAssistant;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.junit.jupiter.api.AfterEach;
@@ -125,18 +131,20 @@ class AzureOpenAIProviderTest {
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "gpt-5-pro",
-                "2025-02-01-preview",
+                AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
                 "azure-responses-key",
                 AzureOpenAIProvider.ApiType.RESPONSES);
 
         String explanation = provider.explainError("FAILURE: responses test", null, "English", null);
 
-        assertEquals("/openai/responses?api-version=2025-02-01-preview",
+        assertEquals("/openai/responses?api-version=" + AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
                 requestPath.get());
         assertEquals("test-responses-key", apiKeyHeader.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
+        assertTrue(payload.has("store"));
+        assertFalse(payload.path("store").asBoolean(true));
         assertNotNull(payload.path("input"));
         assertTrue(requestBody.get().contains("Return ONLY valid JSON"));
         assertTrue(explanation.contains("Responses API test worked"));
@@ -215,20 +223,72 @@ class AzureOpenAIProviderTest {
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "gpt-5-fix",
-                "2025-03-01-preview",
+                AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
                 "azure-fix-responses-key",
                 AzureOpenAIProvider.ApiType.RESPONSES);
 
         FixAssistant assistant = provider.createFixAssistant();
         String result = assistant.suggestFix("FAILURE: obscure error");
 
-        assertEquals("/openai/responses?api-version=2025-03-01-preview",
+        assertEquals("/openai/responses?api-version=" + AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
                 requestPath.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-fix", payload.path("model").asText());
+        assertTrue(payload.has("store"));
+        assertFalse(payload.path("store").asBoolean(true));
         assertTrue(result.contains("\"fixable\":false"));
         assertTrue(result.contains("Cannot determine root cause"));
+    }
+
+    @Test
+    void descriptorRejectsUnsupportedResponsesApiVersion() {
+        AzureOpenAIProvider.DescriptorImpl descriptor = new AzureOpenAIProvider.DescriptorImpl();
+
+        FormValidation validation = descriptor.doCheckApiVersion(
+                "2025-01-01-preview",
+                AzureOpenAIProvider.ApiType.RESPONSES.name());
+
+        assertEquals(FormValidation.Kind.ERROR, validation.kind);
+        assertTrue(validation.getMessage().contains(AzureOpenAIProvider.RESPONSES_MIN_API_VERSION));
+    }
+
+    @Test
+    void descriptorListsApiTypeOptionsWithLabels() {
+        AzureOpenAIProvider.DescriptorImpl descriptor = new AzureOpenAIProvider.DescriptorImpl();
+
+        ListBoxModel items = descriptor.doFillApiTypeItems();
+
+        assertEquals(2, items.size());
+        assertEquals("Chat Completions API", items.get(0).name);
+        assertEquals(AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS.name(), items.get(0).value);
+        assertEquals("Responses API", items.get(1).name);
+        assertEquals(AzureOpenAIProvider.ApiType.RESPONSES.name(), items.get(1).value);
+    }
+
+    @Test
+    void responsesApiRejectsUnsupportedApiVersionBeforeRequest(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-old-responses-key", "old-responses-key");
+        AtomicInteger requests = new AtomicInteger();
+
+        server.createContext("/openai/responses", new JsonHandler(exchange -> {
+            requests.incrementAndGet();
+            return "{}";
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "gpt-5-pro",
+                "2025-01-01-preview",
+                "azure-old-responses-key",
+                AzureOpenAIProvider.ApiType.RESPONSES);
+
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("FAILURE: responses test", null, "English", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+        assertEquals(0, requests.get());
     }
 
     @Test

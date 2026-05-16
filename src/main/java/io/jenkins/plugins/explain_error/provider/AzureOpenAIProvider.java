@@ -13,6 +13,7 @@ import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import java.io.IOException;
@@ -23,6 +24,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -46,6 +49,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
     public static final String DEFAULT_DEPLOYMENT = "gpt-4o";
     public static final String DEFAULT_API_VERSION = "2025-01-01-preview";
+    public static final String RESPONSES_MIN_API_VERSION = "2025-04-01-preview";
+    private static final LocalDate RESPONSES_MIN_API_VERSION_DATE = LocalDate.of(2025, 4, 1);
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
 
     /**
@@ -156,8 +161,12 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         String deployment = Util.fixEmptyAndTrim(getDeployment());
         String configuredApiVersion = Util.fixEmptyAndTrim(getApiVersion());
         String configuredCredentialsId = Util.fixEmptyAndTrim(getCredentialsId());
+        boolean unsupportedResponsesApiVersion = configuredApiVersion != null
+                && getApiType() == ApiType.RESPONSES
+                && isResponsesApiVersionUnsupported(configuredApiVersion);
         StringCredentials credentials = null;
-        if (endpoint != null && deployment != null && configuredApiVersion != null && configuredCredentialsId != null) {
+        if (endpoint != null && deployment != null && configuredApiVersion != null && configuredCredentialsId != null
+                && !unsupportedResponsesApiVersion) {
             credentials = resolveCredentials(item, authentication);
         }
 
@@ -168,6 +177,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 listener.getLogger().println("No deployment configured for Azure OpenAI.");
             } else if (configuredApiVersion == null) {
                 listener.getLogger().println("No API version configured for Azure OpenAI.");
+            } else if (unsupportedResponsesApiVersion) {
+                listener.getLogger().println(getUnsupportedResponsesApiVersionMessage());
             } else if (configuredCredentialsId == null) {
                 listener.getLogger().println("No credentials ID configured for Azure OpenAI.");
             } else if (credentials == null) {
@@ -176,7 +187,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         }
 
         return endpoint == null || deployment == null || configuredApiVersion == null
-                || configuredCredentialsId == null || credentials == null;
+                || unsupportedResponsesApiVersion || configuredCredentialsId == null || credentials == null;
     }
 
     private JenkinsLogAnalysis requestAnalysis(String errorLogs, String language, String customContext,
@@ -289,6 +300,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getDeployment());
+        payload.put("store", false);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -327,6 +339,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private String buildResponsesFixRequest(String errorLogs) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getDeployment());
+        payload.put("store", false);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -509,6 +522,36 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         return value.substring(0, 500) + "...";
     }
 
+    private static boolean isResponsesApiVersionUnsupported(String apiVersion) {
+        LocalDate apiVersionDate = parseApiVersionDate(apiVersion);
+        return apiVersionDate == null || apiVersionDate.isBefore(RESPONSES_MIN_API_VERSION_DATE);
+    }
+
+    private static LocalDate parseApiVersionDate(String apiVersion) {
+        String trimmed = Util.fixEmptyAndTrim(apiVersion);
+        if (trimmed == null || trimmed.length() < 10) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(trimmed.substring(0, 10));
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private static String getUnsupportedResponsesApiVersionMessage() {
+        return "Responses API requires Azure OpenAI api-version "
+                + RESPONSES_MIN_API_VERSION + " or later.";
+    }
+
+    private static ApiType parseApiType(String apiType) {
+        String trimmed = Util.fixEmptyAndTrim(apiType);
+        if (trimmed == null) {
+            return null;
+        }
+        return ApiType.valueOf(trimmed);
+    }
+
     @Extension
     @Symbol("azureOpenai")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -526,6 +569,19 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
         public String getDefaultApiVersion() {
             return DEFAULT_API_VERSION;
+        }
+
+        /**
+         * Returns the selectable Azure OpenAI API types for configuration.
+         *
+         * @return API type options.
+         */
+        public ListBoxModel doFillApiTypeItems() {
+            ListBoxModel items = new ListBoxModel();
+            for (ApiType value : ApiType.values()) {
+                items.add(value.getDisplayName(), value.name());
+            }
+            return items;
         }
 
         @POST
@@ -548,9 +604,19 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
         @POST
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
-        public FormValidation doCheckApiVersion(@QueryParameter String value) {
+        public FormValidation doCheckApiVersion(@QueryParameter String value,
+                                                @QueryParameter("apiType") String apiType) {
             if (value == null || value.isBlank()) {
                 return FormValidation.error("API version is required.");
+            }
+            ApiType selectedApiType;
+            try {
+                selectedApiType = parseApiType(apiType);
+            } catch (IllegalArgumentException e) {
+                return FormValidation.error("Invalid API type.");
+            }
+            if (selectedApiType == ApiType.RESPONSES && isResponsesApiVersionUnsupported(value)) {
+                return FormValidation.error(getUnsupportedResponsesApiVersionMessage());
             }
             return FormValidation.ok();
         }
@@ -573,8 +639,17 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 throws ExplanationException {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
 
+            ApiType selectedApiType;
+            try {
+                selectedApiType = parseApiType(apiType);
+            } catch (IllegalArgumentException e) {
+                return FormValidation.error("Invalid API type.");
+            }
+            if (selectedApiType == ApiType.RESPONSES && isResponsesApiVersionUnsupported(apiVersion)) {
+                return FormValidation.error(getUnsupportedResponsesApiVersionMessage());
+            }
             AzureOpenAIProvider provider = new AzureOpenAIProvider(endpoint, deployment, apiVersion,
-                    credentialsId, apiType != null ? ApiType.valueOf(apiType) : null);
+                    credentialsId, selectedApiType);
             try {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
