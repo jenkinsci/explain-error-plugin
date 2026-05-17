@@ -600,6 +600,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
          *
          * @return API type options.
          */
+        @POST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public ListBoxModel doFillApiTypeItems() {
             ListBoxModel items = new ListBoxModel();
             for (ApiType value : ApiType.values()) {
