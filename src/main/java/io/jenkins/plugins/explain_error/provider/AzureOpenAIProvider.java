@@ -24,8 +24,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -49,9 +47,11 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
     public static final String DEFAULT_DEPLOYMENT = "gpt-4o";
     public static final String DEFAULT_API_VERSION = "2025-01-01-preview";
-    public static final String RESPONSES_MIN_API_VERSION = "2025-04-01-preview";
-    private static final LocalDate RESPONSES_MIN_API_VERSION_DATE = LocalDate.of(2025, 4, 1);
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
+    private static final String RESPONSES_API_PATH = "/openai/v1/responses";
+    private static final int ANALYSIS_MAX_OUTPUT_TOKENS = 1000;
+    private static final int FIX_MAX_OUTPUT_TOKENS = 2000;
+    private static final int TEST_MAX_OUTPUT_TOKENS = 32;
 
     /**
      * The Azure OpenAI API type to use for requests.
@@ -161,12 +161,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         String deployment = Util.fixEmptyAndTrim(getDeployment());
         String configuredApiVersion = Util.fixEmptyAndTrim(getApiVersion());
         String configuredCredentialsId = Util.fixEmptyAndTrim(getCredentialsId());
-        boolean unsupportedResponsesApiVersion = configuredApiVersion != null
-                && getApiType() == ApiType.RESPONSES
-                && isResponsesApiVersionUnsupported(configuredApiVersion);
         StringCredentials credentials = null;
-        if (endpoint != null && deployment != null && configuredApiVersion != null && configuredCredentialsId != null
-                && !unsupportedResponsesApiVersion) {
+        if (endpoint != null && deployment != null && configuredApiVersion != null && configuredCredentialsId != null) {
             credentials = resolveCredentials(item, authentication);
         }
 
@@ -177,8 +173,6 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 listener.getLogger().println("No deployment configured for Azure OpenAI.");
             } else if (configuredApiVersion == null) {
                 listener.getLogger().println("No API version configured for Azure OpenAI.");
-            } else if (unsupportedResponsesApiVersion) {
-                listener.getLogger().println(getUnsupportedResponsesApiVersionMessage());
             } else if (configuredCredentialsId == null) {
                 listener.getLogger().println("No credentials ID configured for Azure OpenAI.");
             } else if (credentials == null) {
@@ -187,7 +181,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         }
 
         return endpoint == null || deployment == null || configuredApiVersion == null
-                || unsupportedResponsesApiVersion || configuredCredentialsId == null || credentials == null;
+                || configuredCredentialsId == null || credentials == null;
     }
 
     private JenkinsLogAnalysis requestAnalysis(String errorLogs, String language, String customContext,
@@ -215,6 +209,20 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 .build();
         try {
             return requestRawContent(client, buildFixRequestBody(errorLogs), item, authentication);
+        } catch (IOException e) {
+            throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ExplanationException("error", "Interrupted while communicating with Azure OpenAI", e);
+        }
+    }
+
+    private void testConfiguration() throws ExplanationException {
+        HttpClient client = newJenkinsHttpClientBuilder()
+                .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
+                .build();
+        try {
+            requestRawContent(client, buildTestRequestBody(), null, null);
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
         } catch (InterruptedException e) {
@@ -264,7 +272,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
         String apiPath;
         if (getApiType() == ApiType.RESPONSES) {
-            apiPath = "/openai/responses?api-version=" + encodedApiVersion;
+            apiPath = RESPONSES_API_PATH;
         } else {
             apiPath = "/openai/deployments/" + encodedDeployment
                     + "/chat/completions?api-version=" + encodedApiVersion;
@@ -283,6 +291,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("temperature", 0.3);
+        payload.put("max_tokens", ANALYSIS_MAX_OUTPUT_TOKENS);
 
         ArrayNode messages = payload.putArray("messages");
         messages.addObject()
@@ -301,6 +310,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getDeployment());
         payload.put("store", false);
+        payload.put("max_output_tokens", ANALYSIS_MAX_OUTPUT_TOKENS);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -324,6 +334,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private String buildChatCompletionsFixRequest(String errorLogs) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("temperature", 0.3);
+        payload.put("max_tokens", FIX_MAX_OUTPUT_TOKENS);
 
         ArrayNode messages = payload.putArray("messages");
         messages.addObject()
@@ -340,6 +351,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getDeployment());
         payload.put("store", false);
+        payload.put("max_output_tokens", FIX_MAX_OUTPUT_TOKENS);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -348,6 +360,40 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         input.addObject()
                 .put("role", "user")
                 .put("content", "Jenkins build failed. Analyze and suggest a fix.\n\nError logs:\n" + errorLogs);
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private String buildTestRequestBody() throws IOException {
+        if (getApiType() == ApiType.RESPONSES) {
+            return buildResponsesTestRequest();
+        }
+        return buildChatCompletionsTestRequest();
+    }
+
+    private String buildChatCompletionsTestRequest() throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("temperature", 0);
+        payload.put("max_tokens", TEST_MAX_OUTPUT_TOKENS);
+
+        ArrayNode messages = payload.putArray("messages");
+        messages.addObject()
+                .put("role", "system")
+                .put("content", "Reply with exactly: Configuration test successful");
+        messages.addObject()
+                .put("role", "user")
+                .put("content", "Test the connection.");
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private String buildResponsesTestRequest() throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getDeployment());
+        payload.put("store", false);
+        payload.put("max_output_tokens", TEST_MAX_OUTPUT_TOKENS);
+        payload.put("instructions", "Reply with exactly: Configuration test successful");
+        payload.put("input", "Test the connection.");
 
         return OBJECT_MAPPER.writeValueAsString(payload);
     }
@@ -522,28 +568,6 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         return value.substring(0, 500) + "...";
     }
 
-    private static boolean isResponsesApiVersionUnsupported(String apiVersion) {
-        LocalDate apiVersionDate = parseApiVersionDate(apiVersion);
-        return apiVersionDate == null || apiVersionDate.isBefore(RESPONSES_MIN_API_VERSION_DATE);
-    }
-
-    private static LocalDate parseApiVersionDate(String apiVersion) {
-        String trimmed = Util.fixEmptyAndTrim(apiVersion);
-        if (trimmed == null || trimmed.length() < 10) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(trimmed.substring(0, 10));
-        } catch (DateTimeParseException e) {
-            return null;
-        }
-    }
-
-    private static String getUnsupportedResponsesApiVersionMessage() {
-        return "Responses API requires Azure OpenAI api-version "
-                + RESPONSES_MIN_API_VERSION + " or later.";
-    }
-
     private static ApiType parseApiType(String apiType) {
         String trimmed = Util.fixEmptyAndTrim(apiType);
         if (trimmed == null) {
@@ -609,14 +633,10 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             if (value == null || value.isBlank()) {
                 return FormValidation.error("API version is required.");
             }
-            ApiType selectedApiType;
             try {
-                selectedApiType = parseApiType(apiType);
+                parseApiType(apiType);
             } catch (IllegalArgumentException e) {
                 return FormValidation.error("Invalid API type.");
-            }
-            if (selectedApiType == ApiType.RESPONSES && isResponsesApiVersionUnsupported(value)) {
-                return FormValidation.error(getUnsupportedResponsesApiVersionMessage());
             }
             return FormValidation.ok();
         }
@@ -645,13 +665,10 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             } catch (IllegalArgumentException e) {
                 return FormValidation.error("Invalid API type.");
             }
-            if (selectedApiType == ApiType.RESPONSES && isResponsesApiVersionUnsupported(apiVersion)) {
-                return FormValidation.error(getUnsupportedResponsesApiVersionMessage());
-            }
             AzureOpenAIProvider provider = new AzureOpenAIProvider(endpoint, deployment, apiVersion,
                     credentialsId, selectedApiType);
             try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
+                provider.testConfiguration();
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
                 return FormValidation.error("Configuration test failed: " + e.getMessage(), e);

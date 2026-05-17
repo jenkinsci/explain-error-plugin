@@ -3,7 +3,6 @@ package io.jenkins.plugins.explain_error.provider;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
@@ -22,7 +21,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.junit.jupiter.api.AfterEach;
@@ -91,6 +89,7 @@ class AzureOpenAIProviderTest {
         assertEquals("test-azure-key", apiKeyHeader.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals(1000, payload.path("max_tokens").asInt());
         assertNotNull(payload.path("messages"));
         assertTrue(requestBody.get().contains("Return ONLY valid JSON"));
         assertTrue(explanation.contains("Azure OpenAI worked"));
@@ -105,7 +104,7 @@ class AzureOpenAIProviderTest {
         AtomicReference<String> apiKeyHeader = new AtomicReference<>();
         AtomicReference<String> requestBody = new AtomicReference<>();
 
-        server.createContext("/openai/responses", new JsonHandler(exchange -> {
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
             requestPath.set(exchange.getRequestURI().toString());
             apiKeyHeader.set(exchange.getRequestHeaders().getFirst("api-key"));
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
@@ -131,18 +130,18 @@ class AzureOpenAIProviderTest {
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "gpt-5-pro",
-                AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
+                "2025-01-01-preview",
                 "azure-responses-key",
                 AzureOpenAIProvider.ApiType.RESPONSES);
 
         String explanation = provider.explainError("FAILURE: responses test", null, "English", null);
 
-        assertEquals("/openai/responses?api-version=" + AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
-                requestPath.get());
+        assertEquals("/openai/v1/responses", requestPath.get());
         assertEquals("test-responses-key", apiKeyHeader.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
+        assertEquals(1000, payload.path("max_output_tokens").asInt());
         assertTrue(payload.has("store"));
         assertFalse(payload.path("store").asBoolean(true));
         assertNotNull(payload.path("input"));
@@ -187,6 +186,8 @@ class AzureOpenAIProviderTest {
 
         assertEquals("/openai/deployments/fix-deployment/chat/completions?api-version=2025-02-01-preview",
                 requestPath.get());
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals(2000, payload.path("max_tokens").asInt());
         assertTrue(requestBody.get().contains("\"Jenkins build failed. Analyze and suggest a fix."));
         assertTrue(result.contains("\"fixable\":true"));
     }
@@ -198,7 +199,7 @@ class AzureOpenAIProviderTest {
         AtomicReference<String> requestPath = new AtomicReference<>();
         AtomicReference<String> requestBody = new AtomicReference<>();
 
-        server.createContext("/openai/responses", new JsonHandler(exchange -> {
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
             requestPath.set(exchange.getRequestURI().toString());
             requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             return """
@@ -223,18 +224,18 @@ class AzureOpenAIProviderTest {
         AzureOpenAIProvider provider = new AzureOpenAIProvider(
                 endpoint,
                 "gpt-5-fix",
-                AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
+                "2025-01-01-preview",
                 "azure-fix-responses-key",
                 AzureOpenAIProvider.ApiType.RESPONSES);
 
         FixAssistant assistant = provider.createFixAssistant();
         String result = assistant.suggestFix("FAILURE: obscure error");
 
-        assertEquals("/openai/responses?api-version=" + AzureOpenAIProvider.RESPONSES_MIN_API_VERSION,
-                requestPath.get());
+        assertEquals("/openai/v1/responses", requestPath.get());
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-fix", payload.path("model").asText());
+        assertEquals(2000, payload.path("max_output_tokens").asInt());
         assertTrue(payload.has("store"));
         assertFalse(payload.path("store").asBoolean(true));
         assertTrue(result.contains("\"fixable\":false"));
@@ -242,15 +243,14 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void descriptorRejectsUnsupportedResponsesApiVersion() {
+    void descriptorAllowsResponsesApiVersionBecauseV1EndpointIgnoresIt() {
         AzureOpenAIProvider.DescriptorImpl descriptor = new AzureOpenAIProvider.DescriptorImpl();
 
         FormValidation validation = descriptor.doCheckApiVersion(
                 "2025-01-01-preview",
                 AzureOpenAIProvider.ApiType.RESPONSES.name());
 
-        assertEquals(FormValidation.Kind.ERROR, validation.kind);
-        assertTrue(validation.getMessage().contains(AzureOpenAIProvider.RESPONSES_MIN_API_VERSION));
+        assertEquals(FormValidation.Kind.OK, validation.kind);
     }
 
     @Test
@@ -267,13 +267,72 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void responsesApiRejectsUnsupportedApiVersionBeforeRequest(JenkinsRule jenkins) throws Exception {
-        addStringCredential("azure-old-responses-key", "old-responses-key");
-        AtomicInteger requests = new AtomicInteger();
+    void descriptorTestConfigurationUsesLightweightResponsesRequest(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-test-responses-key", "test-responses-key");
 
-        server.createContext("/openai/responses", new JsonHandler(exchange -> {
-            requests.incrementAndGet();
-            return "{}";
+        AtomicReference<String> requestPath = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return """
+                    {
+                      "output": [
+                        {
+                          "type": "message",
+                          "content": [
+                            {
+                              "type": "output_text",
+                              "text": "Configuration test successful"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """;
+        }));
+
+        AzureOpenAIProvider.DescriptorImpl descriptor = new AzureOpenAIProvider.DescriptorImpl();
+        FormValidation validation = descriptor.doTestConfiguration(
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "gpt-5-pro",
+                "2025-01-01-preview",
+                "azure-test-responses-key",
+                AzureOpenAIProvider.ApiType.RESPONSES.name());
+
+        assertEquals(FormValidation.Kind.OK, validation.kind);
+        assertEquals("/openai/v1/responses", requestPath.get());
+
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals("gpt-5-pro", payload.path("model").asText());
+        assertEquals(32, payload.path("max_output_tokens").asInt());
+        assertEquals("Test the connection.", payload.path("input").asText());
+        assertFalse(requestBody.get().contains("Return ONLY valid JSON"));
+    }
+
+    @Test
+    void responsesApiUsesV1EndpointAndIgnoresConfiguredApiVersion(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-old-responses-key", "old-responses-key");
+        AtomicReference<String> requestPath = new AtomicReference<>();
+
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return """
+                    {
+                      "output": [
+                        {
+                          "type": "message",
+                          "content": [
+                            {
+                              "type": "output_text",
+                              "text": "{\\"errorSummary\\":\\"V1 endpoint worked\\"}"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """;
         }));
 
         String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
@@ -284,11 +343,10 @@ class AzureOpenAIProviderTest {
                 "azure-old-responses-key",
                 AzureOpenAIProvider.ApiType.RESPONSES);
 
-        ExplanationException result = assertThrows(ExplanationException.class,
-                () -> provider.explainError("FAILURE: responses test", null, "English", null));
+        String result = provider.explainError("FAILURE: responses test", null, "English", null);
 
-        assertEquals("The provider is not properly configured.", result.getMessage());
-        assertEquals(0, requests.get());
+        assertEquals("/openai/v1/responses", requestPath.get());
+        assertTrue(result.contains("V1 endpoint worked"));
     }
 
     @Test
