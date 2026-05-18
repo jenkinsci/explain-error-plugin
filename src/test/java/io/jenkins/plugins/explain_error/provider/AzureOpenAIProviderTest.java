@@ -142,6 +142,8 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
         assertEquals(1000, payload.path("max_output_tokens").asInt());
+        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
+        assertEquals("low", payload.path("text").path("verbosity").asText());
         assertTrue(payload.has("store"));
         assertFalse(payload.path("store").asBoolean(true));
         assertNotNull(payload.path("input"));
@@ -236,6 +238,8 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-fix", payload.path("model").asText());
         assertEquals(2000, payload.path("max_output_tokens").asInt());
+        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
+        assertEquals("low", payload.path("text").path("verbosity").asText());
         assertTrue(payload.has("store"));
         assertFalse(payload.path("store").asBoolean(true));
         assertTrue(result.contains("\"fixable\":false"));
@@ -307,8 +311,38 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
         assertEquals(32, payload.path("max_output_tokens").asInt());
+        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
+        assertEquals("low", payload.path("text").path("verbosity").asText());
         assertEquals("Test the connection.", payload.path("input").asText());
         assertFalse(requestBody.get().contains("Return ONLY valid JSON"));
+    }
+
+    @Test
+    void responsesApiParsesTopLevelOutputText(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-output-text-key", "output-text-key");
+        AtomicReference<String> requestPath = new AtomicReference<>();
+
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return """
+                    {
+                      "output_text": "{\\"errorSummary\\":\\"Top-level output_text worked\\"}"
+                    }
+                    """;
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "gpt-5-pro",
+                "2025-01-01-preview",
+                "azure-output-text-key",
+                AzureOpenAIProvider.ApiType.RESPONSES);
+
+        String result = provider.explainError("FAILURE: responses test", null, "English", null);
+
+        assertEquals("/openai/v1/responses", requestPath.get());
+        assertTrue(result.contains("Top-level output_text worked"));
     }
 
     @Test

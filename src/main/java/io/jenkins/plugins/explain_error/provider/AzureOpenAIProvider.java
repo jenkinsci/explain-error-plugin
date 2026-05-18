@@ -311,6 +311,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         payload.put("model", getDeployment());
         payload.put("store", false);
         payload.put("max_output_tokens", ANALYSIS_MAX_OUTPUT_TOKENS);
+        addGpt5LatencyControls(payload);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -352,6 +353,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         payload.put("model", getDeployment());
         payload.put("store", false);
         payload.put("max_output_tokens", FIX_MAX_OUTPUT_TOKENS);
+        addGpt5LatencyControls(payload);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -392,10 +394,20 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         payload.put("model", getDeployment());
         payload.put("store", false);
         payload.put("max_output_tokens", TEST_MAX_OUTPUT_TOKENS);
+        addGpt5LatencyControls(payload);
         payload.put("instructions", "Reply with exactly: Configuration test successful");
         payload.put("input", "Test the connection.");
 
         return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private void addGpt5LatencyControls(ObjectNode payload) {
+        String deployment = Util.fixEmptyAndTrim(getDeployment());
+        if (deployment == null || !deployment.toLowerCase().startsWith("gpt-5")) {
+            return;
+        }
+        payload.putObject("reasoning").put("effort", "minimal");
+        payload.putObject("text").put("verbosity", "low");
     }
 
     private static String getFixSystemPrompt() {
@@ -463,6 +475,17 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     }
 
     private String extractResponsesContent(JsonNode responseJson) throws ExplanationException {
+        JsonNode error = responseJson.path("error");
+        if (error.isObject() && error.hasNonNull("message")) {
+            throw new ExplanationException("error", "Responses API returned an error: "
+                    + error.get("message").asText());
+        }
+
+        JsonNode outputText = responseJson.path("output_text");
+        if (outputText.isTextual() && Util.fixEmptyAndTrim(outputText.asText()) != null) {
+            return outputText.asText();
+        }
+
         JsonNode output = responseJson.path("output");
         if (!output.isArray() || output.isEmpty()) {
             throw new ExplanationException("error", "Responses API response did not contain any output.");
