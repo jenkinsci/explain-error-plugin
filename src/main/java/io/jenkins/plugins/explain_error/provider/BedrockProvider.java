@@ -6,12 +6,20 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.ProxyConfiguration;
 import hudson.Util;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
+import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
@@ -21,6 +29,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -74,7 +83,7 @@ public class BedrockProvider extends BaseAIProvider {
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE));
 
-        String endpoint = Util.fixEmptyAndTrim(getUrl());
+        String endpoint = normalizeEndpoint(getUrl());
         if (endpoint != null || roleArn != null) {
             builder.client(buildBedrockRuntimeClient(endpoint));
         } else if (region != null) {
@@ -85,7 +94,8 @@ public class BedrockProvider extends BaseAIProvider {
     }
 
     private BedrockRuntimeClient buildBedrockRuntimeClient(@CheckForNull String endpoint) {
-        var clientBuilder = BedrockRuntimeClient.builder();
+        var clientBuilder = BedrockRuntimeClient.builder()
+                .httpClientBuilder(newAwsHttpClientBuilder());
 
         Region awsRegion = region == null ? null : Region.of(region);
         if (awsRegion != null) {
@@ -102,7 +112,8 @@ public class BedrockProvider extends BaseAIProvider {
     }
 
     private AwsCredentialsProvider buildAssumeRoleCredentialsProvider(@CheckForNull Region awsRegion) {
-        var stsClientBuilder = StsClient.builder();
+        var stsClientBuilder = StsClient.builder()
+                .httpClientBuilder(newAwsHttpClientBuilder());
         if (awsRegion != null) {
             stsClientBuilder.region(awsRegion);
         }
@@ -114,6 +125,89 @@ public class BedrockProvider extends BaseAIProvider {
                         .roleSessionName(ROLE_SESSION_NAME)
                         .build())
                 .build();
+    }
+
+    private ApacheHttpClient.Builder newAwsHttpClientBuilder() {
+        ApacheHttpClient.Builder httpClientBuilder = ApacheHttpClient.builder();
+
+        Jenkins jenkins = Jenkins.getInstanceOrNull();
+        ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
+        software.amazon.awssdk.http.apache.ProxyConfiguration awsProxyConfiguration =
+                buildAwsProxyConfiguration(proxyConfiguration);
+        if (awsProxyConfiguration != null) {
+            httpClientBuilder.proxyConfiguration(awsProxyConfiguration);
+        }
+        return httpClientBuilder;
+    }
+
+    @CheckForNull
+    static software.amazon.awssdk.http.apache.ProxyConfiguration buildAwsProxyConfiguration(
+            @CheckForNull ProxyConfiguration proxyConfiguration) {
+        if (proxyConfiguration == null || Util.fixEmptyAndTrim(proxyConfiguration.getName()) == null) {
+            return null;
+        }
+
+        var builder = software.amazon.awssdk.http.apache.ProxyConfiguration.builder()
+                .endpoint(URI.create("http://" + proxyConfiguration.getName() + ":" + proxyConfiguration.getPort()));
+
+        String userName = Util.fixEmptyAndTrim(proxyConfiguration.getUserName());
+        if (userName != null) {
+            builder.username(userName);
+            builder.password(Secret.toString(proxyConfiguration.getSecretPassword()));
+        }
+
+        Set<String> nonProxyHosts = parseNoProxyHosts(proxyConfiguration.getNoProxyHost());
+        if (!nonProxyHosts.isEmpty()) {
+            builder.nonProxyHosts(nonProxyHosts);
+        }
+        return builder.build();
+    }
+
+    static Set<String> parseNoProxyHosts(@CheckForNull String noProxyHost) {
+        String value = Util.fixEmptyAndTrim(noProxyHost);
+        if (value == null) {
+            return Set.of();
+        }
+        return Arrays.stream(value.split("[\\s,|]+"))
+                .map(Util::fixEmptyAndTrim)
+                .filter(host -> host != null)
+                .collect(Collectors.toSet());
+    }
+
+    @CheckForNull
+    static String normalizeEndpoint(@CheckForNull String endpoint) {
+        String value = Util.fixEmptyAndTrim(endpoint);
+        if (value == null) {
+            return null;
+        }
+        if (!value.matches("^[a-zA-Z][a-zA-Z0-9+.-]*://.*")) {
+            return "https://" + value;
+        }
+        return value;
+    }
+
+    static FormValidation validateEndpoint(@CheckForNull String value) {
+        String endpoint = normalizeEndpoint(value);
+        if (endpoint == null) {
+            return FormValidation.ok();
+        }
+        try {
+            URI uri = new URL(endpoint).toURI();
+            String scheme = uri.getScheme();
+            if (uri.getHost() == null) {
+                return FormValidation.error("Endpoint is not well formed.");
+            }
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                return FormValidation.error("Endpoint must use http or https");
+            }
+            if (uri.getUserInfo() != null) {
+                return FormValidation.error(
+                        "Credentials must not be embedded in the endpoint. Use the dedicated secret fields instead.");
+            }
+        } catch (MalformedURLException | URISyntaxException e) {
+            return FormValidation.error(e, "Endpoint is not well formed.");
+        }
+        return FormValidation.ok();
     }
 
     @Override
@@ -163,6 +257,14 @@ public class BedrockProvider extends BaseAIProvider {
             } catch (ExplanationException e) {
                 return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
             }
+        }
+
+        @POST
+        @Override
+        public FormValidation doCheckUrl(@QueryParameter String value) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+
+            return validateEndpoint(value);
         }
 
         @POST

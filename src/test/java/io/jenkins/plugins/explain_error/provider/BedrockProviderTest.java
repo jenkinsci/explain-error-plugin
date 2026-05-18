@@ -2,7 +2,10 @@ package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import hudson.ProxyConfiguration;
+import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.autofix.FixAssistant;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class BedrockProviderTest {
@@ -117,5 +120,108 @@ class BedrockProviderTest {
         assertEquals(
                 "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com",
                 provider.getUrl());
+    }
+
+    @Test
+    void testHostOnlyEndpointDefaultsToHttps() {
+        assertEquals(
+                "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com",
+                BedrockProvider.normalizeEndpoint(
+                        " vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com "));
+    }
+
+    @Test
+    void testEndpointWithSchemeIsUnchanged() {
+        assertEquals(
+                "http://127.0.0.1:4566",
+                BedrockProvider.normalizeEndpoint("http://127.0.0.1:4566"));
+    }
+
+    @Test
+    void testEmptyEndpointNormalizesToNull() {
+        assertNull(BedrockProvider.normalizeEndpoint("   "));
+    }
+
+    @Test
+    void testHostOnlyEndpointValidationIsAccepted() {
+        FormValidation validation = BedrockProvider.validateEndpoint(
+                "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com");
+
+        assertEquals(FormValidation.Kind.OK, validation.kind);
+    }
+
+    @Test
+    void testHttpsEndpointValidationIsAccepted() {
+        FormValidation validation = BedrockProvider.validateEndpoint(
+                "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com");
+
+        assertEquals(FormValidation.Kind.OK, validation.kind);
+    }
+
+    @Test
+    void testEndpointValidationRejectsUnsupportedSchemes() {
+        FormValidation validation = BedrockProvider.validateEndpoint(
+                "ftp://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com");
+
+        assertEquals(FormValidation.Kind.ERROR, validation.kind);
+        assertTrue(validation.getMessage().contains("Endpoint must use http or https"));
+    }
+
+    @Test
+    void testEndpointValidationRejectsEmbeddedCredentials() {
+        FormValidation validation = BedrockProvider.validateEndpoint(
+                "https://user:password@vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com");
+
+        assertEquals(FormValidation.Kind.ERROR, validation.kind);
+        assertTrue(validation.getMessage().contains("Credentials must not be embedded"));
+    }
+
+    @Test
+    void testEndpointValidationRejectsMalformedEndpoint() {
+        FormValidation validation = BedrockProvider.validateEndpoint("https://");
+
+        assertEquals(FormValidation.Kind.ERROR, validation.kind);
+        assertTrue(validation.getMessage().contains("Endpoint is not well formed"));
+    }
+
+    @Test
+    void testParseNoProxyHostsSupportsJenkinsSeparators() {
+        assertEquals(
+                Set.of(
+                        "localhost",
+                        "*.internal.example.com",
+                        "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"),
+                BedrockProvider.parseNoProxyHosts(
+                        "localhost, *.internal.example.com|"
+                                + "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"));
+    }
+
+    @Test
+    void testBuildAwsProxyConfigurationIncludesNoProxyHosts() {
+        ProxyConfiguration jenkinsProxy = new ProxyConfiguration(
+                "proxy.example.com",
+                8080,
+                "proxy-user",
+                "proxy-password",
+                "localhost|vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com");
+
+        software.amazon.awssdk.http.apache.ProxyConfiguration awsProxy =
+                BedrockProvider.buildAwsProxyConfiguration(jenkinsProxy);
+
+        assertNotNull(awsProxy);
+        assertEquals("http", awsProxy.scheme());
+        assertEquals("proxy.example.com", awsProxy.host());
+        assertEquals(8080, awsProxy.port());
+        assertEquals("proxy-user", awsProxy.username());
+        assertEquals("proxy-password", awsProxy.password());
+        assertEquals(
+                Set.of("localhost", "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"),
+                awsProxy.nonProxyHosts());
+    }
+
+    @Test
+    void testBuildAwsProxyConfigurationSkipsMissingProxy() {
+        assertNull(BedrockProvider.buildAwsProxyConfiguration(null));
+        assertNull(BedrockProvider.buildAwsProxyConfiguration(new ProxyConfiguration("", 8080)));
     }
 }
