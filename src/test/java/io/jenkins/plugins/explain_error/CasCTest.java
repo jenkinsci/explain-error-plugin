@@ -9,6 +9,7 @@ import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
 import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import io.jenkins.plugins.explain_error.provider.BedrockProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
 import io.jenkins.plugins.explain_error.provider.MicrosoftFoundryProvider;
@@ -73,6 +74,22 @@ public class CasCTest {
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
         assertEquals("2025-01-01-preview", azure.getApiVersion());
         assertEquals("azure-openai-key", azure.getCredentialsId());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_bedrock.yaml")
+    void loadBedrockProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(BedrockProvider.class, provider);
+        BedrockProvider bedrock = (BedrockProvider) provider;
+        assertEquals(
+                "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com",
+                bedrock.getUrl());
+        assertEquals("anthropic.claude-3-5-sonnet-20240620-v1:0", bedrock.getModel());
+        assertEquals("us-east-1", bedrock.getRegion());
+        assertEquals("arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole", bedrock.getRoleArn());
     }
 
     @Test

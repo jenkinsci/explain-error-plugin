@@ -78,7 +78,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
 | **AI Provider** | Choose between OpenAI, Microsoft Foundry, Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
 | **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Gemini, DeepSeek, and Qwen providers |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
@@ -196,6 +196,8 @@ unclassified:
       bedrock:
         model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
         region: "us-east-1" # Optional, uses AWS SDK default if not specified
+        # url: "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com" # Optional private endpoint
+        # roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole" # Optional cross-account role
     enableExplanation: true
 ```
 
@@ -269,6 +271,8 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
 - **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
 - **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
+- **Endpoint**: Optional Bedrock Runtime endpoint override for VPC endpoints or private AWS-compatible endpoints
+- **Cross-account role**: Optional IAM role ARN. Jenkins uses its base AWS credentials to call STS AssumeRole, then invokes Bedrock with the temporary credentials
 - **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
 
 ### Ollama (Local/Private LLM)
