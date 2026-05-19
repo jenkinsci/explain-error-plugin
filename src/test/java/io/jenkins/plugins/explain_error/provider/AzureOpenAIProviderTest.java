@@ -3,6 +3,7 @@ package io.jenkins.plugins.explain_error.provider;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
@@ -343,6 +344,33 @@ class AzureOpenAIProviderTest {
 
         assertEquals("/openai/v1/responses", requestPath.get());
         assertTrue(result.contains("Top-level output_text worked"));
+    }
+
+    @Test
+    void responsesApiHandlesErrorResponse(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-error-key", "error-key");
+
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            return """
+                    {
+                      "error": {
+                        "message": "Deployment not found"
+                      }
+                    }
+                    """;
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(
+                endpoint,
+                "gpt-5-pro",
+                "2025-01-01-preview",
+                "azure-error-key",
+                AzureOpenAIProvider.ApiType.RESPONSES);
+
+        ExplanationException ex = assertThrows(ExplanationException.class,
+                () -> provider.explainError("FAILURE: error test", null, "English", null));
+        assertTrue(ex.getMessage().contains("Deployment not found"));
     }
 
     @Test
