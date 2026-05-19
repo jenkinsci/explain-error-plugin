@@ -189,11 +189,19 @@ class BedrockProviderTest {
         assertEquals(
                 Set.of(
                         "localhost",
-                        "*.internal.example.com",
-                        "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"),
+                        ".*\\.internal\\.example\\.com",
+                        "vpce-1234567890abcdef\\.bedrock-runtime\\.us-east-1\\.vpce\\.amazonaws\\.com"),
                 BedrockProvider.parseNoProxyHosts(
                         "localhost, *.internal.example.com|"
                                 + "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"));
+    }
+
+    @Test
+    void testToAwsNonProxyHostPattern() {
+        assertEquals("localhost", BedrockProvider.toAwsNonProxyHostPattern("localhost"));
+        assertEquals(".*\\.example\\.com", BedrockProvider.toAwsNonProxyHostPattern("*.example.com"));
+        assertEquals("host\\.internal\\.example\\.com",
+                BedrockProvider.toAwsNonProxyHostPattern("host.internal.example.com"));
     }
 
     @Test
@@ -215,7 +223,8 @@ class BedrockProviderTest {
         assertEquals("proxy-user", awsProxy.username());
         assertEquals("proxy-password", awsProxy.password());
         assertEquals(
-                Set.of("localhost", "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"),
+                Set.of("localhost",
+                        "vpce-1234567890abcdef\\.bedrock-runtime\\.us-east-1\\.vpce\\.amazonaws\\.com"),
                 awsProxy.nonProxyHosts());
     }
 

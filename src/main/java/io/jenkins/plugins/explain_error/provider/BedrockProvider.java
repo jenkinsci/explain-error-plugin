@@ -171,7 +171,24 @@ public class BedrockProvider extends BaseAIProvider {
         return Arrays.stream(value.split("[\\s,|]+"))
                 .map(Util::fixEmptyAndTrim)
                 .filter(host -> host != null)
+                .map(BedrockProvider::toAwsNonProxyHostPattern)
                 .collect(Collectors.toSet());
+    }
+
+    /**
+     * Converts a Jenkins-style noProxyHost pattern (glob) to a Java regex pattern
+     * suitable for the AWS SDK's SdkProxyRoutePlanner, which uses
+     * {@link String#matches(String)} for host matching.
+     *
+     * <p>The conversion follows the same logic as Jenkins'
+     * {@code ProxyConfiguration.getNoProxyHostPatterns()}:
+     * <ul>
+     *   <li>{@code .} is escaped to {@code \.}</li>
+     *   <li>{@code *} is expanded to {@code .*}</li>
+     * </ul>
+     */
+    static String toAwsNonProxyHostPattern(String globPattern) {
+        return globPattern.replace(".", "\\.").replace("*", ".*");
     }
 
     @CheckForNull
