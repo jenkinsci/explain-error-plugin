@@ -2,7 +2,6 @@ package io.jenkins.plugins.explain_error;
 
 import hudson.Extension;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
@@ -195,15 +194,6 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             return true;
         }
         return getQuotaEnforcer().tryAcquire(getQuotaWindow(), maxProviderCallsPerWindow);
-    }
-
-    @SuppressWarnings("lgtm[jenkins/no-permission-check]")
-    public ListBoxModel doFillQuotaWindowItems() {
-        ListBoxModel items = new ListBoxModel();
-        for (QuotaWindow window : QuotaWindow.values()) {
-            items.add(window.getDisplayName(), window.name());
-        }
-        return items;
     }
 
     @POST
