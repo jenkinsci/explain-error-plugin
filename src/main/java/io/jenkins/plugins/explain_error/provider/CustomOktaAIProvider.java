@@ -350,6 +350,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     private String buildFixRequestBody(String errorLogs) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("model", getModel());
+        payload.put("temperature", 0.3);
 
         ArrayNode messages = payload.putArray("messages");
         messages.addObject()

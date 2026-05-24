@@ -56,7 +56,7 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
     }
 
     private ChatModel buildChatModel() {
-        return buildChatModel(0.3);
+        return buildChatModel(null);
     }
 
     private ChatModel buildChatModel(@CheckForNull Double temperature) {
