@@ -40,7 +40,12 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
 
     @Override
     public Assistant createAssistant() {
-        ChatModel model = buildChatModel();
+        return createAssistant(null);
+    }
+
+    @Override
+    public Assistant createAssistant(@CheckForNull Double temperature) {
+        ChatModel model = buildChatModel(temperature);
         return AiServices.create(Assistant.class, model);
     }
 
@@ -51,17 +56,23 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
     }
 
     private ChatModel buildChatModel() {
-        return OpenAiChatModel.builder()
+        return buildChatModel(0.3);
+    }
+
+    private ChatModel buildChatModel(@CheckForNull Double temperature) {
+        var builder = OpenAiChatModel.builder()
                 .httpClientBuilder(newLangChainHttpClientBuilder())
                 .baseUrl(getUrl())
                 .apiKey(getApiKey().getPlainText())
                 .modelName(getModel())
-                .temperature(0.3)
                 .responseFormat(ResponseFormat.JSON)
                 .strictJsonSchema(true)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
-                .logResponses(LOGGER.isLoggable(Level.FINE))
-                .build();
+                .logResponses(LOGGER.isLoggable(Level.FINE));
+        if (temperature != null) {
+            builder.temperature(temperature);
+        }
+        return builder.build();
     }
 
     @Override

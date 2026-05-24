@@ -197,7 +197,8 @@ class AzureOpenAIProviderTest {
     }
 
     @Test
-    void explainErrorSendsConfiguredTemperature() throws Exception {
+    void explainErrorSendsConfiguredTemperature(JenkinsRule jenkins) throws Exception {
+        assertNotNull(jenkins.jenkins);
         addStringCredential("azure-temperature-key", "test-azure-key");
 
         AtomicReference<String> requestBody = new AtomicReference<>();

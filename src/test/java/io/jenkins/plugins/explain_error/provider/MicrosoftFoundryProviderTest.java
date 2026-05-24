@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -81,9 +82,46 @@ class MicrosoftFoundryProviderTest {
 
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("foundry-gpt", payload.path("model").asText());
+        assertFalse(payload.has("temperature"), "Unset temperature should be omitted from Microsoft Foundry payload");
         assertTrue(requestBody.get().contains("Prioritize root cause"));
         assertTrue(explanation.contains("Foundry worked"));
         assertTrue(explanation.contains("Check deployment configuration"));
+    }
+
+    @Test
+    void explainErrorSendsConfiguredTemperature() throws Exception {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        server.createContext("/openai/v1/chat/completions", new JsonHandler(exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return """
+                    {
+                      "id": "chatcmpl-test",
+                      "object": "chat.completion",
+                      "created": 0,
+                      "model": "foundry-gpt",
+                      "choices": [
+                        {
+                          "index": 0,
+                          "message": {
+                            "role": "assistant",
+                            "content": "{\\"errorSummary\\":\\"Foundry temperature worked\\",\\"resolutionSteps\\":[\\"Check temperature\\"],\\"bestPractices\\":[\\"Prefer provider defaults when unset\\"],\\"errorSignature\\":\\"FAILURE: temperature verified\\"}"
+                          },
+                          "finish_reason": "stop"
+                        }
+                      ]
+                    }
+                    """;
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        MicrosoftFoundryProvider provider = new MicrosoftFoundryProvider(
+                endpoint, "foundry-gpt", Secret.fromString("test-foundry-key"));
+
+        provider.explainError("FAILURE: sample error", null, "English", null, null, null, 0.65);
+
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals(0.65, payload.path("temperature").asDouble());
     }
 
     @Test
