@@ -293,6 +293,7 @@
     <dependency>
       <groupId>io.jenkins.plugins.aws-java-sdk2</groupId>
       <artifactId>aws-java-sdk2-core</artifactId>
+      <optional>true</optional>
     </dependency>
 
     <!-- Resolves javax.annotation.meta.When for SpotBugs/annotation-indexer -->

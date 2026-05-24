@@ -14,4 +14,5 @@ unclassified:
         deployment: "gpt-4o-enterprise"
         apiVersion: "2025-01-01-preview"
         credentialsId: "azure-openai-key"
+        # apiType: "CHAT_COMPLETIONS" # Optional, defaults to CHAT_COMPLETIONS. RESPONSES uses /openai/v1/responses.
     enableExplanation: true

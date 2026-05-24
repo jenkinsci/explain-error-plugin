@@ -125,6 +125,23 @@ class ConsoleExplainErrorActionTest {
     }
 
     @Test
+    void testExplainConsoleErrorProviderFailureReturnsJson() throws IOException {
+        provider.setThrowError(true);
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl() + "console-explain-error/explainConsoleError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+
+            Page page = client.getPage(request);
+            String content = page.getWebResponse().getContentAsString();
+            JSONObject responseJson = JSONObject.fromObject(content);
+
+            assertEquals("error", responseJson.getString("status"));
+            assertEquals("Test", responseJson.getString("providerName"));
+            assertTrue(responseJson.getString("message").contains("API request failed: Request failed."));
+        }
+    }
+
+    @Test
     void testExplainConsoleErrorSecondCall() throws IOException {
         try (JenkinsRule.WebClient client = rule.createWebClient()) {
             URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl() + "console-explain-error/explainConsoleError");

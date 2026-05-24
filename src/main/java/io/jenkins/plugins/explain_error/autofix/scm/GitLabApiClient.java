@@ -219,7 +219,7 @@ public class GitLabApiClient implements ScmApiClient {
     private HttpRequest.Builder baseRequest(String url) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + repo.token())
+                .header("Authorization", "Bearer " + repo.bearerValue())
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(30));
     }

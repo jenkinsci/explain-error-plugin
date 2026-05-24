@@ -115,7 +115,7 @@ public class BitbucketApiClient implements ScmApiClient {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(repoUrl() + "/src"))
-                .header("Authorization", "Bearer " + repo.token())
+                .header("Authorization", "Bearer " + repo.bearerValue())
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .timeout(Duration.ofSeconds(60))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
@@ -186,7 +186,7 @@ public class BitbucketApiClient implements ScmApiClient {
     private HttpRequest.Builder baseRequest(String url) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + repo.token())
+                .header("Authorization", "Bearer " + repo.bearerValue())
                 .header("Content-Type", "application/json")
                 .timeout(Duration.ofSeconds(30));
     }

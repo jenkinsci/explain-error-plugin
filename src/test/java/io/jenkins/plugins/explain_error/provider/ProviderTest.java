@@ -235,7 +235,7 @@ class ProviderTest {
 
     @Test
     void testBedrockNullModel() {
-        BaseAIProvider provider = new BedrockProvider(null, null, "eu-west-1");
+        BaseAIProvider provider = new BedrockProvider(null, null, "eu-west-1", null);
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
@@ -243,7 +243,7 @@ class ProviderTest {
 
     @Test
     void testBedrockEmptyModel() {
-        BaseAIProvider provider = new BedrockProvider(null, "", "eu-west-1");
+        BaseAIProvider provider = new BedrockProvider(null, "", "eu-west-1", null);
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
@@ -292,7 +292,7 @@ class ProviderTest {
 
     @Test
     void testAzureOpenAiNullEndpoint() {
-        BaseAIProvider provider = new AzureOpenAIProvider(null, "deployment", "2025-01-01-preview", "credentials-id");
+        BaseAIProvider provider = new AzureOpenAIProvider(null, "deployment", "2025-01-01-preview", "credentials-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -302,7 +302,7 @@ class ProviderTest {
     @Test
     void testAzureOpenAiNullDeployment() {
         BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", null,
-                "2025-01-01-preview", "credentials-id");
+                "2025-01-01-preview", "credentials-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -312,7 +312,7 @@ class ProviderTest {
     @Test
     void testAzureOpenAiNullApiVersion() {
         BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", "deployment",
-                null, "credentials-id");
+                null, "credentials-id", null);
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 
@@ -322,7 +322,65 @@ class ProviderTest {
     @Test
     void testAzureOpenAiNullCredentialsId() {
         BaseAIProvider provider = new AzureOpenAIProvider("https://resource.openai.azure.com", "deployment",
-                "2025-01-01-preview", null);
+                "2025-01-01-preview", null, null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryNullEndpoint() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(null, "deployment", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryEmptyEndpoint() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider("", "deployment", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryNullApiKey() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", "deployment", null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryEmptyApiKey() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", "deployment", Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryNullModel() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testMicrosoftFoundryEmptyModel() {
+        BaseAIProvider provider = new MicrosoftFoundryProvider(
+                "https://resource.services.ai.azure.com", "", Secret.fromString("test-key"));
         ExplanationException result = assertThrows(ExplanationException.class,
                 () -> provider.explainError("Test error", null));
 

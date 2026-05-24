@@ -1,0 +1,8 @@
+unclassified:
+  explainError:
+    aiProvider:
+      microsoftFoundry:
+        apiKey: "test-foundry-key"
+        model: "gpt-4o-enterprise"
+        url: "https://my-resource.services.ai.azure.com"
+    enableExplanation: true

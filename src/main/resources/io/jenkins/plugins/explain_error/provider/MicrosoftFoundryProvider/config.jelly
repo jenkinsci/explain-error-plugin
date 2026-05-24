@@ -1,0 +1,19 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="API Key" field="apiKey">
+    <f:password clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Endpoint" field="url"
+           description="Microsoft Foundry endpoint, for example https://my-resource.services.ai.azure.com or https://my-resource.openai.azure.com/openai/v1">
+    <f:textbox clazz="required"/>
+  </f:entry>
+
+  <f:entry title="Model Deployment" field="model"
+           description="Foundry model deployment name to call for chat completions.">
+    <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
+  </f:entry>
+
+  <f:validateButton title="Test Configuration" progress="Testing..."
+                    method="testConfiguration" with="apiKey,url,model" />
+</j:jelly>

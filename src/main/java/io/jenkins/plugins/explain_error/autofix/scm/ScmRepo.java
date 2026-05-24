@@ -3,7 +3,7 @@ package io.jenkins.plugins.explain_error.autofix.scm;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repoName, String token) {
+public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repoName, String bearerValue) {
 
     // SSH: git@github.com:owner/repo.git
     private static final Pattern SSH_PATTERN =
@@ -136,17 +136,17 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
      * @return a new ScmRepo with the updated baseUrl
      */
     public ScmRepo withBaseUrl(String baseUrl) {
-        return new ScmRepo(this.scmType, baseUrl, this.owner, this.repoName, this.token);
+        return new ScmRepo(this.scmType, baseUrl, this.owner, this.repoName, this.bearerValue);
     }
 
     /**
-     * Overrides the record-generated toString() to redact the token so it is never
+     * Overrides the record-generated toString() to redact the authorization value so it is never
      * accidentally printed in build logs or exception stack traces.
      */
     @Override
     public String toString() {
         return "ScmRepo[scmType=" + scmType + ", baseUrl=" + baseUrl
-                + ", owner=" + owner + ", repoName=" + repoName + ", token=[REDACTED]]";
+                + ", owner=" + owner + ", repoName=" + repoName + ", bearerValue=[REDACTED]]";
     }
 
     // -------------------------------------------------------------------------

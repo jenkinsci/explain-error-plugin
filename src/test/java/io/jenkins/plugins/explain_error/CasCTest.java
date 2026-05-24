@@ -9,8 +9,10 @@ import io.jenkins.plugins.casc.misc.JenkinsConfiguredWithCodeRule;
 import io.jenkins.plugins.casc.misc.junit.jupiter.WithJenkinsConfiguredWithCode;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import io.jenkins.plugins.explain_error.provider.BedrockProvider;
 import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
+import io.jenkins.plugins.explain_error.provider.MicrosoftFoundryProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.QwenProvider;
 import org.junit.jupiter.api.Test;
@@ -72,6 +74,23 @@ public class CasCTest {
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
         assertEquals("2025-01-01-preview", azure.getApiVersion());
         assertEquals("azure-openai-key", azure.getCredentialsId());
+        assertEquals(AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS, azure.getApiType());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_bedrock.yaml")
+    void loadBedrockProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(BedrockProvider.class, provider);
+        BedrockProvider bedrock = (BedrockProvider) provider;
+        assertEquals(
+                "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com",
+                bedrock.getUrl());
+        assertEquals("anthropic.claude-3-5-sonnet-20240620-v1:0", bedrock.getModel());
+        assertEquals("us-east-1", bedrock.getRegion());
+        assertEquals("arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole", bedrock.getRoleArn());
     }
 
     @Test
@@ -85,6 +104,19 @@ public class CasCTest {
         assertEquals("https://api.deepseek.com", deepSeek.getUrl());
         assertEquals("deepseek-v4-flash", deepSeek.getModel());
         assertEquals("test-deepseek-key", deepSeek.getApiKey().getPlainText());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_microsoft_foundry.yaml")
+    void loadMicrosoftFoundryProviderConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        assertInstanceOf(MicrosoftFoundryProvider.class, provider);
+        MicrosoftFoundryProvider foundry = (MicrosoftFoundryProvider) provider;
+        assertEquals("https://my-resource.services.ai.azure.com/openai/v1", foundry.getUrl());
+        assertEquals("gpt-4o-enterprise", foundry.getModel());
+        assertEquals("test-foundry-key", foundry.getApiKey().getPlainText());
     }
 
     @Test

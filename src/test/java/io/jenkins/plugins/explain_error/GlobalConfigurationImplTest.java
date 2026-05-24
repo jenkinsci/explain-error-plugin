@@ -132,7 +132,8 @@ class GlobalConfigurationImplTest {
                 "https://my-resource.openai.azure.com",
                 "gpt-4o-enterprise",
                 "2025-01-01-preview",
-                "azure-openai-key");
+                "azure-openai-key",
+                null);
         config.setAiProvider(provider);
         config.save();
 
