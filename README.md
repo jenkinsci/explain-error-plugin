@@ -41,7 +41,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Pipeline-ready** with a simple `explainError()` step
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via OpenAI GPT models, Anthropic Claude, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via OpenAI GPT models, Microsoft Foundry, Anthropic Claude, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -54,7 +54,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 - Jenkins (2.528.3) or higher required
 - Java 17+
-- AI API Key (OpenAI, Anthropic, or Google)
+- AI provider credentials for your selected provider
 
 ### Installation
 
@@ -76,9 +76,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Anthropic (Claude), Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
-| **API Key** | Your AI provider API key | Used by OpenAI, Anthropic, Gemini, DeepSeek, and Qwen providers |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** |
+| **AI Provider** | Choose between OpenAI, Microsoft Foundry, Anthropic (Claude), Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
+| **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
 
@@ -153,6 +153,33 @@ unclassified:
     enableExplanation: true
 ```
 
+**Azure OpenAI Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      azureOpenai:
+        endpoint: "https://my-resource.openai.azure.com"
+        deployment: "gpt-4o" # Azure OpenAI deployment name
+        apiVersion: "2025-01-01-preview"
+        credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
+        # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
+        # Responses API uses the Azure OpenAI /openai/v1/responses endpoint.
+    enableExplanation: true
+```
+
+**Microsoft Foundry Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      microsoftFoundry:
+        apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
+        model: "gpt-4o" # Foundry model deployment name
+        url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
+    enableExplanation: true
+```
+
 **Qwen Configuration:**
 ```yaml
 unclassified:
@@ -184,6 +211,8 @@ unclassified:
       bedrock:
         model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
         region: "us-east-1" # Optional, uses AWS SDK default if not specified
+        # url: "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com" # Optional private endpoint
+        # roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole" # Optional cross-account role
     enableExplanation: true
 ```
 
@@ -236,6 +265,14 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Access Token Delivery**: Configurable header name and optional prefix so the same provider can support `Authorization: Bearer ...`, `api-key: ...`, and similar patterns
 - **Best for**: Generic company AI providers that use Okta for authentication before invoking a custom chat endpoint
 
+### Azure OpenAI
+- **Models**: Any Azure OpenAI deployment supporting Chat Completions (`/chat/completions`) or Responses API (`/openai/v1/responses`)
+- **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
+- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`
+- **API Type**: Choose between `Chat Completions API` (legacy, default) and `Responses API` (recommended for newer models like gpt-5.x that do not support chat completions)
+- **API Version**: Used by `Chat Completions API`; `Responses API` uses the v1 endpoint
+- **Best for**: Azure OpenAI deployments, with support for both legacy and latest API endpoints
+
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
 - **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
@@ -248,6 +285,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
 - **Best for**: OpenAI-compatible DeepSeek model access
 
+### Microsoft Foundry
+- **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models
+- **API Key**: Use the endpoint key from your Foundry resource
+- **Endpoint**: Resource endpoint such as `https://my-resource.services.ai.azure.com` or full OpenAI v1 base URL such as `https://my-resource.openai.azure.com/openai/v1`
+- **Best for**: Enterprise Microsoft Foundry deployments that need one provider configuration for multiple deployed model families
+
 ### Qwen
 - **Models**: `qwen-plus`, `qwen-flash`, `qwen-turbo`, `qwen3-max`, `qwen3.5-plus`, `qwen3.5-flash`, `qwen3-coder-plus`, `qwen3-coder-flash`, etc.
 - **API Key**: Get from Alibaba Cloud Model Studio / DashScope
@@ -258,6 +301,8 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
 - **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
 - **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
+- **Endpoint**: Optional Bedrock Runtime endpoint override for VPC endpoints or private AWS-compatible endpoints. Host-only values default to HTTPS
+- **Cross-account role**: Optional IAM role ARN. Jenkins uses its base AWS credentials to call STS AssumeRole, then invokes Bedrock with the temporary credentials
 - **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
 
 ### Ollama (Local/Private LLM)
@@ -332,7 +377,7 @@ post {
 | **workspaceContextPaths** | Comma-separated file paths or glob patterns to include when workspace context is enabled | Common build/config files |
 | **workspaceContextMaxBytes** | Maximum total bytes of workspace context to include | `20000` |
 | **autoFix** | Enable AI auto-fix: the plugin will attempt to generate and commit a code fix, then open a pull request | `false` |
-| **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository | `''` |
+| **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository. Supports Secret text and Username with password credentials. | `''` |
 | **autoFixScmType** | SCM type override: `github`, `gitlab`, or `bitbucket`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` | Auto-detected from remote URL |
 | **autoFixGithubEnterpriseUrl** | Base URL of your GitHub Enterprise instance (e.g. `https://github.company.com`) | `''` (uses `api.github.com`) |
 | **autoFixGitlabUrl** | Base URL of your self-hosted GitLab instance (e.g. `https://gitlab.company.com`) | `''` (uses `gitlab.com`) |
@@ -398,7 +443,7 @@ post {
     failure {
         explainError(
             autoFix: true,
-            autoFixCredentialsId: 'github-pat'  // Jenkins credential with repo write access
+            autoFixCredentialsId: 'github-pat'  // Secret text or Username with password credential with repo write access
         )
     }
 }

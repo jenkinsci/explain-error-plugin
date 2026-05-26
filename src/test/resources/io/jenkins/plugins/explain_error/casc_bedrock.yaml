@@ -1,0 +1,9 @@
+unclassified:
+  explainError:
+    aiProvider:
+      bedrock:
+        model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+        region: "us-east-1"
+        url: "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com"
+        roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole"
+    enableExplanation: true

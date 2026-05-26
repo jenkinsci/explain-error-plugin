@@ -4,10 +4,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import java.io.StringWriter;
+import net.sf.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.kohsuke.stapler.export.ExportedBean;
+import org.kohsuke.stapler.export.Flavor;
+import org.kohsuke.stapler.export.Model;
+import org.kohsuke.stapler.export.ModelBuilder;
 
 @WithJenkins
 class ErrorExplanationActionTest {
@@ -85,6 +91,39 @@ class ErrorExplanationActionTest {
         // The action should now be associated with the build
         // This doesn't throw an exception, so the interface is properly implemented
         assertTrue(true);
+    }
+
+    @Test
+    void testRestApiExportModelIncludesExplanationMetadataOnly() throws Exception {
+        ErrorExplanationAction apiAction = new ErrorExplanationAction(
+                testExplanation,
+                "https://example.com/build/1",
+                testErrorLogs,
+                "Ollama",
+                "llama3.2",
+                2);
+        StringWriter writer = new StringWriter();
+        Model<ErrorExplanationAction> model = new ModelBuilder().get(ErrorExplanationAction.class);
+        model.writeTo(apiAction, Flavor.JSON.createDataWriter(apiAction, writer));
+        JSONObject json = JSONObject.fromObject(writer.toString());
+
+        assertEquals(testExplanation, json.getString("explanation"));
+        assertEquals("Ollama", json.getString("providerName"));
+        assertEquals("llama3.2", json.getString("providerModel"));
+        assertEquals("https://example.com/build/1", json.getString("urlString"));
+        assertEquals(2, json.getInt("inputLogLineCount"));
+        assertEquals(apiAction.getTimestamp(), json.getLong("timestamp"));
+        assertEquals(apiAction.getFormattedTimestamp(), json.getString("formattedTimestamp"));
+        assertFalse(json.containsKey("originalErrorLogs"));
+        assertFalse(json.containsKey("run"));
+    }
+
+    @Test
+    void testRestApiExportKeepsNestedExplanationVisibility() {
+        ExportedBean exportedBean = ErrorExplanationAction.class.getAnnotation(ExportedBean.class);
+
+        assertNotNull(exportedBean);
+        assertEquals(999, exportedBean.defaultVisibility());
     }
 
     @Test

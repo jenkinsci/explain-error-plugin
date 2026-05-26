@@ -8,7 +8,6 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.ItemGroup;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
@@ -223,15 +222,6 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         @Override
         public String getDisplayName() {
             return "Explain Error Configuration";
-        }
-
-        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
-        public ListBoxModel doFillQuotaWindowItems() {
-            ListBoxModel items = new ListBoxModel();
-            for (QuotaWindow window : QuotaWindow.values()) {
-                items.add(window.getDisplayName(), window.name());
-            }
-            return items;
         }
 
         @POST

@@ -6,12 +6,12 @@
   </f:entry>
 
   <f:entry title="Deployment" field="deployment"
-           description="Azure OpenAI deployment name to call for chat completions.">
+           description="Azure OpenAI deployment name to call.">
     <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
   </f:entry>
 
   <f:entry title="API Version" field="apiVersion"
-           description="Azure OpenAI api-version query parameter.">
+           description="Azure OpenAI api-version query parameter for Chat Completions. Responses API uses the v1 endpoint.">
     <f:textbox clazz="required" default="${descriptor.defaultApiVersion}"/>
   </f:entry>
 
@@ -20,6 +20,11 @@
     <f:textbox clazz="required"/>
   </f:entry>
 
+  <f:entry title="API Type" field="apiType"
+           description="Select the API endpoint type. Use Responses API for newer models (e.g. gpt-5.x) that do not support the legacy Chat Completions API.">
+    <f:select />
+  </f:entry>
+
   <f:validateButton title="Test Configuration" progress="Testing..."
-                    method="testConfiguration" with="endpoint,deployment,apiVersion,credentialsId" />
+                    method="testConfiguration" with="endpoint,deployment,apiVersion,credentialsId,apiType" />
 </j:jelly>

@@ -331,7 +331,7 @@ public class BitbucketServerApiClient implements ScmApiClient {
      * </ul>
      */
     private String authHeader() {
-        String token = repo.token();
+        String token = repo.bearerValue();
         if (token.contains(":")) {
             // username:password → Basic Auth
             String encoded = java.util.Base64.getEncoder()

@@ -64,6 +64,10 @@ Complex features (e.g., AutoFix, usage quotas) must have a corresponding markdow
 - `docs/auto-fix.md` — experimental auto-fix feature
 - `docs/usage-quota.md` — per-provider/model request quotas
 
+## Branching Rules
+
+- **NEVER push directly to `main`.** All code must enter `main` via pull request (PR) only. Even when working alone, create a feature branch and open a PR — do not commit or push directly to `main`.
+
 ## PR Workflow
 
 - Analyze PRs without pulling locally first
@@ -92,6 +96,7 @@ These commands can destroy other agents' work:
 - `git clean -fd` — deletes untracked files
 - `git stash` — stashes ALL changes including other agents' work
 - `git add -A` / `git add .` — stages other agents' uncommitted work
+- `git push --force` / `git push -f` — overwrites remote history; agents are NEVER allowed to force push under any circumstances
 
 ### Safe Workflow
 

@@ -1,8 +1,11 @@
 package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import hudson.util.Secret;
@@ -16,6 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class ProviderSmokeTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String ERROR_LOGS = """
             Started by user admin
@@ -53,6 +58,11 @@ class ProviderSmokeTest {
                     "request should include the configured model");
             assertTrue(server.requestPaths().get(0).contains("/api/chat"),
                     "Ollama request should target the chat endpoint");
+
+            JsonNode requestBody = OBJECT_MAPPER.readTree(server.requestBodies().get(0));
+            assertTrue(requestBody.has("think"), "Ollama requests should explicitly configure thinking");
+            assertFalse(requestBody.path("think").asBoolean(true),
+                    "Ollama requests should disable thinking traces");
         }
     }
 

@@ -1,12 +1,14 @@
 package io.jenkins.plugins.explain_error.autofix;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import hudson.model.AbstractProject;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.SCM;
+import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmApiClient;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmClientFactory;
 import io.jenkins.plugins.explain_error.autofix.scm.PullRequest;
@@ -99,7 +101,7 @@ public class AutoFixOrchestrator {
      * @param run                 the failing build run
      * @param errorLogs           the error logs to analyse
      * @param aiProvider          the configured AI provider
-     * @param credentialsId       Jenkins credentials ID for SCM token (StringCredentials)
+     * @param credentialsId       Jenkins credentials ID for SCM token
      * @param remoteUrl           explicit SCM remote URL; if null or blank, extracted from the job's SCM config
      * @param scmTypeOverride     optional override for SCM type detection ("github"/"gitlab"/"bitbucket")
      * @param githubEnterpriseUrl optional GitHub Enterprise API base URL (e.g. https://ghe.example.com)
@@ -153,10 +155,9 @@ public class AutoFixOrchestrator {
                 try {
                     String resolvedUrl = (remoteUrl != null && !remoteUrl.isBlank())
                             ? remoteUrl : extractRemoteUrl(run);
-                    StringCredentials creds = CredentialsProvider.findCredentialById(
-                            credentialsId, StringCredentials.class, run, Collections.emptyList());
-                    if (creds != null) {
-                        ScmRepo repo = buildScmRepo(resolvedUrl, creds.getSecret().getPlainText(),
+                    String token = resolveScmToken(credentialsId, run);
+                    if (token != null) {
+                        ScmRepo repo = buildScmRepo(resolvedUrl, token,
                                 scmTypeOverride, githubEnterpriseUrl, gitlabUrl, bitbucketUrl);
                         ScmApiClient client = ScmClientFactory.create(repo);
                         client.deleteBranch(createdBranchRef[0]);
@@ -255,12 +256,10 @@ public class AutoFixOrchestrator {
                 ? remoteUrl : extractRemoteUrl(run);
         listener.getLogger().println("[AutoFix] SCM remote: " + resolvedRemoteUrl);
 
-        StringCredentials creds = CredentialsProvider.findCredentialById(
-                credentialsId, StringCredentials.class, run, Collections.emptyList());
-        if (creds == null) {
+        String token = resolveScmToken(credentialsId, run);
+        if (token == null) {
             return AutoFixResult.failed("SCM credentials not found for ID: " + credentialsId);
         }
-        String token = creds.getSecret().getPlainText();
 
         // Step 6 — Parse SCM repo (with enterprise overrides)
         ScmRepo repo = buildScmRepo(resolvedRemoteUrl, token, scmTypeOverride,
@@ -367,6 +366,22 @@ public class AutoFixOrchestrator {
     // -------------------------------------------------------------------------
     // Helper methods
     // -------------------------------------------------------------------------
+
+    String resolveScmToken(String credentialsId, Run<?, ?> run) {
+        StringCredentials stringCredentials = CredentialsProvider.findCredentialById(
+                credentialsId, StringCredentials.class, run, Collections.emptyList());
+        if (stringCredentials != null) {
+            return Secret.toString(stringCredentials.getSecret());
+        }
+
+        StandardUsernamePasswordCredentials usernamePasswordCredentials = CredentialsProvider.findCredentialById(
+                credentialsId, StandardUsernamePasswordCredentials.class, run, Collections.emptyList());
+        if (usernamePasswordCredentials != null) {
+            return Secret.toString(usernamePasswordCredentials.getPassword());
+        }
+
+        return null;
+    }
 
     /**
      * Parses a raw string from the AI (which may contain preamble) into a {@link FixSuggestion}.

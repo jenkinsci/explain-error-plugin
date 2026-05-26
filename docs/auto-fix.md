@@ -36,8 +36,9 @@ build is marked with status `FAILED` — the original build result is not affect
 
 ## Step 1 — Create a PAT and store it in Jenkins
 
-The plugin uses a **Jenkins StringCredentials** (plain secret text) — not SSH keys, not
-username/password credentials.
+The plugin uses a Jenkins **Secret text** credential or a **Username with password**
+credential. For username/password credentials, the password field is used as the SCM token.
+SSH keys are not supported for auto-fix API calls.
 
 ### GitHub
 
@@ -62,14 +63,14 @@ For **GitHub Enterprise**, use `https://<your-ghe-host>/settings/tokens`.
    store only the app password value; set your Bitbucket username separately if needed)
 
 > Bitbucket Cloud uses `username:apppassword` as the HTTP Basic Auth credential.
-> Store only the app-password value as a StringCredentials in Jenkins; the plugin uses
+> Store only the app-password value in Jenkins; the plugin uses
 > the repository owner from the remote URL as the username.
 
 ### Add to Jenkins
 
 1. **Manage Jenkins → Credentials → (global) → Add Credentials**
-2. Kind: **Secret text**
-3. Secret: paste your token
+2. Kind: **Secret text** or **Username with password**
+3. Secret/password: paste your token
 4. ID: choose a memorable ID (e.g. `github-autofix-pat`)
 
 ---
@@ -226,7 +227,7 @@ The PR description includes:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `autoFix` | boolean | `false` | Enable auto-fix. Must be `true` to activate the feature |
-| `autoFixCredentialsId` | string | `''` | **Required.** Jenkins StringCredentials ID for the SCM token |
+| `autoFixCredentialsId` | string | `''` | **Required.** Jenkins Secret text or Username with password credentials ID for the SCM token |
 | `autoFixRemoteUrl` | string | `''` | SCM remote URL. Auto-detected from job SCM config if empty |
 | `autoFixScmType` | string | `''` | Force SCM type: `github`, `gitlab`, `bitbucket`, or `bitbucketserver`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` |
 | `autoFixGithubEnterpriseUrl` | string | `''` | Base URL of GitHub Enterprise (e.g. `https://github.mycompany.com`) |
@@ -337,8 +338,9 @@ explainError(autoFix: true, autoFixCredentialsId: 'my-github-pat')
 
 ### "SCM credentials not found for ID: …"
 
-The credentials ID you provided does not exist in Jenkins, or the build does not have
-permission to access it. Check **Manage Jenkins → Credentials**.
+The credentials ID you provided does not exist in Jenkins, the credential type is not
+Secret text or Username with password, or the build does not have permission to access it.
+Check **Manage Jenkins → Credentials**.
 
 ### "No SCM configured on this job" / "Job type … does not support SCM URL extraction"
 

@@ -223,7 +223,7 @@ public class GitHubApiClient implements ScmApiClient {
     private HttpRequest.Builder baseRequest(String url) {
         return HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + repo.token())
+                .header("Authorization", "Bearer " + repo.bearerValue())
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .header("Content-Type", "application/json")

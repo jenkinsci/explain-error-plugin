@@ -183,7 +183,7 @@
 
     <!-- WireMock for SCM API integration tests -->
     <dependency>
-      <groupId>com.github.tomakehurst</groupId>
+      <groupId>org.wiremock</groupId>
       <artifactId>wiremock-standalone</artifactId>
       <version>3.0.1</version>
       <scope>test</scope>
@@ -309,6 +309,14 @@
     <dependency>
       <groupId>io.jenkins.plugins.aws-java-sdk2</groupId>
       <artifactId>aws-java-sdk2-core</artifactId>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Resolves javax.annotation.meta.When for SpotBugs/annotation-indexer -->
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 </project>

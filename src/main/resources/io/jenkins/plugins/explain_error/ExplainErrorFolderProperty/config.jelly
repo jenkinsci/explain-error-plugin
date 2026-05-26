@@ -5,7 +5,10 @@
         <f:optionalBlock field="enableQuota" title="Enable Request Quota"
                          checked="${instance.enableQuota}" inline="true">
           <f:entry title="Quota Window" field="quotaWindow">
-            <f:select />
+            <f:select>
+              <f:option value="HOURLY" selected="${instance.quotaWindow.name() == 'HOURLY'}">Hourly</f:option>
+              <f:option value="DAILY" selected="${instance.quotaWindow.name() == 'DAILY'}">Daily</f:option>
+            </f:select>
           </f:entry>
           <f:entry title="Max Provider Calls per Window" field="maxProviderCallsPerWindow"
                    description="Maximum number of real AI provider calls allowed within the quota window. Overrides the global quota when configured. Cache hits do not count toward this limit.">
