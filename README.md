@@ -216,6 +216,21 @@ unclassified:
     enableExplanation: true
 ```
 
+**Anthropic (Claude) Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      anthropic:
+        apiKey: "${ANTHROPIC_API_KEY}"
+        model: "claude-sonnet-4-6"
+        # url: "" # Optional, leave empty for the official Anthropic API
+        # maxTokens: 4096 # Optional, defaults to 4096
+        # credentialsId: "anthropic-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
+        # customContext: "Custom instruccions" # Optional
+    enableExplanation: true
+```
+
 **Custom Okta AI Configuration:**
 ```yaml
 unclassified:
