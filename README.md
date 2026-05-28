@@ -41,7 +41,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Pipeline-ready** with a simple `explainError()` step
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via OpenAI GPT models, Microsoft Foundry, Anthropic Claude, Google Gemini, DeepSeek, Qwen, AWS Bedrock, local Ollama, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, Microsoft Foundry, Ollama, OpenAI GPT models, Qwen, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -76,7 +76,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between OpenAI, Microsoft Foundry, Anthropic (Claude), Google Gemini, DeepSeek, Qwen, AWS Bedrock, Ollama, or Custom Okta AI | `OpenAI` |
+| **AI Provider** | Choose between Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini, Microsoft Foundry, Ollama, OpenAI, or Qwen | `OpenAI` |
 | **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
@@ -107,99 +107,18 @@ See [AI Provider Call Quotas](docs/usage-quota.md) for configuration, collection
 
 This plugin supports [Configuration as Code](https://plugins.jenkins.io/configuration-as-code/) for automated setup. Use the `explainError` symbol in your YAML configuration:
 
-**OpenAI Configuration:**
+**Anthropic (Claude) Configuration:**
 ```yaml
 unclassified:
   explainError:
     aiProvider:
-      openai:
-        apiKey: "${AI_API_KEY}"
-        model: "gpt-5"
-        # url: "" # Optional, leave empty for default
-    enableExplanation: true
-    customContext: |
-      Consider these additional instructions:
-      - If the error is from SonarQube Scanner, link to: https://example.org/sonarqube-kb
-      - If a Kubernetes manifest failed, remind about cluster-specific requirements
-      - Check if the error might be caused by a builder crash and suggest restarting the pipeline
-```
-
-**Environment Variable Example:**
-```bash
-export AI_API_KEY="your-api-key-here"
-```
-
-**Google Gemini Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      gemini:
-        apiKey: "${AI_API_KEY}"
-        model: "gemini-2.5-flash"
-        # url: "" # Optional, leave empty for default
-    enableExplanation: true
-```
-
-**DeepSeek Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      deepseek:
-        apiKey: "${DEEPSEEK_API_KEY}"
-        model: "deepseek-v4-flash"
-        # url: "https://api.deepseek.com" # Optional, defaults to the official endpoint
-    enableExplanation: true
-```
-
-**Azure OpenAI Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      azureOpenai:
-        endpoint: "https://my-resource.openai.azure.com"
-        deployment: "gpt-4o" # Azure OpenAI deployment name
-        apiVersion: "2025-01-01-preview"
-        credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
-        # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
-        # Responses API uses the Azure OpenAI /openai/v1/responses endpoint.
-    enableExplanation: true
-```
-
-**Microsoft Foundry Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      microsoftFoundry:
-        apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
-        model: "gpt-4o" # Foundry model deployment name
-        url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
-    enableExplanation: true
-```
-
-**Qwen Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      qwen:
-        apiKey: "${DASHSCOPE_API_KEY}"
-        model: "qwen-plus"
-        # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
-    enableExplanation: true
-```
-
-**Ollama Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      ollama:
-        model: "gemma3:1b"
-        url: "http://localhost:11434" # Required for Ollama
+      anthropic:
+        apiKey: "${ANTHROPIC_API_KEY}"
+        model: "claude-sonnet-4-6"
+        # url: "" # Optional, leave empty for the official Anthropic API
+        # maxTokens: 4096 # Optional, defaults to 4096
+        # credentialsId: "anthropic-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
+        # customContext: "Custom instruccions" # Optional
     enableExplanation: true
 ```
 
@@ -216,18 +135,18 @@ unclassified:
     enableExplanation: true
 ```
 
-**Anthropic (Claude) Configuration:**
+**Azure OpenAI Configuration:**
 ```yaml
 unclassified:
   explainError:
     aiProvider:
-      anthropic:
-        apiKey: "${ANTHROPIC_API_KEY}"
-        model: "claude-sonnet-4-6"
-        # url: "" # Optional, leave empty for the official Anthropic API
-        # maxTokens: 4096 # Optional, defaults to 4096
-        # credentialsId: "anthropic-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
-        # customContext: "Custom instruccions" # Optional
+      azureOpenai:
+        endpoint: "https://my-resource.openai.azure.com"
+        deployment: "gpt-4o" # Azure OpenAI deployment name
+        apiVersion: "2025-01-01-preview"
+        credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
+        # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
+        # Responses API uses the Azure OpenAI /openai/v1/responses endpoint.
     enableExplanation: true
 ```
 
@@ -254,15 +173,90 @@ unclassified:
 
 Use `tokenUrl` for the Okta OAuth exchange and `url` for the actual chat completions endpoint. This matches providers that separate authentication from inference, such as gateways where the access token is fetched from one URL and the model is invoked on another.
 
+**DeepSeek Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      deepseek:
+        apiKey: "${DEEPSEEK_API_KEY}"
+        model: "deepseek-v4-flash"
+        # url: "https://api.deepseek.com" # Optional, defaults to the official endpoint
+    enableExplanation: true
+```
+
+**Google Gemini Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      gemini:
+        apiKey: "${AI_API_KEY}"
+        model: "gemini-2.5-flash"
+        # url: "" # Optional, leave empty for default
+    enableExplanation: true
+```
+
+**Microsoft Foundry Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      microsoftFoundry:
+        apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
+        model: "gpt-4o" # Foundry model deployment name
+        url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
+    enableExplanation: true
+```
+
+**Ollama Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      ollama:
+        model: "gemma3:1b"
+        url: "http://localhost:11434" # Required for Ollama
+    enableExplanation: true
+```
+
+**OpenAI Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      openai:
+        apiKey: "${AI_API_KEY}"
+        model: "gpt-5"
+        # url: "" # Optional, leave empty for default
+    enableExplanation: true
+    customContext: |
+      Consider these additional instructions:
+      - If the error is from SonarQube Scanner, link to: https://example.org/sonarqube-kb
+      - If a Kubernetes manifest failed, remind about cluster-specific requirements
+      - Check if the error might be caused by a builder crash and suggest restarting the pipeline
+```
+
+**Environment Variable Example:**
+```bash
+export AI_API_KEY="your-api-key-here"
+```
+
+**Qwen Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      qwen:
+        apiKey: "${DASHSCOPE_API_KEY}"
+        model: "qwen-plus"
+        # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
+    enableExplanation: true
+```
+
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
 ## Supported AI Providers
-
-### OpenAI
-- **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
-- **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
-- **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
-- **Best for**: Comprehensive error analysis with excellent reasoning
 
 ### Anthropic (Claude)
 - **Models**: `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, etc.
@@ -270,6 +264,22 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Endpoint**: Leave empty for official Anthropic API, or specify custom URL for Claude-compatible services
 - **Best for**: High-quality error analysis with strong reasoning capabilities and contextual understanding
 - **Note**: Claude Opus 4.7 and newer models have deprecated the `temperature` parameter. See [model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) for migration details.
+
+### AWS Bedrock
+- **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
+- **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
+- **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
+- **Endpoint**: Optional Bedrock Runtime endpoint override for VPC endpoints or private AWS-compatible endpoints. Host-only values default to HTTPS
+- **Cross-account role**: Optional IAM role ARN. Jenkins uses its base AWS credentials to call STS AssumeRole, then invokes Bedrock with the temporary credentials
+- **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
+
+### Azure OpenAI
+- **Models**: Any Azure OpenAI deployment supporting Chat Completions (`/chat/completions`) or Responses API (`/openai/v1/responses`)
+- **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
+- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`
+- **API Type**: Choose between `Chat Completions API` (legacy, default) and `Responses API` (recommended for newer models like gpt-5.x that do not support chat completions)
+- **API Version**: Used by `Chat Completions API`; `Responses API` uses the v1 endpoint
+- **Best for**: Azure OpenAI deployments, with support for both legacy and latest API endpoints
 
 ### Custom Okta AI
 - **Models**: Any model exposed by your company AI gateway
@@ -280,13 +290,11 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Access Token Delivery**: Configurable header name and optional prefix so the same provider can support `Authorization: Bearer ...`, `api-key: ...`, and similar patterns
 - **Best for**: Generic company AI providers that use Okta for authentication before invoking a custom chat endpoint
 
-### Azure OpenAI
-- **Models**: Any Azure OpenAI deployment supporting Chat Completions (`/chat/completions`) or Responses API (`/openai/v1/responses`)
-- **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
-- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`
-- **API Type**: Choose between `Chat Completions API` (legacy, default) and `Responses API` (recommended for newer models like gpt-5.x that do not support chat completions)
-- **API Version**: Used by `Chat Completions API`; `Responses API` uses the v1 endpoint
-- **Best for**: Azure OpenAI deployments, with support for both legacy and latest API endpoints
+### DeepSeek
+- **Models**: `deepseek-v4-flash`, `deepseek-v4-pro`, etc.
+- **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
+- **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
+- **Best for**: OpenAI-compatible DeepSeek model access
 
 ### Google Gemini
 - **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
@@ -294,37 +302,29 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
 - **Best for**: Fast, efficient analysis with competitive quality
 
-### DeepSeek
-- **Models**: `deepseek-v4-flash`, `deepseek-v4-pro`, etc.
-- **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
-- **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
-- **Best for**: OpenAI-compatible DeepSeek model access
-
 ### Microsoft Foundry
 - **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models
 - **API Key**: Use the endpoint key from your Foundry resource
 - **Endpoint**: Resource endpoint such as `https://my-resource.services.ai.azure.com` or full OpenAI v1 base URL such as `https://my-resource.openai.azure.com/openai/v1`
 - **Best for**: Enterprise Microsoft Foundry deployments that need one provider configuration for multiple deployed model families
 
-### Qwen
-- **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
-- **API Key**: Get from Alibaba Cloud Model Studio / DashScope
-- **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
-- **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
-
-### AWS Bedrock
-- **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
-- **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
-- **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
-- **Endpoint**: Optional Bedrock Runtime endpoint override for VPC endpoints or private AWS-compatible endpoints. Host-only values default to HTTPS
-- **Cross-account role**: Optional IAM role ARN. Jenkins uses its base AWS credentials to call STS AssumeRole, then invokes Bedrock with the temporary credentials
-- **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
-
 ### Ollama (Local/Private LLM)
 - **Models**: `gemma3:1b`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
 - **API Key**: Not required by default (unless your Ollama server is secured)
 - **Endpoint**: `http://localhost:11434` (or your Ollama server URL)
 - **Best for**: Private, local, or open-source LLMs; no external API usage or cost
+
+### OpenAI
+- **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
+- **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
+- **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
+- **Best for**: Comprehensive error analysis with excellent reasoning
+
+### Qwen
+- **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
+- **API Key**: Get from Alibaba Cloud Model Studio / DashScope
+- **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
+- **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
 
 ## Usage
 

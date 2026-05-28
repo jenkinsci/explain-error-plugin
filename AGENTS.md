@@ -55,7 +55,7 @@ make reinstall     # Clean build and install .hpi locally
 - If a new LangChain4j module is needed, add it to `pom.xml` (following existing exclusion patterns) and to `<hpi.bundledArtifacts>`
 - Add null/empty validation tests in `ProviderTest.java`; put provider-specific tests in a separate `<ProviderName>Test.java`
 - No changes needed in `GlobalConfigurationImpl` — providers are discovered via `ExtensionPoint`
-- Update the README provider list
+- Update the README provider list, keeping providers in alphabetical order
 
 ## Feature Documentation
 
