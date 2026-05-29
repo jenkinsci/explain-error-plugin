@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
@@ -201,5 +202,18 @@ class ExplainErrorFolderPropertyTest {
         AzureOpenAIProvider azure = (AzureOpenAIProvider) retrieved.getAiProvider();
         assertEquals("gpt-4o-enterprise", azure.getDeployment());
         assertEquals("azure-openai-key", azure.getCredentialsId());
+    }
+
+    @Test
+    void descriptorListsQuotaWindowOptions(JenkinsRule jenkins) {
+        ExplainErrorFolderProperty.DescriptorImpl descriptor = new ExplainErrorFolderProperty.DescriptorImpl();
+
+        ListBoxModel items = descriptor.doFillQuotaWindowItems();
+
+        assertEquals(2, items.size());
+        assertEquals("Hourly", items.get(0).name);
+        assertEquals(QuotaWindow.HOURLY.name(), items.get(0).value);
+        assertEquals("Daily", items.get(1).name);
+        assertEquals(QuotaWindow.DAILY.name(), items.get(1).value);
     }
 }

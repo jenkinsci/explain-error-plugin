@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
@@ -216,6 +217,17 @@ class GlobalConfigurationImplTest {
         String displayName = config.getDisplayName();
         assertNotNull(displayName);
         assertEquals("Explain Error Plugin Configuration", displayName);
+    }
+
+    @Test
+    void descriptorListsQuotaWindowOptions() {
+        ListBoxModel items = config.doFillQuotaWindowItems();
+
+        assertEquals(2, items.size());
+        assertEquals("Hourly", items.get(0).name);
+        assertEquals(QuotaWindow.HOURLY.name(), items.get(0).value);
+        assertEquals("Daily", items.get(1).name);
+        assertEquals(QuotaWindow.DAILY.name(), items.get(1).value);
     }
 
     private List<String> providerDisplayNames() {
