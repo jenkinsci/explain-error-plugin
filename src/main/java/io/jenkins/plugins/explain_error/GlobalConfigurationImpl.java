@@ -35,6 +35,11 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     private boolean enableQuota = false;
     private QuotaWindow quotaWindow = QuotaWindow.HOURLY;
     private int maxProviderCallsPerWindow = 100;
+    private Boolean enableLogSanitization = true;
+    private Boolean enablePayloadPreview = false;
+    private Boolean auditSentPayload = true;
+    private String payloadAllowRegex = "";
+    private String payloadDenyRegex = "";
 
     private transient QuotaEnforcer quotaEnforcer;
 
@@ -173,6 +178,58 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         this.maxProviderCallsPerWindow = Math.max(0, maxProviderCallsPerWindow);
     }
 
+    public final boolean isEnableLogSanitization() {
+        return enableLogSanitization == null || enableLogSanitization;
+    }
+
+    @DataBoundSetter
+    public final void setEnableLogSanitization(boolean enableLogSanitization) {
+        this.enableLogSanitization = enableLogSanitization;
+    }
+
+    public final boolean isEnablePayloadPreview() {
+        return Boolean.TRUE.equals(enablePayloadPreview);
+    }
+
+    @DataBoundSetter
+    public final void setEnablePayloadPreview(boolean enablePayloadPreview) {
+        this.enablePayloadPreview = enablePayloadPreview;
+    }
+
+    public final boolean isAuditSentPayload() {
+        return auditSentPayload == null || auditSentPayload;
+    }
+
+    @DataBoundSetter
+    public final void setAuditSentPayload(boolean auditSentPayload) {
+        this.auditSentPayload = auditSentPayload;
+    }
+
+    public final String getPayloadAllowRegex() {
+        return payloadAllowRegex != null ? payloadAllowRegex : "";
+    }
+
+    @DataBoundSetter
+    public final void setPayloadAllowRegex(String payloadAllowRegex) {
+        this.payloadAllowRegex = payloadAllowRegex != null ? payloadAllowRegex : "";
+    }
+
+    public final String getPayloadDenyRegex() {
+        return payloadDenyRegex != null ? payloadDenyRegex : "";
+    }
+
+    @DataBoundSetter
+    public final void setPayloadDenyRegex(String payloadDenyRegex) {
+        this.payloadDenyRegex = payloadDenyRegex != null ? payloadDenyRegex : "";
+    }
+
+    public final LogSanitizer.Policy getLogSanitizerPolicy() {
+        if (!isEnableLogSanitization()) {
+            return LogSanitizer.Policy.disabled();
+        }
+        return LogSanitizer.Policy.enabled(getPayloadAllowRegex(), getPayloadDenyRegex());
+    }
+
     /**
      * Returns the singleton {@link QuotaEnforcer}, creating one lazily if needed
      * (e.g. after deserialization when {@code transient} fields are not restored).
@@ -214,6 +271,27 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             return FormValidation.error("Max provider calls per window must be 0 or greater.");
         }
         return FormValidation.ok();
+    }
+
+    @POST
+    public final FormValidation doCheckPayloadAllowRegex(@QueryParameter String value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        return validatePayloadRegex(value);
+    }
+
+    @POST
+    public final FormValidation doCheckPayloadDenyRegex(@QueryParameter String value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        return validatePayloadRegex(value);
+    }
+
+    private FormValidation validatePayloadRegex(String value) {
+        try {
+            LogSanitizer.validateRegex(value);
+            return FormValidation.ok();
+        } catch (java.util.regex.PatternSyntaxException e) {
+            return FormValidation.error("Invalid regular expression: " + e.getDescription());
+        }
     }
 
     @Override

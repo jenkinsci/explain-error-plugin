@@ -177,6 +177,52 @@ class ErrorExplainerTest {
     }
 
     @Test
+    void explainErrorText_sanitizesPayloadBeforeProviderCallAndAuditsSentPayload(JenkinsRule jenkins)
+            throws Exception {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(true);
+        config.setEnableLogSanitization(true);
+        config.setAuditSentPayload(true);
+        config.setCustomContext("");
+        TestProvider provider = new TestProvider();
+        config.setAiProvider(provider);
+
+        FreeStyleProject project = jenkins.createFreeStyleProject();
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        ErrorExplanationAction action = errorExplainer.explainErrorText(
+                "ERROR token=abc123\npassword=secret-value", "", build);
+
+        assertFalse(provider.getLastErrorLogs().contains("abc123"));
+        assertFalse(provider.getLastErrorLogs().contains("secret-value"));
+        assertTrue(provider.getLastErrorLogs().contains(LogSanitizer.REDACTION_TOKEN));
+        assertEquals(provider.getLastErrorLogs(), action.getSentErrorLogs());
+        assertEquals(2, action.getRedactionCount());
+        assertEquals(0, action.getDroppedLineCount());
+    }
+
+    @Test
+    void explainErrorText_sanitizesCustomContextBeforeProviderCall(JenkinsRule jenkins)
+            throws Exception {
+        ErrorExplainer errorExplainer = new ErrorExplainer();
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(true);
+        config.setEnableLogSanitization(true);
+        config.setCustomContext("internal token=context-secret");
+        TestProvider provider = new TestProvider();
+        config.setAiProvider(provider);
+
+        FreeStyleProject project = jenkins.createFreeStyleProject();
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
+
+        errorExplainer.explainErrorText("Build failed", "", build);
+
+        assertFalse(provider.getLastCustomContext().contains("context-secret"));
+        assertTrue(provider.getLastCustomContext().contains(LogSanitizer.REDACTION_TOKEN));
+    }
+
+    @Test
     void testFolderLevelProviderResolution(JenkinsRule jenkins) throws Exception {
         ErrorExplainer errorExplainer = new ErrorExplainer();
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();

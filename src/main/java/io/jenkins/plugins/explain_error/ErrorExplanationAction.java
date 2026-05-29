@@ -15,7 +15,10 @@ public class ErrorExplanationAction implements RunAction2 {
     private final String explanation;
     private final String urlString;
     private final transient String originalErrorLogs;
+    private final String sentErrorLogs;
     private final int inputLogLineCount;
+    private final int redactionCount;
+    private final int droppedLineCount;
     private final long timestamp;
     private String providerName = "Unknown";
     private String providerModel = "Unknown";
@@ -28,13 +31,22 @@ public class ErrorExplanationAction implements RunAction2 {
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs,
                                   String providerName, String providerModel, int inputLogLineCount) {
+        this(explanation, urlString, originalErrorLogs, null, providerName, providerModel, inputLogLineCount, 0, 0);
+    }
+
+    public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs,
+                                  String sentErrorLogs, String providerName, String providerModel,
+                                  int inputLogLineCount, int redactionCount, int droppedLineCount) {
         this.explanation = explanation;
         this.originalErrorLogs = originalErrorLogs;
+        this.sentErrorLogs = sentErrorLogs;
         this.timestamp = System.currentTimeMillis();
         this.providerName = providerName;
         this.providerModel = providerModel;
         this.urlString = urlString;
         this.inputLogLineCount = Math.max(0, inputLogLineCount);
+        this.redactionCount = Math.max(0, redactionCount);
+        this.droppedLineCount = Math.max(0, droppedLineCount);
     }
 
     public Object readResolve() {
@@ -75,6 +87,10 @@ public class ErrorExplanationAction implements RunAction2 {
         return originalErrorLogs;
     }
 
+    public final String getSentErrorLogs() {
+        return sentErrorLogs;
+    }
+
     @Exported(visibility = 1)
     public long getTimestamp() {
         return timestamp;
@@ -103,6 +119,20 @@ public class ErrorExplanationAction implements RunAction2 {
     @Exported(visibility = 1)
     public int getInputLogLineCount() {
         return inputLogLineCount;
+    }
+
+    @Exported(visibility = 1)
+    public final int getRedactionCount() {
+        return redactionCount;
+    }
+
+    @Exported(visibility = 1)
+    public final int getDroppedLineCount() {
+        return droppedLineCount;
+    }
+
+    public final boolean hasSentPayloadAudit() {
+        return sentErrorLogs != null && !sentErrorLogs.isBlank();
     }
 
     @Override

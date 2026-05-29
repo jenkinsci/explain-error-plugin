@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import jenkins.model.Jenkins;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
@@ -31,6 +32,7 @@ public class ErrorExplainer {
     private String urlString;
     private String lastErrorLogs;
     private final UsageRecorder usageRecorder;
+    private final LogSanitizer logSanitizer = new LogSanitizer();
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
 
@@ -143,18 +145,21 @@ public class ErrorExplainer {
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
                     collectDownstreamLogs, downstreamJobPattern, authentication);
             String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
-            this.lastErrorLogs = errorLogs;
-            inputLogLineCount = countLines(errorLogs);
             logExtractionSummary(listener, extractionResult, maxLines);
 
             // Use step-level customContext if provided, otherwise fallback to global
             String effectiveCustomContext = StringUtils.isNotBlank(customContext) ? customContext : GlobalConfigurationImpl.get().getCustomContext();
             logToConsole(listener, "Custom context source: " + resolveCustomContextSource(customContext) + ".");
+            PreparedPayload preparedPayload = preparePayload(errorLogs, effectiveCustomContext);
+            this.lastErrorLogs = preparedPayload.errorLogs().text();
+            inputLogLineCount = preparedPayload.errorLogs().sentLineCount();
+            logSanitizationSummary(listener, preparedPayload);
 
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
-                String explanation = provider.explainError(errorLogs, listener, language, effectiveCustomContext,
+                String explanation = provider.explainError(preparedPayload.errorLogs().text(), listener, language,
+                        preparedPayload.customContext().text(),
                         run != null ? run.getParent() : null, null);
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
                 logToConsole(listener, "AI request completed successfully.");
@@ -167,8 +172,8 @@ public class ErrorExplainer {
                 }
 
                 // Store explanation in build action
-                ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
-                        provider.getProviderName(), provider.getModel(), inputLogLineCount);
+                ErrorExplanationAction action = createExplanationAction(explanation, errorLogs, preparedPayload,
+                        provider);
                 run.addOrReplaceAction(action);
                 logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
@@ -187,6 +192,10 @@ public class ErrorExplainer {
         } catch (IOException e) {
             LOGGER.severe(jobInfo + " Failed to explain error: " + e.getMessage());
             logToConsole(listener, "Failed to explain error: " + e.getMessage());
+            return null;
+        } catch (PatternSyntaxException e) {
+            LOGGER.severe(jobInfo + " Invalid payload protection regex: " + e.getMessage());
+            logToConsole(listener, "Invalid payload protection regex: " + e.getDescription());
             return null;
         }
     }
@@ -249,6 +258,7 @@ public class ErrorExplainer {
                                             UsageEvent.EntryPoint entryPoint)
             throws IOException, ExplanationException {
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
+        this.urlString = url;
         long startTimeNanos = System.nanoTime();
         int inputLogLineCount = countLines(errorText);
         ProviderResolution providerResolution = resolveProvider(run);
@@ -283,12 +293,14 @@ public class ErrorExplainer {
 
         try {
             // Get AI explanation with global custom context
-            String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), null,
-                    GlobalConfigurationImpl.get().getCustomContext(), run.getParent(), null);
+            PreparedPayload preparedPayload = preparePayload(errorText, GlobalConfigurationImpl.get().getCustomContext());
+            inputLogLineCount = preparedPayload.errorLogs().sentLineCount();
+            String explanation = provider.explainError(preparedPayload.errorLogs().text(),
+                    new LogTaskListener(LOGGER, Level.FINE), null, preparedPayload.customContext().text(),
+                    run.getParent(), null);
             LOGGER.fine(jobInfo + " AI error explanation succeeded.");
             LOGGER.fine("Explanation length: " + explanation.length());
-            ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
-                    provider.getProviderName(), provider.getModel(), inputLogLineCount);
+            ErrorExplanationAction action = createExplanationAction(explanation, errorText, preparedPayload, provider);
             run.addOrReplaceAction(action);
             run.save();
             recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount, false);
@@ -299,6 +311,60 @@ public class ErrorExplainer {
                     inputLogLineCount, false);
             throw e;
         }
+    }
+
+    public final LogSanitizer.SanitizedPayload previewPayload(String errorText) {
+        PreparedPayload preparedPayload = preparePayload(errorText, GlobalConfigurationImpl.get().getCustomContext());
+        return new LogSanitizer.SanitizedPayload(buildAuditedPayload(preparedPayload),
+                totalRedactions(preparedPayload), totalDroppedLines(preparedPayload),
+                preparedPayload.errorLogs().sentLineCount());
+    }
+
+    final LogSanitizer.SanitizedPayload sanitizeForProvider(String payload) {
+        return logSanitizer.sanitize(payload, GlobalConfigurationImpl.get().getLogSanitizerPolicy());
+    }
+
+    private PreparedPayload preparePayload(String errorLogs, String customContext) {
+        LogSanitizer.Policy policy = GlobalConfigurationImpl.get().getLogSanitizerPolicy();
+        return new PreparedPayload(logSanitizer.sanitize(errorLogs, policy),
+                logSanitizer.sanitize(customContext, policy));
+    }
+
+    private ErrorExplanationAction createExplanationAction(String explanation, String originalErrorLogs,
+                                                           PreparedPayload preparedPayload,
+                                                           BaseAIProvider provider) {
+        String auditedPayload = GlobalConfigurationImpl.get().isAuditSentPayload()
+                ? buildAuditedPayload(preparedPayload) : null;
+        return new ErrorExplanationAction(explanation, urlString, originalErrorLogs, auditedPayload,
+                provider.getProviderName(), provider.getModel(), preparedPayload.errorLogs().sentLineCount(),
+                totalRedactions(preparedPayload), totalDroppedLines(preparedPayload));
+    }
+
+    private String buildAuditedPayload(PreparedPayload preparedPayload) {
+        String payload = preparedPayload.errorLogs().text();
+        if (StringUtils.isBlank(preparedPayload.customContext().text())) {
+            return payload;
+        }
+        return payload + "\n\n--- CUSTOM CONTEXT SENT TO AI ---\n" + preparedPayload.customContext().text();
+    }
+
+    private int totalRedactions(PreparedPayload preparedPayload) {
+        return preparedPayload.errorLogs().redactionCount() + preparedPayload.customContext().redactionCount();
+    }
+
+    private int totalDroppedLines(PreparedPayload preparedPayload) {
+        return preparedPayload.errorLogs().droppedLineCount() + preparedPayload.customContext().droppedLineCount();
+    }
+
+    private void logSanitizationSummary(TaskListener listener, PreparedPayload preparedPayload) {
+        if (!GlobalConfigurationImpl.get().isEnableLogSanitization()) {
+            logToConsole(listener, "Log sanitization is disabled.");
+            return;
+        }
+
+        logToConsole(listener, "Sanitized AI payload; redacted " + totalRedactions(preparedPayload)
+                + " sensitive value(s), dropped " + totalDroppedLines(preparedPayload)
+                + " line(s) by allow policy.");
     }
 
     /**
@@ -512,6 +578,10 @@ public class ErrorExplainer {
             }
         }
         return lineCount;
+    }
+
+    private record PreparedPayload(LogSanitizer.SanitizedPayload errorLogs,
+                                   LogSanitizer.SanitizedPayload customContext) {
     }
 
     private record ProviderResolution(@CheckForNull BaseAIProvider provider, String sourceLabel) {

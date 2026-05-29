@@ -92,11 +92,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             }
 
             // Optionally allow maxLines as a parameter, default to 200
-            int maxLines = 200;
-            String maxLinesParam = req.getParameter("maxLines");
-            if (maxLinesParam != null) {
-                try { maxLines = Integer.parseInt(maxLinesParam); } catch (NumberFormatException ignore) {}
-            }
+            int maxLines = parseMaxLines(req);
 
             // Fetch the last N lines of the log
             PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
@@ -116,6 +112,40 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         } catch (Exception e) {
             LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
             LOGGER.severe("Error explaining console error: " + e.getMessage());
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * AJAX endpoint to preview the sanitized payload before sending it to the AI provider.
+     */
+    @RequirePOST
+    public void doPreviewConsolePayload(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
+        try {
+            run.checkPermission(hudson.model.Item.READ);
+
+            int maxLines = parseMaxLines(req);
+            PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
+                    false, null);
+            List<String> logLines = logExtractor.getFailedStepLog();
+            this.urlString = logExtractor.getUrl();
+
+            ErrorExplainer explainer = new ErrorExplainer();
+            LogSanitizer.SanitizedPayload sanitizedPayload = explainer.previewPayload(String.join("\n", logLines));
+
+            rsp.setContentType("application/json");
+            rsp.setCharacterEncoding("UTF-8");
+            PrintWriter writer = rsp.getWriter();
+            JSONObject json = new JSONObject();
+            json.put("status", "success");
+            json.put("message", sanitizedPayload.text());
+            json.put("redactionCount", sanitizedPayload.redactionCount());
+            json.put("droppedLineCount", sanitizedPayload.droppedLineCount());
+            json.put("sentLineCount", sanitizedPayload.sentLineCount());
+            writer.write(json.toString());
+            writer.flush();
+        } catch (Exception e) {
+            LOGGER.severe("Error previewing console payload: " + e.getMessage());
             writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
         }
     }
@@ -165,6 +195,19 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         json.put("url", urlString);
         writer.write(json.toString());
         writer.flush();
+    }
+
+    private int parseMaxLines(StaplerRequest2 req) {
+        int maxLines = 200;
+        String maxLinesParam = req.getParameter("maxLines");
+        if (maxLinesParam != null) {
+            try {
+                maxLines = Integer.parseInt(maxLinesParam);
+            } catch (NumberFormatException ignore) {
+                // Keep the default when the optional parameter is invalid.
+            }
+        }
+        return maxLines;
     }
 
     /**

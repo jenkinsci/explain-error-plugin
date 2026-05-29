@@ -291,7 +291,6 @@ public class ExplainErrorStep extends Step {
 
             if (step.isAutoFix()) {
                 String errorLogs = explainer.getLastErrorLogs();
-                String autoFixLogs = appendWorkspaceContext(errorLogs, workspaceContext);
                 BaseAIProvider provider = explainer.getResolvedProvider(run);
 
                 if (errorLogs == null) {
@@ -302,6 +301,10 @@ public class ExplainErrorStep extends Step {
                     listener.getLogger().println("[AutoFix] Skipped: no AI provider configured.");
                     return explanation;
                 }
+
+                String autoFixLogs = appendWorkspaceContext(errorLogs, workspaceContext);
+                LogSanitizer.SanitizedPayload sanitizedAutoFixLogs = explainer.sanitizeForProvider(autoFixLogs);
+                autoFixLogs = sanitizedAutoFixLogs.text();
 
                 AutoFixOrchestrator orchestrator = new AutoFixOrchestrator();
                 List<String> allowedPaths = Arrays.stream(step.getAutoFixAllowedPaths().split(","))

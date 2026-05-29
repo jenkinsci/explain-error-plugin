@@ -40,6 +40,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
+* **Enterprise data protection** — sanitize logs before LLM calls, preview console payloads before sending, audit sent payloads, and enforce allow/deny regex policies
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
 * **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, Microsoft Foundry, Ollama, OpenAI GPT models, Qwen, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
@@ -81,8 +82,15 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
+| **Enable Log Sanitization** | Redact secrets, internal URLs, private repo URLs, local paths, and customer email addresses before provider calls | ✅ Enabled |
+| **Preview Payload Before Sending** | Require console action users to review the sanitized payload before it is sent | Disabled |
+| **Audit Sent Payload** | Store the sanitized log payload with the build explanation action | ✅ Enabled |
+| **Payload Allow Regex** | Optional allow policy; only matching payload lines are sent | Empty |
+| **Payload Deny Regex** | Optional deny policy; matching text is replaced with `[REDACTED_SECRET]` | Empty |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
+
+See [Enterprise Data Protection](docs/data-protection.md) for sanitizer, preview, audit, and regex policy details.
 
 4. Click **"Test Configuration"** to verify your setup
 5. Save the configuration
@@ -534,8 +542,9 @@ Enable debug logs:
 
 1. Use `explainError()` in `post { failure { ... } }` blocks
 2. Apply `logPattern` to focus on relevant errors
-3. Monitor usage metrics and quota outcomes to control costs (see [AI Provider Call Quotas](docs/usage-quota.md))
-4. Keep plugin updated regularly
+3. Keep log sanitization enabled and review sent payload audits for sensitive jobs
+4. Monitor usage metrics and quota outcomes to control costs (see [AI Provider Call Quotas](docs/usage-quota.md))
+5. Keep plugin updated regularly
 
 ## Support & Community
 

@@ -38,6 +38,10 @@ public class ConsolePageDecorator extends PageDecorator {
         return GlobalConfigurationImpl.get().getAiProvider().getProviderName();
     }
 
+    public final boolean isPayloadPreviewEnabled() {
+        return GlobalConfigurationImpl.get().isEnablePayloadPreview();
+    }
+
     /**
      * Helper method used by jelly to checked if we're on a console url.
      */
