@@ -147,10 +147,16 @@ src/main/java/io/jenkins/plugins/explain_error/
 ├── ErrorExplanationAction.java      # Build action for storing results
 ├── provider/
 │   ├── BaseAIProvider.java          # Abstract AI service base class
-│   ├── OpenAIProvider.java          # OpenAI / LangChain4j
-│   ├── GeminiProvider.java          # Google Gemini / LangChain4j
+│   ├── AnthropicProvider.java       # Anthropic Claude / LangChain4j
+│   ├── AzureOpenAIProvider.java     # Azure OpenAI / LangChain4j
 │   ├── BedrockProvider.java         # AWS Bedrock / LangChain4j
-│   └── OllamaProvider.java          # Ollama / LangChain4j
+│   ├── CustomOktaAIProvider.java    # Custom Okta AI gateway
+│   ├── DeepSeekProvider.java        # DeepSeek / LangChain4j
+│   ├── GeminiProvider.java          # Google Gemini / LangChain4j
+│   ├── MicrosoftFoundryProvider.java # Microsoft Foundry / LangChain4j
+│   ├── OllamaProvider.java          # Ollama / LangChain4j
+│   ├── OpenAIProvider.java          # OpenAI / LangChain4j
+│   └── QwenProvider.java            # Qwen / LangChain4j
 └── autofix/
     ├── AutoFixOrchestrator.java     # Coordinates AI suggestion → branch → PR flow
     ├── AutoFixAction.java           # Build action that stores and displays the PR URL
@@ -183,7 +189,8 @@ src/main/java/io/jenkins/plugins/explain_error/
    - Refactor and optimize
 
 3. **Update documentation:**
-   - Update README.md if needed
+   - Update README.md if needed (keep provider lists in alphabetical order)
+   - Update `docs/` if the change affects existing feature docs
    - Add Javadoc comments
 
 ## Debugging

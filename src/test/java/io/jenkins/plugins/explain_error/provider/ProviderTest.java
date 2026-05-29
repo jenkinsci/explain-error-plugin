@@ -388,6 +388,38 @@ class ProviderTest {
     }
 
     @Test
+    void testAnthropicNullApiKey() {
+        BaseAIProvider provider = new AnthropicProvider(null, "test-model", null, null, null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicEmptyApiKey() {
+        BaseAIProvider provider = new AnthropicProvider(null, "test-model", Secret.fromString(""), null, null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicEmptyModel() {
+        BaseAIProvider provider = new AnthropicProvider(null, "", Secret.fromString("test-key"), null, null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testAnthropicNullModel() {
+        BaseAIProvider provider = new AnthropicProvider(null, null, Secret.fromString("test-key"), null, null);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
     void testJenkinsProxyBuilderRoutesRequestsThroughConfiguredProxy(JenkinsRule jenkins) throws Exception {
         HttpServer proxyServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger requestCount = new AtomicInteger();

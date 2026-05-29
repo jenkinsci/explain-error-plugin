@@ -1,0 +1,29 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core"  xmlns:f="/lib/form">
+  <f:entry title="Credentials ID" field="credentialsId"
+           description="Jenkins StringCredentials ID containing the Anthropic API key. Recommended for production use to securely store API keys. Get your API key from https://console.anthropic.com/settings/keys (optional if direct API Key is used)">
+    <f:textbox/>
+  </f:entry>
+  <f:entry title="API Key" field="apiKey"
+           description="Direct Anthropic API key for testing purposes. For production, use Credentials ID instead for secure storage (optional if Credentials ID is used)">
+    <f:password/>
+  </f:entry>
+  <f:entry title="URL" field="url"
+           description="Custom Anthropic API endpoint. Leave empty to use the official Anthropic API (https://api.anthropic.com). Specify custom URL for Claude-compatible services or proxies">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="Model" field="model"
+           description="Claude model to use for error analysis. Examples: claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5-20251001. Note: Claude Opus 4.7+ has deprecated temperature parameter. See https://platform.claude.com/docs/en/about-claude/model-deprecations">
+    <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
+  </f:entry>
+
+  <f:entry title="Max Output Tokens" field="maxTokens"
+           description="Maximum number of tokens the model can generate in its response. Higher values allow more detailed explanations but cost more. Default: 4096. Range: 1-8192">
+    <f:number clazz="required" default="${descriptor.defaultMaxTokens}" min="1" max="8192"/>
+  </f:entry>
+
+  <f:validateButton title="Test Configuration" progress="Testing..."
+                    method="testConfiguration" with="apiKey,credentialsId,url,model,maxTokens" />
+
+</j:jelly>

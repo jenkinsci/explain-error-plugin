@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import hudson.Extension;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
@@ -213,6 +214,16 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             return true;
         }
         return getQuotaEnforcer().tryAcquire(getQuotaWindow(), maxProviderCallsPerWindow);
+    }
+
+    @POST
+    public ListBoxModel doFillQuotaWindowItems() {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        ListBoxModel items = new ListBoxModel();
+        for (QuotaWindow value : QuotaWindow.values()) {
+            items.add(value.getDisplayName(), value.name());
+        }
+        return items;
     }
 
     @POST

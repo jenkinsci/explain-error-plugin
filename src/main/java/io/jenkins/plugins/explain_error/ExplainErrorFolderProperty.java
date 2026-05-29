@@ -8,6 +8,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.ItemGroup;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
@@ -321,6 +322,16 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         @Override
         public String getDisplayName() {
             return "Explain Error Configuration";
+        }
+
+        @POST
+        public ListBoxModel doFillQuotaWindowItems() {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            ListBoxModel items = new ListBoxModel();
+            for (QuotaWindow value : QuotaWindow.values()) {
+                items.add(value.getDisplayName(), value.name());
+            }
+            return items;
         }
 
         @POST

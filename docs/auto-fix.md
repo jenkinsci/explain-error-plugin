@@ -27,7 +27,7 @@ build is marked with status `FAILED` — the original build result is not affect
 |-------------|---------|
 | Jenkins | 2.528.3 or higher |
 | Java | 17+ |
-| AI provider | Any supported provider configured in global settings (OpenAI, Gemini, Bedrock, Ollama, Custom Okta) |
+| AI provider | Any supported provider configured in global settings (Anthropic Claude, AWS Bedrock, Azure OpenAI, Custom Okta, DeepSeek, Google Gemini, Microsoft Foundry, Ollama, OpenAI, Qwen) |
 | SCM | GitHub.com, GitHub Enterprise, GitLab.com, GitLab self-managed, Bitbucket Cloud, or Bitbucket Server / Data Center |
 | Token | Personal Access Token (PAT) with **read + write** access to the repository |
 
