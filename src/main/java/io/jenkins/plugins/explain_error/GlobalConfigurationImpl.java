@@ -197,6 +197,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return getQuotaEnforcer().tryAcquire(getQuotaWindow(), maxProviderCallsPerWindow);
     }
 
+    @POST
     public ListBoxModel doFillQuotaWindowItems() {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         ListBoxModel items = new ListBoxModel();

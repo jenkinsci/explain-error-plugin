@@ -225,6 +225,7 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
             return "Explain Error Configuration";
         }
 
+        @POST
         public ListBoxModel doFillQuotaWindowItems() {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             ListBoxModel items = new ListBoxModel();

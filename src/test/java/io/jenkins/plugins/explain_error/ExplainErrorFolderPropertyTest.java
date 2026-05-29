@@ -206,7 +206,8 @@ class ExplainErrorFolderPropertyTest {
 
     @Test
     void descriptorListsQuotaWindowOptions(JenkinsRule jenkins) {
-        ExplainErrorFolderProperty.DescriptorImpl descriptor = new ExplainErrorFolderProperty.DescriptorImpl();
+        ExplainErrorFolderProperty.DescriptorImpl descriptor =
+                jenkins.jenkins.getDescriptorByType(ExplainErrorFolderProperty.DescriptorImpl.class);
 
         ListBoxModel items = descriptor.doFillQuotaWindowItems();
 
