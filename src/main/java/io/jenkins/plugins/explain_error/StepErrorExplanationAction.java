@@ -66,13 +66,17 @@ public class StepErrorExplanationAction implements RunAction2 {
     }
 
     public static final class Entry {
-        private final String nodeId;
-        private final String explanation;
-        private final String urlString;
-        private final String providerName;
-        private final String providerModel;
-        private final int inputLogLineCount;
-        private final long timestamp;
+        private String nodeId;
+        private String explanation;
+        private String urlString;
+        private String providerName;
+        private String providerModel;
+        private int inputLogLineCount;
+        private long timestamp;
+
+        /** No-arg constructor for XStream deserialization. */
+        private Entry() {
+        }
 
         Entry(String nodeId, String explanation, String urlString, String providerName,
               String providerModel, int inputLogLineCount, long timestamp) {

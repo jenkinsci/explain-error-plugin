@@ -298,6 +298,61 @@ class ConsoleExplainErrorActionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void testGetNodeExplanationReturnsCached() throws Exception {
+        WorkflowJob workflowJob = rule.createProject(WorkflowJob.class, "graph-get-node-explain");
+        workflowJob.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {\n"
+                + "        sh 'echo \"GET_NODE_CACHE_A\" && exit 1'\n"
+                + "    }\n"
+                + "}",
+                true));
+        WorkflowRun workflowRun = rule.assertBuildStatus(Result.FAILURE, workflowJob.scheduleBuild2(0));
+        String nodeId = findNodeIdWithLog(workflowRun, "GET_NODE_CACHE_A");
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            // First, no cache should exist.
+            URL url = new URL(rule.jenkins.getRootUrl() + workflowRun.getUrl()
+                    + "console-explain-error/getNodeExplanation");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            request.setRequestParameters(java.util.List.of(
+                    new org.htmlunit.util.NameValuePair("nodeId", nodeId)
+            ));
+            Page page = client.getPage(request);
+            JSONObject json = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("no_cache", json.getString("status"));
+
+            // Generate an explanation.
+            URL explainUrl = new URL(rule.jenkins.getRootUrl() + workflowRun.getUrl()
+                    + "console-explain-error/explainNodeError");
+            WebRequest explainRequest = new WebRequest(explainUrl, HttpMethod.POST);
+            explainRequest.setRequestParameters(java.util.List.of(
+                    new org.htmlunit.util.NameValuePair("nodeId", nodeId)
+            ));
+            client.getPage(explainRequest);
+
+            // Now the cache should return the explanation.
+            page = client.getPage(request);
+            json = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", json.getString("status"));
+            assertTrue(json.getString("message").contains("Summary:"));
+        }
+    }
+
+    @Test
+    void testGetNodeExplanationMissingNodeId() throws IOException {
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl()
+                    + "console-explain-error/getNodeExplanation");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            Page page = client.getPage(request);
+            JSONObject json = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("warning", json.getString("status"));
+        }
+    }
+
+    @Test
     void testCheckBuildStatus() throws Exception {
         try (JenkinsRule.WebClient client = rule.createWebClient()) {
             URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl() + "console-explain-error/checkBuildStatus");

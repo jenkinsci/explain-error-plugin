@@ -1,4 +1,5 @@
 let graphBuildStatus = null;
+let lastCheckedNodeId = null;
 
 document.addEventListener('DOMContentLoaded', function () {
   installHistoryListener();
@@ -177,19 +178,93 @@ function getSelectedNodeId() {
 }
 
 function updateGraphExplainButton() {
-  const button = document.querySelector('.explain-error-graph-btn');
-  if (!button) {
-    return;
-  }
-
   const nodeId = getSelectedNodeId();
   const container = document.getElementById('explain-error-container');
   const enabled = container && container.dataset.pluginEnabled === 'true';
   const building = graphBuildStatus == 1;
-  button.disabled = !enabled || !nodeId || building;
-  button.setAttribute('tooltip', building
-      ? 'Build is still running'
-      : (nodeId ? 'Explain Pipeline node ' + nodeId : 'Select a Pipeline step first'));
+
+  const button = document.querySelector('.explain-error-graph-btn');
+  if (button) {
+    button.disabled = !enabled || !nodeId || building;
+    button.setAttribute('tooltip', building
+        ? 'Build is still running'
+        : (nodeId ? 'Explain Pipeline node ' + nodeId : 'Select a Pipeline step first'));
+  }
+
+  // When a node is selected, check whether it is a failure step (via DOM status
+  // indicators) and whether there is already a cached explanation.
+  // Skip if we already checked this node.
+  if (nodeId && nodeId !== lastCheckedNodeId) {
+    lastCheckedNodeId = nodeId;
+    if (isSelectedNodeFailed()) {
+      installGraphExplainButton();
+      tryShowCachedExplanation(nodeId);
+    } else {
+      removeGraphExplainButton();
+    }
+  }
+}
+
+/**
+ * Detects whether the selected Pipeline tree item represents a failed step
+ * by inspecting the DOM for failure status indicators.
+ */
+function isSelectedNodeFailed() {
+  const activeItem = document.querySelector('.pgv-tree-item--active');
+  if (!activeItem) {
+    // No active item yet — keep the button visible (fail open).
+    return true;
+  }
+
+  // Look for SVG status icons with failure colors.
+  // Jenkins pipeline-graph-view uses red (#c4000a or similar) for failures,
+  // blue/green for success.  We check the fill attribute on SVGs inside the
+  // tree item.
+  const svgs = activeItem.querySelectorAll('svg');
+  for (const svg of svgs) {
+    const fill = (svg.getAttribute('fill') || '').toLowerCase();
+    // Common Jenkins failure reds.
+    if (fill === '#c4000a' || fill === '#d32f2f' || fill === 'red' || fill === '#ff0000') {
+      return true;
+    }
+  }
+
+  // Fallback: check for well-known failure-related CSS classes.
+  if (activeItem.querySelector('[class*="--failed"], [class*="--FAILURE"], ' +
+      '[class*="--error"], .icon-red, .icon-red-anime')) {
+    return true;
+  }
+
+  // No failure indicator found — assume a green / success step.
+  return false;
+}
+
+function tryShowCachedExplanation(nodeId) {
+  const container = document.getElementById('explain-error-container');
+  const basePath = container.dataset.runUrl;
+  const rootURL = document.head.getAttribute("data-rooturl");
+  const url = rootURL + '/' + basePath + 'console-explain-error/getNodeExplanation';
+  let headers = {
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  if (window.crumb && typeof window.crumb.wrap === 'function') {
+    headers = window.crumb.wrap(headers);
+  }
+
+  fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: "nodeId=" + encodeURIComponent(nodeId)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.status === "success") {
+      showGraphErrorExplanation(data.message, data.providerName, data.url);
+    }
+  })
+  .catch(error => {
+    console.warn('Error fetching cached explanation:', error);
+  });
 }
 
 Behaviour.specify(".eep-generate-new-button", "ExplainErrorGraphView", 0, function(e) {
@@ -285,4 +360,3 @@ function hideGraphContainer() {
   const container = document.getElementById('explain-error-container');
   container.classList.add('jenkins-hidden');
 }
-

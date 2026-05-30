@@ -181,6 +181,37 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     }
 
     /**
+     * AJAX endpoint to retrieve a previously generated explanation for a Pipeline node.
+     * Only returns cached results; never triggers AI generation.
+     */
+    @RequirePOST
+    public void doGetNodeExplanation(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
+        String nodeId = req.getParameter("nodeId");
+        nodeId = nodeId != null ? nodeId.trim() : "";
+
+        try {
+            run.checkPermission(hudson.model.Item.READ);
+
+            if (nodeId.isEmpty()) {
+                writeJsonResponse(rsp, "warning", "Unknown", "No Pipeline node was selected.");
+                return;
+            }
+
+            StepErrorExplanationAction stepAction = run.getAction(StepErrorExplanationAction.class);
+            StepErrorExplanationAction.Entry entry = stepAction != null ? stepAction.getExplanation(nodeId) : null;
+            if (entry != null && entry.hasValidExplanation()) {
+                this.urlString = entry.getUrlString();
+                writeJsonResponse(rsp, "success", entry.getProviderName(), entry.getExplanation());
+            } else {
+                writeJsonResponse(rsp, "no_cache", "Unknown", "");
+            }
+        } catch (Exception e) {
+            LOGGER.warning("Error getting node explanation: " + e.getMessage());
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
+        }
+    }
+
+    /**
      * AJAX endpoint to check build status.
      * Returns JSON with buildingStatus to determine if button should be shown. 0 - SUCCESS, 1 - RUNNING, 2 - FINISHED and FAILURE
      */
