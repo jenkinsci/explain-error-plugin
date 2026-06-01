@@ -71,12 +71,16 @@ function installGraphExplainButton() {
     return;
   }
 
+  // Do not show the button unless the selected node is actually a failure.
+  if (!isSelectedNodeFailed()) {
+    return;
+  }
+
   const overflowRoot = document.getElementById('console-pipeline-overflow-root');
   if (!overflowRoot) {
     setTimeout(installGraphExplainButton, 500);
     return;
   }
-  overflowRoot.style.display = 'contents';
 
   const button = document.createElement('button');
   button.type = 'button';
@@ -85,8 +89,9 @@ function installGraphExplainButton() {
   button.onclick = function () {
     sendNodeExplainRequest(false);
   };
-  overflowRoot.appendChild(button);
-  Behaviour.applySubtree(overflowRoot, true);
+  // Insert as a sibling before the overflow root so we do not disturb its layout.
+  overflowRoot.parentNode.insertBefore(button, overflowRoot);
+  Behaviour.applySubtree(overflowRoot.parentNode, true);
   updateGraphExplainButton();
 }
 
@@ -208,12 +213,15 @@ function updateGraphExplainButton() {
 /**
  * Detects whether the selected Pipeline tree item represents a failed step
  * by inspecting the DOM for failure status indicators.
+ * <p>
+ * Returns {@code false} when the active tree item is not yet present in the
+ * DOM so that the button is never shown for steps whose status is unknown.
  */
 function isSelectedNodeFailed() {
   const activeItem = document.querySelector('.pgv-tree-item--active');
   if (!activeItem) {
-    // No active item yet — keep the button visible (fail open).
-    return true;
+    // No active item yet — do not show the button.
+    return false;
   }
 
   // Look for SVG status icons with failure colors.

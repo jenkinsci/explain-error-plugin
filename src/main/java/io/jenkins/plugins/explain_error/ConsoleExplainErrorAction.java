@@ -1,6 +1,5 @@
 package io.jenkins.plugins.explain_error;
 
-import com.google.common.annotations.VisibleForTesting;
 import hudson.model.Result;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
@@ -86,8 +85,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             if (!forceNew && existingAction != null && existingAction.hasValidExplanation()) {
                 recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
                         existingAction.getProviderModel(), startTimeNanos, existingAction.getInputLogLineCount());
-                // Return existing explanation with a flag indicating it's cached
-                writeJsonResponse(rsp, "success", existingAction.getProviderName(), createCachedResponse(existingAction.getExplanation()));
+                // Return existing explanation
+                writeJsonResponse(rsp, "success", existingAction.getProviderName(), existingAction.getExplanation());
                 return;
             }
 
@@ -143,8 +142,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                 recordUsage(UsageEvent.EntryPoint.PIPELINE_GRAPH_NODE, UsageEvent.Result.CACHE_HIT,
                         existing.getProviderName(), existing.getProviderModel(), startTimeNanos,
                         existing.getInputLogLineCount());
-                writeJsonResponse(rsp, "success", existing.getProviderName(),
-                        createCachedResponse(existing.getExplanation()));
+                writeJsonResponse(rsp, "success", existing.getProviderName(), existing.getExplanation());
                 return;
             }
 
@@ -252,16 +250,6 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         json.put("url", urlString);
         writer.write(json.toString());
         writer.flush();
-    }
-
-    /**
-     * Create a response indicating this is a cached result.
-     * @param explanation The cached explanation
-     * @return The response string with cached indicator
-     */
-    @VisibleForTesting
-    String createCachedResponse(String explanation) {
-        return explanation + "\n\n[Note: This is a previously generated explanation. Use the 'Generate New' option to create a new one.]";
     }
 
     public Run<?, ?> getRun() {

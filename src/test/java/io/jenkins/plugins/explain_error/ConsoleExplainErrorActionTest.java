@@ -8,7 +8,6 @@ import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.lang.reflect.Method;
 import java.net.URL;
 import net.sf.json.JSONObject;
 import org.htmlunit.HttpMethod;
@@ -58,62 +57,6 @@ class ConsoleExplainErrorActionTest {
         assertNull(action.getIconFileName()); // Should be null for AJAX functionality
         assertNull(action.getDisplayName()); // Should be null for AJAX functionality
         assertEquals("console-explain-error", action.getUrlName());
-    }
-
-    @Test
-    void testCreateCachedResponse() throws Exception {
-        // Use reflection to access the private method
-        Method method = ConsoleExplainErrorAction.class.getDeclaredMethod("createCachedResponse", String.class);
-        method.setAccessible(true);
-
-        String originalExplanation = "This is the original AI explanation.";
-        String cachedResponse = (String) method.invoke(action, originalExplanation);
-
-        assertNotNull(cachedResponse);
-        assertTrue(cachedResponse.contains(originalExplanation));
-        assertTrue(cachedResponse.contains("previously generated explanation"));
-        assertTrue(cachedResponse.contains("Generate New"));
-    }
-
-    @Test
-    void testCreateCachedResponseWithNullInput() throws Exception {
-        String cachedResponse = action.createCachedResponse(null);
-
-        assertNotNull(cachedResponse);
-        assertTrue(cachedResponse.contains("null"));
-        assertTrue(cachedResponse.contains("previously generated explanation"));
-    }
-
-    @Test
-    void testCreateCachedResponseWithEmptyInput() throws Exception {
-        String cachedResponse = action.createCachedResponse("");
-
-        assertNotNull(cachedResponse);
-        assertTrue(cachedResponse.contains("previously generated explanation"));
-    }
-
-    @Test
-    void testCreateCachedResponseWithLongExplanation() throws Exception {
-        StringBuilder longExplanation = new StringBuilder();
-        for (int i = 0; i < 100; i++) {
-            longExplanation.append("This is line ").append(i).append(" of a very long explanation.\n");
-        }
-
-        String cachedResponse = action.createCachedResponse(longExplanation.toString());
-
-        assertNotNull(cachedResponse);
-        assertTrue(cachedResponse.contains(longExplanation.toString()));
-        assertTrue(cachedResponse.contains("previously generated explanation"));
-    }
-
-    @Test
-    void testCreateCachedResponseWithSpecialCharacters() throws Exception {
-        String specialExplanation = "Error with special chars: <>&\"'\nUnicode: ñáéíóú 中文 العربية";
-        String cachedResponse = action.createCachedResponse(specialExplanation);
-
-        assertNotNull(cachedResponse);
-        assertTrue(cachedResponse.contains(specialExplanation));
-        assertTrue(cachedResponse.contains("previously generated explanation"));
     }
 
     @Test
@@ -230,7 +173,6 @@ class ConsoleExplainErrorActionTest {
             page = client.getPage(request);
             responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
             assertEquals("success", responseJson.getString("status"));
-            assertTrue(responseJson.getString("message").contains("previously generated explanation"));
             assertEquals(1, provider.getCallCount(), "Second call should use the node cache");
 
             request.setRequestParameters(java.util.List.of(
