@@ -123,25 +123,53 @@
 
   // ---- Node selection monitoring ----
 
+  /**
+   * Intercept history.pushState and history.replaceState to detect URL changes
+   * that don't fire popstate events (used by Pipeline Graph View for node
+   * selection).
+   */
+  function patchHistory() {
+    var pushState = history.pushState;
+    var replaceState = history.replaceState;
+
+    function onUrlChange() {
+      window.dispatchEvent(new Event('urlchange'));
+    }
+
+    history.pushState = function () {
+      pushState.apply(history, arguments);
+      onUrlChange();
+    };
+    history.replaceState = function () {
+      replaceState.apply(history, arguments);
+      onUrlChange();
+    };
+  }
+
   function startNodeSelectionMonitor() {
+    patchHistory();
+
+    // Check initial selection
     checkCurrentSelection();
 
+    // Listen for browser back/forward
     window.addEventListener('popstate', function () {
       checkCurrentSelection();
     });
 
-    window.addEventListener('hashchange', function () {
+    // Listen for history.pushState / replaceState
+    window.addEventListener('urlchange', function () {
       checkCurrentSelection();
     });
 
-    // Polling fallback for SPA-style navigation
+    // Low-frequency polling fallback (in case other mechanisms change the URL)
     setInterval(function () {
       var params = new URLSearchParams(window.location.search);
       var nodeId = params.get('selected-node');
       if (nodeId !== currentSelectedNode) {
         checkCurrentSelection();
       }
-    }, 1500);
+    }, 500);
   }
 
   function checkCurrentSelection() {
