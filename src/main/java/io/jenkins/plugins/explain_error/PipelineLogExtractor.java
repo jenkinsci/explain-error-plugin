@@ -318,6 +318,56 @@ public class PipelineLogExtractor {
         return extractFailedStepLog().logLines();
     }
 
+    /**
+     * Extracts log lines from a specific flow node identified by its node ID.
+     * Used by the Pipeline Graph View integration to extract logs for the
+     * node that the user selected.
+     * <p>
+     * Supports the {@code catchError + sh(returnStatus:true) + error()} pattern
+     * by falling back to the immediate parent when the target node has no
+     * {@link LogAction}.
+     *
+     * @param nodeId the flow node ID to extract logs from
+     * @return the log lines for the specified node, or an empty list if the
+     *         node is not found, is not a {@link WorkflowRun}, or has no log
+     * @throws IOException if there is an error reading the log
+     */
+    public List<String> extractNodeLog(String nodeId) throws IOException {
+        if (!(run instanceof WorkflowRun)) {
+            return Collections.emptyList();
+        }
+        FlowExecution execution = ((WorkflowRun) run).getExecution();
+        if (execution == null) {
+            return Collections.emptyList();
+        }
+
+        FlowGraphWalker walker = new FlowGraphWalker(execution);
+        for (FlowNode node : walker) {
+            if (!node.getId().equals(nodeId)) {
+                continue;
+            }
+            LogAction logAction = node.getAction(LogAction.class);
+            // catchError + sh(returnStatus:true) + error() fallback
+            if (logAction == null) {
+                FlowNode immediateParent = findImmediateParentWithLog(node);
+                if (immediateParent != null) {
+                    logAction = immediateParent.getAction(LogAction.class);
+                }
+            }
+            if (logAction == null) {
+                return Collections.emptyList();
+            }
+            List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
+            if (stepLog.isEmpty()) {
+                return Collections.emptyList();
+            }
+            addHeaderLog(node, stepLog);
+            setUrl(nodeId);
+            return stepLog;
+        }
+        return Collections.emptyList();
+    }
+
     public ExtractionResult extractFailedStepLog() throws IOException {
         return extractFailedStepLog(true);
     }
