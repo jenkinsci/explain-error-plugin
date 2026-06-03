@@ -6,6 +6,7 @@ import hudson.model.Run;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.Ancestor;
 import org.kohsuke.stapler.Stapler;
+import org.kohsuke.stapler.StaplerRequest2;
 
 /**
  * Page decorator to add "Explain Error" functionality to Pipeline Graph View pages.
@@ -53,8 +54,14 @@ public class PipelineGraphViewDecorator extends PageDecorator {
         if (Jenkins.get().getPlugin("pipeline-graph-view") == null) {
             return false;
         }
-        String uri = Stapler.getCurrentRequest2().getRequestURI();
-        return uri.matches(".*/stages(\\?.*)?$");
+        StaplerRequest2 req = Stapler.getCurrentRequest2();
+        if (req == null) {
+            return false;
+        }
+        String uri = req.getRequestURI();
+        // Pipeline Graph View renders as a Tab at e.g. /job/xxx/1/stages/
+        // The trailing slash is part of the URL; also handle query params
+        return uri.matches(".*/stages(/.*)?(\\?.*)?$");
     }
 
     public String getRunUrl() {
