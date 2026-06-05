@@ -168,7 +168,8 @@ class GlobalConfigurationImplTest {
         QwenProvider provider = new QwenProvider(
                 "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 "qwen-plus",
-                Secret.fromString("qwen-key"));
+                Secret.fromString("qwen-key"),
+                null);
         config.setAiProvider(provider);
         config.save();
 

@@ -1,18 +1,25 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core"  xmlns:f="/lib/form">
-  <f:entry title="API Key" field="apiKey">
-    <f:password clazz="required"/>
+  <f:entry title="Credentials ID" field="credentialsId"
+           description="Jenkins StringCredentials ID containing the Qwen API key. Recommended for production use to securely store API keys. Get your API key from https://dashscope.console.aliyun.com/apiKey (optional if direct API Key is used)">
+    <f:textbox/>
+  </f:entry>
+  <f:entry title="API Key" field="apiKey"
+           description="Direct Qwen API key for testing purposes. For production, use Credentials ID instead for secure storage (optional if Credentials ID is used)">
+    <f:password/>
   </f:entry>
 
-  <f:entry title="URL" field="url">
+  <f:entry title="URL" field="url"
+           description="Base URL for Qwen-compatible API endpoint. Default: https://dashscope.aliyuncs.com/compatible-mode/v1">
     <f:textbox default="${descriptor.defaultUrl}"/>
   </f:entry>
 
-  <f:entry title="Model" field="model">
+  <f:entry title="Model" field="model"
+           description="Qwen model to use for error analysis. Examples: qwen-plus, qwen3-coder-plus, qwen-flash">
     <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
   </f:entry>
 
   <f:validateButton title="Test Configuration" progress="Testing..."
-                    method="testConfiguration" with="apiKey,url,model" />
+                    method="testConfiguration" with="apiKey,credentialsId,url,model" />
 
 </j:jelly>
