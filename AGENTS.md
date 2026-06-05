@@ -66,7 +66,7 @@ Complex features (e.g., AutoFix, usage quotas) must have a corresponding markdow
 
 ## Branching Rules
 
-- **NEVER push directly to `main`.** All code must enter `main` via pull request (PR) only. Even when working alone, create a feature branch and open a PR — do not commit or push directly to `main`.
+- **NEVER push directly to `main`.** This is a hard rule with zero exceptions. All code — no matter how trivial — must enter `main` via pull request (PR) only. Even when working alone, always create a feature branch, push that branch, open a PR, get it reviewed (or self-review), then merge via the GitHub UI. Direct `git push origin main` or commits made while on `main` are strictly forbidden.
 
 ## PR Workflow
 
@@ -96,6 +96,7 @@ These commands can destroy other agents' work:
 - `git clean -fd` — deletes untracked files
 - `git stash` — stashes ALL changes including other agents' work
 - `git add -A` / `git add .` — stages other agents' uncommitted work
+- `git push origin main` / `git push` (while on `main`) — pushes commits directly to the `main` branch, bypassing the required PR flow; NEVER do this
 - `git push --force` / `git push -f` — overwrites remote history; agents are NEVER allowed to force push under any circumstances
 
 ### Safe Workflow
