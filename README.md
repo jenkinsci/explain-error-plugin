@@ -251,6 +251,7 @@ unclassified:
         apiKey: "${DASHSCOPE_API_KEY}"
         model: "qwen-plus"
         # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
+        # credentialsId: "qwen-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
     enableExplanation: true
 ```
 
@@ -322,7 +323,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 
 ### Qwen
 - **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
-- **API Key**: Get from Alibaba Cloud Model Studio / DashScope
+- **API Key**: Get from Alibaba Cloud Model Studio / DashScope. For production, configure a Jenkins StringCredentials ID and reference it via `credentialsId` instead of setting `apiKey` directly.
 - **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
 - **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
 
