@@ -8,7 +8,8 @@ package io.jenkins.plugins.explain_error;
 public enum AIProvider {
     OPENAI("OpenAI", "gpt-4"),
     GEMINI("Google Gemini", "gemini-2.0-flash"),
-    OLLAMA("Ollama", "gemma3:1b");
+    OLLAMA("Ollama", "gemma3:1b"),
+    LANGGRAPH("LangGraph Platform", "my-agent");
 
     private final String displayName;
     private final String defaultModel;

@@ -6,6 +6,7 @@ import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import io.jenkins.plugins.explain_error.provider.GeminiProvider;
+import io.jenkins.plugins.explain_error.provider.LangGraphProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import jenkins.model.GlobalConfiguration;
@@ -61,6 +62,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
                     case OPENAI -> new OpenAIProvider(apiUrl, model, apiKey);
                     case GEMINI -> new GeminiProvider(apiUrl, model, apiKey);
                     case OLLAMA -> new OllamaProvider(apiUrl, model);
+                    case LANGGRAPH -> new LangGraphProvider(apiUrl, model, apiKey);
                 };
                 provider = null;
                 save();

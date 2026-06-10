@@ -438,6 +438,51 @@ class ProviderTest {
     }
 
     @Test
+    void testLangGraphNullApiKey() {
+        BaseAIProvider provider = new LangGraphProvider("https://langgraph.example.com", null, null);
+        ExplanationException result = assertThrows(ExplanationException.class,
+            () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testLangGraphEmptyApiKey() {
+        BaseAIProvider provider = new LangGraphProvider(
+            "https://langgraph.example.com", null, Secret.fromString(""));
+        ExplanationException result = assertThrows(ExplanationException.class,
+            () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testLangGraphNullUrl() {
+        BaseAIProvider provider = new LangGraphProvider(null, null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+            () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testLangGraphEmptyUrl() {
+        BaseAIProvider provider = new LangGraphProvider("", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+            () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testLangGraphUsesDefaultModelWhenUnset() {
+        LangGraphProvider provider = new LangGraphProvider(
+            "https://langgraph.example.com", null, Secret.fromString("test-key"));
+
+        assertEquals(LangGraphProvider.DEFAULT_MODEL, provider.getModel());
+    }
+
+    @Test
     void testJenkinsProxyBuilderRoutesRequestsThroughConfiguredProxy(JenkinsRule jenkins) throws Exception {
         HttpServer proxyServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         AtomicInteger requestCount = new AtomicInteger();
