@@ -8,6 +8,25 @@
                  description="Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). This can be overridden at the job level.">
           <f:textarea />
         </f:entry>
+        <f:optionalBlock field="enableLogSanitization" title="Enable Log Sanitization"
+                         checked="${it.enableLogSanitization}" inline="true">
+          <f:entry title="Preview Payload Before Sending" field="enablePayloadPreview"
+                   description="Require console action users to review the sanitized payload before it is sent to the AI provider.">
+            <f:checkbox />
+          </f:entry>
+          <f:entry title="Audit Sent Payload" field="auditSentPayload"
+                   description="Store the sanitized log payload that was sent with the build explanation action.">
+            <f:checkbox />
+          </f:entry>
+          <f:entry title="Payload Allow Regex" field="payloadAllowRegex"
+                   description="Optional regular expression. When set, only matching payload lines are sent.">
+            <f:textbox />
+          </f:entry>
+          <f:entry title="Payload Deny Regex" field="payloadDenyRegex"
+                   description="Optional regular expression. Matching text is replaced with [REDACTED_SECRET].">
+            <f:textbox />
+          </f:entry>
+        </f:optionalBlock>
         <f:optionalBlock field="enableQuota" title="Enable Request Quota"
                          checked="${it.enableQuota}" inline="true">
           <f:entry title="Quota Window" field="quotaWindow">

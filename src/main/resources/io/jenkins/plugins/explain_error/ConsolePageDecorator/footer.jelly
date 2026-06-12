@@ -18,7 +18,8 @@
           </a>
         </j:set>
         <div id="explain-error-container" class="jenkins-hidden" data-run-url="${it.runUrl}" data-provider-name="${it.providerName}"
-             data-has-explanation="${hasExplanation}" data-plugin-enabled="${enabled}">
+             data-has-explanation="${hasExplanation}" data-plugin-enabled="${enabled}"
+             data-payload-preview-enabled="${it.payloadPreviewEnabled}">
           <l:card title="AI Error Explanation ${hasExplanation?'(' + existingExplanation.providerName + ')' : ''}" controls="${controls}">
             <div id="explain-error-spinner" class="jenkins-hidden">
               <l:spinner text="Analyzing error logs..."/>

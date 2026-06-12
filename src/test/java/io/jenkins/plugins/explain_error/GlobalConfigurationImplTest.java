@@ -48,6 +48,9 @@ class GlobalConfigurationImplTest {
     @Test
     void testDefaultValues() {
         assertTrue(config.isEnableExplanation());
+        assertTrue(config.isEnableLogSanitization());
+        assertFalse(config.isEnablePayloadPreview());
+        assertTrue(config.isAuditSentPayload());
     }
 
     @Test
@@ -190,6 +193,22 @@ class GlobalConfigurationImplTest {
 
         config.setEnableExplanation(true);
         assertTrue(config.isEnableExplanation());
+    }
+
+    @Test
+    void testPayloadProtectionConfiguration() {
+        config.setEnableLogSanitization(false);
+        config.setEnablePayloadPreview(true);
+        config.setAuditSentPayload(false);
+        config.setPayloadAllowRegex("ERROR|FAILED");
+        config.setPayloadDenyRegex("customer-[0-9]+");
+
+        assertFalse(config.isEnableLogSanitization());
+        assertTrue(config.isEnablePayloadPreview());
+        assertFalse(config.isAuditSentPayload());
+        assertEquals("ERROR|FAILED", config.getPayloadAllowRegex());
+        assertEquals("customer-[0-9]+", config.getPayloadDenyRegex());
+        assertFalse(config.getLogSanitizerPolicy().enabled());
     }
 
     @Test

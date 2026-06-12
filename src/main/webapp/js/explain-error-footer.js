@@ -160,6 +160,64 @@ function cancelExplanation() {
 
 function sendExplainRequest(forceNew = false) {
   const container = document.getElementById('explain-error-container');
+  if (container.dataset.payloadPreviewEnabled === 'true') {
+    previewPayloadBeforeSend(forceNew);
+    return;
+  }
+  executeExplainRequest(forceNew);
+}
+
+function previewPayloadBeforeSend(forceNew = false) {
+  const container = document.getElementById('explain-error-container');
+  const basePath = container.dataset.runUrl
+  const rootURL = document.head.getAttribute("data-rooturl");
+  const url = rootURL + '/' + basePath + 'console-explain-error/previewConsolePayload';
+
+  const headers = crumb.wrap({
+    "Content-Type": "application/x-www-form-urlencoded",
+  });
+
+  showSpinner();
+
+  fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: ""
+  })
+  .then(parseJsonResponse)
+  .then(json => {
+    if (json.status !== "success") {
+      notificationBar.show(json.message, notificationBar.ERROR);
+      hideContainer();
+      return;
+    }
+
+    const preview = buildPayloadPreview(json);
+    if (window.confirm(preview)) {
+      executeExplainRequest(forceNew);
+    } else {
+      hideContainer();
+    }
+  })
+  .catch(error => {
+    notificationBar.show(`Error: ${error.message}`, notificationBar.ERROR);
+    hideContainer();
+  });
+}
+
+function buildPayloadPreview(json) {
+  const payload = json.message || '';
+  const limit = 4000;
+  const previewText = payload.length > limit
+    ? payload.substring(0, limit) + '\n\n...[truncated preview]...'
+    : payload;
+  return `Review the sanitized payload before sending it to the AI provider.\n\n`
+    + `Lines: ${json.sentLineCount}, redactions: ${json.redactionCount}, dropped by policy: ${json.droppedLineCount}\n\n`
+    + `${previewText}\n\nSend this payload?`;
+}
+
+function executeExplainRequest(forceNew = false) {
+  const container = document.getElementById('explain-error-container');
   const basePath = container.dataset.runUrl
   const rootURL = document.head.getAttribute("data-rooturl");
   const url = rootURL + '/' + basePath + 'console-explain-error/explainConsoleError';
@@ -168,7 +226,6 @@ function sendExplainRequest(forceNew = false) {
     "Content-Type": "application/x-www-form-urlencoded",
   });
 
-  // Add forceNew parameter if needed
   const body = forceNew ? "forceNew=true" : "";
 
   showSpinner();
