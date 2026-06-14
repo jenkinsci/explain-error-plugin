@@ -41,7 +41,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Pipeline-ready** with a simple `explainError()` step
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, Microsoft Foundry, Ollama, OpenAI GPT models, Qwen, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI GPT models, Qwen, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -76,7 +76,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini, Microsoft Foundry, Ollama, OpenAI, or Qwen | `OpenAI` |
+| **AI Provider** | Choose between Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI, or Qwen | `OpenAI` |
 | **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
@@ -197,6 +197,19 @@ unclassified:
     enableExplanation: true
 ```
 
+**LangGraph Configuration:**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      langGraph:
+        url: "https://your-langgraph-deployment.example.com"
+        model: "my-agent" # assistant UUID or graph name
+        apiKey: "${LANGGRAPH_API_KEY}"
+        # timeoutSeconds: 180 # Optional, defaults to 180
+    enableExplanation: true
+```
+
 **Microsoft Foundry Configuration:**
 ```yaml
 unclassified:
@@ -251,6 +264,7 @@ unclassified:
         apiKey: "${DASHSCOPE_API_KEY}"
         model: "qwen-plus"
         # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
+        # credentialsId: "qwen-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
     enableExplanation: true
 ```
 
@@ -302,6 +316,12 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
 - **Best for**: Fast, efficient analysis with competitive quality
 
+### LangGraph
+- **Models**: The assistant UUID or registered graph name to invoke (e.g. `my-agent`)
+- **API Key**: LangGraph Platform API key — passed as the `x-api-key` header
+- **Endpoint**: Base URL of your LangGraph Platform deployment, e.g. `https://your-deployment.langchain.com`
+- **Best for**: Custom LangGraph agents deployed on the LangGraph Platform that expose a `/runs/wait` endpoint
+
 ### Microsoft Foundry
 - **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models
 - **API Key**: Use the endpoint key from your Foundry resource
@@ -322,7 +342,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 
 ### Qwen
 - **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
-- **API Key**: Get from Alibaba Cloud Model Studio / DashScope
+- **API Key**: Get from Alibaba Cloud Model Studio / DashScope. For production, configure a Jenkins StringCredentials ID and reference it via `credentialsId` instead of setting `apiKey` directly.
 - **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
 - **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
 
