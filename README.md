@@ -80,7 +80,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
-| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
+| **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
+| **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
+| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at folder and step level. |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
@@ -91,12 +93,16 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 ### Folder-Level Configuration
 
-Support for folder-level overrides allows different teams to use their own AI providers and models.
+Support for folder-level overrides allows different teams to use their own AI providers, models, language, temperature, and custom context.
 
 1. Click **Configure** on any folder
-2. Set a custom **AI Provider** in **"Explain Error Configuration"**
+2. Expand **"Explain Error Configuration"** and set:
+   - **AI Provider** — overrides the global provider
+   - **Temperature** — overrides the global temperature
+   - **Language** — overrides the global language
+   - **Custom Context** — overrides the global custom context
 
-*Inherits from parent folders, overrides global defaults.*
+*All folder settings inherit from parent folders and override global defaults. Step-level settings take precedence over both.*
 
 ### Quota and Metrics
 
@@ -116,6 +122,8 @@ unclassified:
         apiKey: "${ANTHROPIC_API_KEY}"
         model: "claude-sonnet-4-6"
         # url: "" # Optional, leave empty for the official Anthropic API
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
         # maxTokens: 4096 # Optional, defaults to 4096
         # credentialsId: "anthropic-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
         # customContext: "Custom instruccions" # Optional
@@ -130,6 +138,8 @@ unclassified:
       bedrock:
         model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
         region: "us-east-1" # Optional, uses AWS SDK default if not specified
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
         # url: "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com" # Optional private endpoint
         # roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole" # Optional cross-account role
     enableExplanation: true
@@ -144,6 +154,8 @@ unclassified:
         endpoint: "https://my-resource.openai.azure.com"
         deployment: "gpt-4o" # Azure OpenAI deployment name
         apiVersion: "2025-01-01-preview"
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
         credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
         # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
         # Responses API uses the Azure OpenAI /openai/v1/responses endpoint.
@@ -160,6 +172,8 @@ unclassified:
         tokenUrl: "https://id.example.com/oauth2/default/v1/token"                     # Required
         model: "gpt-5-nano"                                                            # Required
         clientId: "${OKTA_CLIENT_ID}"                                                  # Required
+        # temperature: 0.7                                                             # Optional
+        # language: "English"                                                          # Optional
         clientSecret: "${OKTA_CLIENT_SECRET}"                                          # Required
         scope: "custom.scope"                                                          # Optional
         apiVersion: "2025-04-01-preview"                                               # Optional
@@ -182,6 +196,8 @@ unclassified:
         apiKey: "${DEEPSEEK_API_KEY}"
         model: "deepseek-v4-flash"
         # url: "https://api.deepseek.com" # Optional, defaults to the official endpoint
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
     enableExplanation: true
 ```
 
@@ -194,6 +210,8 @@ unclassified:
         apiKey: "${AI_API_KEY}"
         model: "gemini-2.5-flash"
         # url: "" # Optional, leave empty for default
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
     enableExplanation: true
 ```
 
@@ -206,6 +224,8 @@ unclassified:
         url: "https://your-langgraph-deployment.example.com"
         model: "my-agent" # assistant UUID or graph name
         apiKey: "${LANGGRAPH_API_KEY}"
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
         # timeoutSeconds: 180 # Optional, defaults to 180
     enableExplanation: true
 ```
@@ -219,6 +239,8 @@ unclassified:
         apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
         model: "gpt-4o" # Foundry model deployment name
         url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
     enableExplanation: true
 ```
 
@@ -230,6 +252,8 @@ unclassified:
       ollama:
         model: "gemma3:1b"
         url: "http://localhost:11434" # Required for Ollama
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
     enableExplanation: true
 ```
 
@@ -242,6 +266,8 @@ unclassified:
         apiKey: "${AI_API_KEY}"
         model: "gpt-5"
         # url: "" # Optional, leave empty for default
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
     enableExplanation: true
     customContext: |
       Consider these additional instructions:
@@ -264,6 +290,8 @@ unclassified:
         apiKey: "${DASHSCOPE_API_KEY}"
         model: "qwen-plus"
         # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
+        # temperature: 0.7 # Optional, leave empty for provider default
+        # language: "English" # Optional, defaults to English
         # credentialsId: "qwen-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
     enableExplanation: true
 ```
@@ -405,6 +433,7 @@ post {
 | **maxLines** | Max log lines to analyze (trims from the end)       | `100`                 |
 | **logPattern** | Regex pattern to filter relevant log lines        | `''` (no filtering)   |
 | **language** | Language for the explanation                        | `'English'`           |
+| **temperature** | Creativity control (0.0–2.0). Leave empty to use the folder or global setting. | Uses folder/global configuration |
 | **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 | **collectDownstreamLogs** | Whether to include logs from failed downstream jobs discovered via the `build` step or `Cause.UpstreamCause` | `false` |
 | **downstreamJobPattern** | Regular expression matched against downstream job full names. Used only when downstream collection is enabled. | `''` (collect none) |
