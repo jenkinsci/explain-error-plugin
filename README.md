@@ -80,7 +80,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers |
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
-| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at the job level. |
+| **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
+| **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
+| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at folder and step level. |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
@@ -91,12 +93,16 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 ### Folder-Level Configuration
 
-Support for folder-level overrides allows different teams to use their own AI providers and models.
+Support for folder-level overrides allows different teams to use their own AI providers, models, language, temperature, and custom context.
 
 1. Click **Configure** on any folder
-2. Set a custom **AI Provider** in **"Explain Error Configuration"**
+2. Expand **"Explain Error Configuration"** and set:
+   - **AI Provider** — overrides the global provider
+   - **Temperature** — overrides the global temperature
+   - **Language** — overrides the global language
+   - **Custom Context** — overrides the global custom context
 
-*Inherits from parent folders, overrides global defaults.*
+*All folder settings inherit from parent folders and override global defaults. Step-level settings take precedence over both.*
 
 ### Quota and Metrics
 
@@ -268,6 +274,20 @@ unclassified:
     enableExplanation: true
 ```
 
+**Global Settings (apply to all providers):**
+
+The following optional settings are configured at the `explainError` level (not inside the provider block) and apply regardless of which provider you use. Any provider example above can include them alongside `enableExplanation`:
+
+```yaml
+unclassified:
+  explainError:
+    # ... your provider configuration above ...
+    enableExplanation: true
+    # temperature: 0.7 # Optional, leave empty for provider default
+    # language: "English" # Optional, defaults to English
+    # customContext: "Additional context for the AI" # Optional
+```
+
 This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
 
 ## Supported AI Providers
@@ -405,6 +425,7 @@ post {
 | **maxLines** | Max log lines to analyze (trims from the end)       | `100`                 |
 | **logPattern** | Regex pattern to filter relevant log lines        | `''` (no filtering)   |
 | **language** | Language for the explanation                        | `'English'`           |
+| **temperature** | Creativity control (0.0–2.0). Leave empty to use the folder or global setting. | Uses folder/global configuration |
 | **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
 | **collectDownstreamLogs** | Whether to include logs from failed downstream jobs discovered via the `build` step or `Cause.UpstreamCause` | `false` |
 | **downstreamJobPattern** | Regular expression matched against downstream job full names. Used only when downstream collection is enabled. | `''` (collect none) |
