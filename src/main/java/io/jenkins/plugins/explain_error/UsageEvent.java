@@ -26,7 +26,8 @@ public record UsageEvent(
 
     public enum EntryPoint {
         PIPELINE_STEP("pipeline_step"),
-        CONSOLE_ACTION("console_action");
+        CONSOLE_ACTION("console_action"),
+        RUN_LISTENER("run_listener");
 
         private final String value;
 

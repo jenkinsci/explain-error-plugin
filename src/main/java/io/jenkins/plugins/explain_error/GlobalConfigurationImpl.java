@@ -39,6 +39,8 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     private QuotaWindow quotaWindow = QuotaWindow.HOURLY;
     private int maxProviderCallsPerWindow = 100;
 
+    private boolean enableAutoExplainOnFailure = false;
+
     private transient QuotaEnforcer quotaEnforcer;
 
     public GlobalConfigurationImpl() {
@@ -138,6 +140,15 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setEnableExplanation(boolean enableExplanation) {
         this.enableExplanation = enableExplanation;
+    }
+
+    public boolean isEnableAutoExplainOnFailure() {
+        return enableAutoExplainOnFailure;
+    }
+
+    @DataBoundSetter
+    public void setEnableAutoExplainOnFailure(boolean enableAutoExplainOnFailure) {
+        this.enableAutoExplainOnFailure = enableAutoExplainOnFailure;
     }
 
     public String getCustomContext() {

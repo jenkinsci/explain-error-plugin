@@ -26,6 +26,11 @@
             <f:number clazz="setting-input" min="0" />
           </f:entry>
         </f:optionalBlock>
+        <f:entry title="" field="enableAutoExplainOnFailure">
+          <f:checkbox title="Automatically explain failed builds"
+                      default="false"
+                      description="When enabled, all failed builds will automatically trigger AI explanation. Requires 'Enable AI Error Explanation' to be active. Builds already explained via explainError() step are skipped." />
+        </f:entry>
       </f:optionalBlock>
     </f:section>
 </j:jelly>
