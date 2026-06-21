@@ -84,7 +84,7 @@ Whether it's a compilation error, test failure, or deployment hiccup, this plugi
 | **Temperature** | Creativity control (0.0-2.0). Leave empty to use the provider default. | *Optional* |
 | **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at folder and step level. |
-| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed/unstable builds are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
+| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
@@ -565,7 +565,8 @@ Works with Freestyle, Declarative, or any job type.
 ### Method 3: Automatic (RunListener)
 
 No pipeline changes needed. When **"Automatically explain failed builds"** is enabled in the global plugin
-configuration, every failed or unstable build is automatically explained by the AI as soon as it completes.
+configuration, every failed build (result `FAILURE`) is automatically explained by the AI as soon as it completes.
+Unstable, aborted and not-built results are intentionally left untouched.
 
 The listener skips builds that already carry an `ErrorExplanationAction` (e.g. from an explicit
 `explainError()` step), so adding the toggle alongside an existing pipeline step produces no

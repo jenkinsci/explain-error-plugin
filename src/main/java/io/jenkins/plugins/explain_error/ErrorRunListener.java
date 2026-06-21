@@ -59,9 +59,9 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             return;
         }
 
-        // Only explain builds that actually failed (UNSTABLE included)
-        Result result = run.getResult();
-        if (result == null || result.isBetterOrEqualTo(Result.SUCCESS)) {
+        // Only explain hard failures. UNSTABLE, ABORTED, NOT_BUILT and SUCCESS
+        // are intentionally left untouched.
+        if (run.getResult() != Result.FAILURE) {
             return;
         }
 

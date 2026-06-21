@@ -180,4 +180,4 @@ explain_error.provider_calls.my_custom_provider.my-model_v2_0.success
 - **The window resets automatically.** After the time window elapses the counter resets on the next call — you do not need to manually clear it.
 - **Multiple builds running at the same time** share the same counter. Ten concurrent builds all count against the same window.
 - **Console action calls** (clicking the "Explain Error" button) count toward the quota in exactly the same way as `explainError()` pipeline-step calls.
-- **RunListener auto-explain calls** ("Automatically explain failed builds" toggle) also count toward the same quota. If you enable automatic explanation, make sure your quota limits account for the increased call volume from all failing and unstable builds.
+- **RunListener auto-explain calls** ("Automatically explain failed builds" toggle) also count toward the same quota. If you enable automatic explanation, make sure your quota limits account for the increased call volume from all failing builds.
