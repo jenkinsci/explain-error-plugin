@@ -90,13 +90,20 @@ class ErrorRunListenerTest {
     }
 
     @Test
-    void unstableBuildAlsoTriggersAutoExplain(JenkinsRule jenkins) throws Exception {
-        // Verify that UNSTABLE result is worse than SUCCESS,
-        // which means it passes the gate in ErrorRunListener.onCompleted
-        assertFalse(Result.UNSTABLE.isBetterOrEqualTo(Result.SUCCESS),
-                "UNSTABLE should NOT be better-or-equal to SUCCESS");
-        assertTrue(Result.SUCCESS.isBetterOrEqualTo(Result.SUCCESS));
-        assertFalse(Result.FAILURE.isBetterOrEqualTo(Result.SUCCESS));
+    void unstableBuildIsNotAutoExplained(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        TestProvider provider = new TestProvider();
+        config.setEnableExplanation(true);
+        config.setAiProvider(provider);
+        config.setEnableAutoExplainOnFailure(true);
+
+        FreeStyleProject project = jenkins.createFreeStyleProject();
+        project.getBuildersList().add(new org.jvnet.hudson.test.UnstableBuilder());
+        FreeStyleBuild build = (FreeStyleBuild) jenkins.assertBuildStatus(
+                Result.UNSTABLE, project.scheduleBuild2(0).get());
+
+        // Auto-explain is restricted to result == FAILURE; UNSTABLE must be ignored.
+        assertStaysUnexplained(build);
     }
 
     @Test
@@ -152,5 +159,18 @@ class ErrorRunListenerTest {
             Thread.sleep(100);
         }
         return build.getAction(ErrorExplanationAction.class);
+    }
+
+    /**
+     * Asserts that no explanation action ever appears. Polls for a short window
+     * so a regression that wrongly dispatched the async explanation would be
+     * caught rather than racing past an immediate assertion.
+     */
+    private static void assertStaysUnexplained(FreeStyleBuild build) throws InterruptedException {
+        for (int i = 0; i < 20; i++) {
+            assertNull(build.getAction(ErrorExplanationAction.class),
+                    "Build should NOT be auto-explained");
+            Thread.sleep(50);
+        }
     }
 }
