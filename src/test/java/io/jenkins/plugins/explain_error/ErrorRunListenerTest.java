@@ -46,7 +46,7 @@ class ErrorRunListenerTest {
         FreeStyleBuild build = (FreeStyleBuild) jenkins.assertBuildStatus(
                 Result.FAILURE, project.scheduleBuild2(0).get());
 
-        assertNotNull(build.getAction(ErrorExplanationAction.class),
+        assertNotNull(awaitExplanation(build),
                 "Failed build should have an ErrorExplanationAction");
     }
 
@@ -64,9 +64,10 @@ class ErrorRunListenerTest {
         FreeStyleBuild build = (FreeStyleBuild) jenkins.assertBuildStatus(
                 Result.FAILURE, project.scheduleBuild2(0).get());
 
-        // The RunListener should have added exactly one action.
-        // If the listener added a second one (not detecting the first),
+        // Wait for the asynchronous listener to add its action, then verify it
+        // added exactly one. If it added a second (not detecting the first),
         // we'd see more than one.
+        assertNotNull(awaitExplanation(build));
         assertEquals(1, build.getActions(ErrorExplanationAction.class).size(),
                 "Listener must detect existing action and skip");
     }
@@ -132,9 +133,24 @@ class ErrorRunListenerTest {
         FreeStyleBuild build = (FreeStyleBuild) jenkins.assertBuildStatus(
                 Result.FAILURE, project.scheduleBuild2(0).get());
 
-        ErrorExplanationAction action = build.getAction(ErrorExplanationAction.class);
+        ErrorExplanationAction action = awaitExplanation(build);
         assertNotNull(action);
         assertTrue(action.hasValidExplanation(), "Explanation should be valid");
         assertEquals("Custom-Provider", action.getProviderName());
+    }
+
+    /**
+     * The explanation is produced on a background thread, so poll for the action
+     * to appear instead of asserting on it immediately.
+     */
+    private static ErrorExplanationAction awaitExplanation(FreeStyleBuild build) throws InterruptedException {
+        for (int i = 0; i < 100; i++) {
+            ErrorExplanationAction action = build.getAction(ErrorExplanationAction.class);
+            if (action != null) {
+                return action;
+            }
+            Thread.sleep(100);
+        }
+        return build.getAction(ErrorExplanationAction.class);
     }
 }
