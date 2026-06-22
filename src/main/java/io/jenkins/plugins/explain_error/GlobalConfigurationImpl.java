@@ -40,6 +40,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     private int maxProviderCallsPerWindow = 100;
 
     private boolean enableAutoExplainOnFailure = false;
+    private int autoExplainMaxLogLines = 100;
 
     private transient QuotaEnforcer quotaEnforcer;
 
@@ -149,6 +150,15 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setEnableAutoExplainOnFailure(boolean enableAutoExplainOnFailure) {
         this.enableAutoExplainOnFailure = enableAutoExplainOnFailure;
+    }
+
+    public int getAutoExplainMaxLogLines() {
+        return autoExplainMaxLogLines;
+    }
+
+    @DataBoundSetter
+    public void setAutoExplainMaxLogLines(int autoExplainMaxLogLines) {
+        this.autoExplainMaxLogLines = Math.max(1, autoExplainMaxLogLines);
     }
 
     public String getCustomContext() {

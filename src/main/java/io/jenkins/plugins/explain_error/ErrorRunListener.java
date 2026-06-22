@@ -87,7 +87,8 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             LOGGER.fine("[" + fullName(run) + "] Build failed; automatically requesting AI explanation.");
             TaskListener logListener = new LogTaskListener(LOGGER, Level.FINE);
             ErrorExplainer explainer = new ErrorExplainer();
-            explainer.explainError(run, logListener, "", 100, null, null, false,
+            int maxLogLines = GlobalConfigurationImpl.get().getAutoExplainMaxLogLines();
+            explainer.explainError(run, logListener, "", maxLogLines, null, null, false,
                     null, authentication, null, UsageEvent.EntryPoint.RUN_LISTENER);
             // The build has already been finalized and saved by the time this
             // background task runs, so persist any freshly added action ourselves.
