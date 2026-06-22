@@ -8,7 +8,6 @@ import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
-import hudson.util.LogTaskListener;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -74,21 +73,22 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
         // Capture the security context on the build thread; the background thread
         // starts with no authentication of its own.
         Authentication authentication = Jenkins.getAuthentication2();
-        EXECUTOR.submit(() -> explainAsync(run, authentication));
+        EXECUTOR.submit(() -> explainAsync(run, listener, authentication));
     }
 
     /**
-     * Performs the AI explanation off the build thread. The build console log is
-     * already being finalized by the time this runs, so output is sent to the
-     * Jenkins system log rather than the build's listener.
+     * Performs the AI explanation off the build thread. The {@code listener} is the
+     * build's original TaskListener passed from {@link #onCompleted}; pre-AI messages
+     * (provider resolution, log extraction, etc.) are written to it while the stream
+     * is still open. Post-AI messages may arrive after Jenkins has closed the stream
+     * and will be silently dropped by the underlying PrintStream.
      */
-    private void explainAsync(Run<?, ?> run, Authentication authentication) {
+    private void explainAsync(Run<?, ?> run, TaskListener listener, Authentication authentication) {
         try (ACLContext ignored = ACL.as2(authentication)) {
             LOGGER.fine("[" + fullName(run) + "] Build failed; automatically requesting AI explanation.");
-            TaskListener logListener = new LogTaskListener(LOGGER, Level.FINE);
             ErrorExplainer explainer = new ErrorExplainer();
             int maxLogLines = GlobalConfigurationImpl.get().getAutoExplainMaxLogLines();
-            explainer.explainError(run, logListener, "", maxLogLines, null, null, false,
+            explainer.explainError(run, listener, "", maxLogLines, null, null, false,
                     null, authentication, null, UsageEvent.EntryPoint.RUN_LISTENER);
             // The build has already been finalized and saved by the time this
             // background task runs, so persist any freshly added action ourselves.
