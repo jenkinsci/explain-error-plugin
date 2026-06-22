@@ -85,6 +85,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at folder and step level. |
 | **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
+| **Max Log Lines** *(auto-explain)* | Number of console log lines read per build for automatic explanation. Increase this for models with large context windows (e.g. DeepSeek, Kimi). Only visible when **Automatically explain failed builds** is enabled. | `100` |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
@@ -286,6 +287,7 @@ unclassified:
     # ... your provider configuration above ...
     enableExplanation: true
     # enableAutoExplainOnFailure: true # Optional, automatically explain failed builds without pipeline changes
+    # autoExplainMaxLogLines: 100    # Optional, number of log lines read per build (increase for large-context models)
     # temperature: 0.7 # Optional, leave empty for provider default
     # language: "English" # Optional, defaults to English
     # customContext: "Additional context for the AI" # Optional
@@ -577,7 +579,8 @@ To enable:
 1. Go to `Manage Jenkins` → `Configure System`
 2. Find the **"Explain Error Plugin Configuration"** section
 3. Check **"Automatically explain failed builds"**
-4. Save
+4. Optionally adjust **"Max Log Lines"** — default is `100`. If your model supports a large context window (e.g. DeepSeek, Kimi), increase this to capture more of the build log for a more accurate explanation.
+5. Save
 
 All existing configuration (provider, model, language, custom context, quota limits) applies
 to auto-explained builds in the same way as pipeline-step and console-action requests.
