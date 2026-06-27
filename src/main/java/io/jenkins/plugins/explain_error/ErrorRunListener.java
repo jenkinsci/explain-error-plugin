@@ -9,6 +9,7 @@ import hudson.model.listeners.RunListener;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.util.LogTaskListener;
+import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -72,6 +73,24 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
         // Skip if this build was already explained (e.g. via pipeline step)
         if (run.getAction(ErrorExplanationAction.class) != null) {
             LOGGER.fine("[" + fullName(run) + "] Skipping auto-explain: build already has an ErrorExplanationAction.");
+            return;
+        }
+
+        // Verify the provider is valid before printing an optimistic message.
+        // The pipeline step (explainError()) may have already run and failed silently
+        // due to misconfiguration, so we resolve the provider here and check validity.
+        // If the provider is null or invalid, we warn the user and skip — there is no
+        // point saying "AI explanation will appear" when it cannot.
+        ErrorExplainer explainer = new ErrorExplainer();
+        BaseAIProvider provider = explainer.getResolvedProvider(run);
+        if (provider == null) {
+            listener.getLogger().println("[explain-error] Build failed, but no AI provider is configured."
+                    + " No explanation will be generated.");
+            return;
+        }
+        if (provider.isNotValid(new LogTaskListener(LOGGER, Level.FINE), run.getParent(), null)) {
+            listener.getLogger().println("[explain-error] Build failed, but the AI provider configuration is invalid."
+                    + " No explanation will be generated.");
             return;
         }
 
