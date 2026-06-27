@@ -8,6 +8,7 @@ import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
+import hudson.util.LogTaskListener;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -23,9 +24,13 @@ import org.springframework.security.core.Authentication;
  * avoid duplicate explanations when the pipeline already calls
  * {@code explainError()} explicitly.
  *
- * The AI provider call runs on a dedicated background thread so it never blocks
- * the build completion / executor-release flow. All exceptions are safely caught
- * and logged so they never interrupt the normal build lifecycle.
+ * A single summary line ("[explain-error] Build failed. Auto-explain triggered...")
+ * is written to the build console synchronously in {@link #onCompleted} while
+ * the stream is guaranteed open. The actual AI provider call runs on a dedicated
+ * background thread with a {@link LogTaskListener}, so the verbose setup messages
+ * from {@link ErrorExplainer#explainError} go to the plugin log rather than
+ * cluttering the build console. All exceptions are safely caught and logged so
+ * they never interrupt the normal build lifecycle.
  */
 @Extension
 public class ErrorRunListener extends RunListener<Run<?, ?>> {
@@ -70,25 +75,34 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             return;
         }
 
+        // Write a single summary line while the stream is guaranteed open.
+        // The background thread writes no further console output; verbose
+        // setup messages from ErrorExplainer go to the plugin log instead.
+        listener.getLogger().println("[explain-error] Build failed. Auto-explain triggered"
+                + " \u2014 AI explanation will appear on the build page shortly.");
+
         // Capture the security context on the build thread; the background thread
         // starts with no authentication of its own.
         Authentication authentication = Jenkins.getAuthentication2();
-        EXECUTOR.submit(() -> explainAsync(run, listener, authentication));
+        EXECUTOR.submit(() -> explainAsync(run, authentication));
     }
 
     /**
-     * Performs the AI explanation off the build thread. The {@code listener} is the
-     * build's original TaskListener passed from {@link #onCompleted}; pre-AI messages
-     * (provider resolution, log extraction, etc.) are written to it while the stream
-     * is still open. Post-AI messages may arrive after Jenkins has closed the stream
-     * and will be silently dropped by the underlying PrintStream.
+     * Performs the AI explanation off the build thread. Uses a
+     * {@link LogTaskListener} instead of the build's original
+     * {@link TaskListener} so the verbose diagnostic messages from
+     * {@link ErrorExplainer#explainError} (provider resolution, log extraction,
+     * etc.) are written to the plugin log rather than the build console.
+     * A single summary line was already written synchronously in
+     * {@link #onCompleted} where the stream was guaranteed open.
      */
-    private void explainAsync(Run<?, ?> run, TaskListener listener, Authentication authentication) {
+    private void explainAsync(Run<?, ?> run, Authentication authentication) {
         try (ACLContext ignored = ACL.as2(authentication)) {
             LOGGER.fine("[" + fullName(run) + "] Build failed; automatically requesting AI explanation.");
             ErrorExplainer explainer = new ErrorExplainer();
             int maxLogLines = GlobalConfigurationImpl.get().getAutoExplainMaxLogLines();
-            explainer.explainError(run, listener, "", maxLogLines, null, null, false,
+            explainer.explainError(run, new LogTaskListener(LOGGER, Level.FINE),
+                    "", maxLogLines, null, null, false,
                     null, authentication, null, UsageEvent.EntryPoint.RUN_LISTENER);
             // The build has already been finalized and saved by the time this
             // background task runs, so persist any freshly added action ourselves.
