@@ -8,6 +8,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
 import hudson.Util;
+import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -25,6 +26,7 @@ import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.variant.OptionalExtension;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -267,12 +269,13 @@ public class BedrockProvider extends BaseAIProvider {
          * This is called when the "Test Configuration" button is clicked.
          */
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("url") String url,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model,
                                                   @QueryParameter("region") String region,
                                                   @QueryParameter("roleArn") String roleArn)
                 throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             BedrockProvider provider = new BedrockProvider(url, model, region, roleArn);
             try {
@@ -285,16 +288,14 @@ public class BedrockProvider extends BaseAIProvider {
 
         @POST
         @Override
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckUrl(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-
             return validateEndpoint(value);
         }
 
         @POST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckRoleArn(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-
             String roleArn = Util.fixEmptyAndTrim(value);
             if (roleArn == null) {
                 return FormValidation.ok();

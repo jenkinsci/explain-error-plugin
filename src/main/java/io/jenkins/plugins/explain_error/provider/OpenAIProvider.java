@@ -11,12 +11,14 @@ import hudson.Util;
 import hudson.model.AutoCompletionCandidates;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
+import hudson.model.Item;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.GET;
@@ -128,10 +130,11 @@ public class OpenAIProvider extends BaseAIProvider {
          * This is called when the "Test Configuration" button is clicked.
          */
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("apiKey") Secret apiKey,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model) throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             OpenAIProvider provider = new OpenAIProvider(url, model, apiKey);
             try {

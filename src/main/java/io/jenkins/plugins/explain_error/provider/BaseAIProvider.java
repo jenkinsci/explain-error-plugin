@@ -23,6 +23,7 @@ import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import hudson.model.Item;
 import hudson.model.TaskListener;
+import hudson.security.AccessControlled;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
@@ -291,6 +292,21 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
 
     public abstract static class BaseProviderDescriptor extends Descriptor<BaseAIProvider> {
         public abstract String getDefaultModel();
+
+        /**
+         * Check that the user has permission to configure the plugin.
+         * When called from an item context (folder, job), checks {@link Item#CONFIGURE}.
+         * When called from a global context, checks {@link Jenkins#ADMINISTER}.
+         *
+         * @param context the access-controlled context, or {@code null} for global context
+         */
+        protected static void checkConfigurePermission(@CheckForNull AccessControlled context) {
+            if (context instanceof Item item) {
+                item.checkPermission(Item.CONFIGURE);
+            } else {
+                Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            }
+        }
 
         @POST
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")

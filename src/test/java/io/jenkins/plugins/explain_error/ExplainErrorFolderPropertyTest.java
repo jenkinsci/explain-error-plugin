@@ -207,11 +207,12 @@ class ExplainErrorFolderPropertyTest {
     }
 
     @Test
-    void descriptorListsQuotaWindowOptions(JenkinsRule jenkins) {
+    void descriptorListsQuotaWindowOptions(JenkinsRule jenkins) throws Exception {
         ExplainErrorFolderProperty.DescriptorImpl descriptor =
                 jenkins.jenkins.getDescriptorByType(ExplainErrorFolderProperty.DescriptorImpl.class);
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "test-folder");
 
-        ListBoxModel items = descriptor.doFillQuotaWindowItems();
+        ListBoxModel items = descriptor.doFillQuotaWindowItems(folder);
 
         assertEquals(2, items.size());
         assertEquals("Hourly", items.get(0).name);

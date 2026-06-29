@@ -8,6 +8,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -28,6 +29,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -567,9 +569,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         }
 
         @POST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckTimeoutSeconds(@QueryParameter Integer value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-
             if (value == null) {
                 return FormValidation.ok();
             }
@@ -583,7 +584,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         }
 
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("url") String url,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("url") String url,
                                                   @QueryParameter("tokenUrl") String tokenUrl,
                                                   @QueryParameter("model") String model,
                                                   @QueryParameter("clientId") String clientId,
@@ -596,7 +598,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
                 throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             CustomOktaAIProvider provider = new CustomOktaAIProvider(url, tokenUrl, model, clientId, clientSecret);
             provider.setScope(scope);

@@ -8,6 +8,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -16,6 +17,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -126,8 +128,8 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
 
         @POST
         @Override
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckUrl(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value == null || value.isBlank()) {
                 return FormValidation.error("Endpoint is required.");
             }
@@ -135,8 +137,8 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
         }
 
         @POST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckModel(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value == null || value.isBlank()) {
                 return FormValidation.error("Model deployment is required.");
             }
@@ -144,10 +146,11 @@ public class MicrosoftFoundryProvider extends BaseAIProvider {
         }
 
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("apiKey") Secret apiKey,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model) throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             MicrosoftFoundryProvider provider = new MicrosoftFoundryProvider(url, model, apiKey);
             try {

@@ -8,6 +8,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.ExplanationException;
@@ -16,6 +17,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -102,9 +104,10 @@ public class OllamaProvider extends BaseAIProvider {
          * This is called when the "Test Configuration" button is clicked.
          */
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("url") String url,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model) throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             OllamaProvider provider = new OllamaProvider(url, model);
             try {

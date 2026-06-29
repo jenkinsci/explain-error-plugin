@@ -5,6 +5,7 @@ import com.cloudbees.hudson.plugins.folder.AbstractFolderProperty;
 import com.cloudbees.hudson.plugins.folder.AbstractFolderPropertyDescriptor;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import hudson.model.Item;
 import hudson.Extension;
 import hudson.model.ItemGroup;
 import hudson.util.FormValidation;
@@ -12,6 +13,7 @@ import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -325,8 +327,8 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         }
 
         @POST
-        public ListBoxModel doFillQuotaWindowItems() {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        public ListBoxModel doFillQuotaWindowItems(@AncestorInPath AbstractFolder<?> folder) {
+            folder.checkPermission(Item.CONFIGURE);
             ListBoxModel items = new ListBoxModel();
             for (QuotaWindow value : QuotaWindow.values()) {
                 items.add(value.getDisplayName(), value.name());
@@ -335,8 +337,9 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         }
 
         @POST
-        public FormValidation doCheckMaxProviderCallsPerWindow(@QueryParameter int value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        public FormValidation doCheckMaxProviderCallsPerWindow(@AncestorInPath AbstractFolder<?> folder,
+                                                               @QueryParameter int value) {
+            folder.checkPermission(Item.CONFIGURE);
             if (value < 0) {
                 return FormValidation.error("Max provider calls per window must be 0 or greater.");
             }

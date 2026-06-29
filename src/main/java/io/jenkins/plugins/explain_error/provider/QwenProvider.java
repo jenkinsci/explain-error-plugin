@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.GET;
@@ -224,11 +225,12 @@ public class QwenProvider extends BaseAIProvider {
         }
 
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("apiKey") Secret apiKey,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("credentialsId") String credentialsId,
                                                   @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model) throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             QwenProvider provider = new QwenProvider(url, model, apiKey, credentialsId);
             try {

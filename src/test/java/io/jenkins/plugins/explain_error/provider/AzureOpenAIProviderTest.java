@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import hudson.model.Item;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
@@ -337,6 +338,7 @@ class AzureOpenAIProviderTest {
 
         AzureOpenAIProvider.DescriptorImpl descriptor = new AzureOpenAIProvider.DescriptorImpl();
         FormValidation validation = descriptor.doTestConfiguration(
+                null,
                 "http://127.0.0.1:" + server.getAddress().getPort(),
                 "gpt-5-pro",
                 "2025-01-01-preview",

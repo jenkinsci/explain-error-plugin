@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -694,13 +695,14 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         }
 
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("endpoint") String endpoint,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("endpoint") String endpoint,
                                                   @QueryParameter("deployment") String deployment,
                                                   @QueryParameter("apiVersion") String apiVersion,
                                                   @QueryParameter("credentialsId") String credentialsId,
                                                   @QueryParameter("apiType") String apiType)
                 throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             ApiType selectedApiType;
             try {

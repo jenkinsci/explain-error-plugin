@@ -8,6 +8,7 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
@@ -352,10 +354,11 @@ public class LangGraphProvider extends BaseAIProvider {
         }
 
         @POST
-        public FormValidation doTestConfiguration(@QueryParameter("apiKey") Secret apiKey,
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model) throws ExplanationException {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            checkConfigurePermission(context);
 
             LangGraphProvider provider = new LangGraphProvider(url, model, apiKey);
             try {
