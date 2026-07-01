@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -343,6 +344,55 @@ class AzureOpenAIProviderTest {
                 "gpt-5-pro",
                 "2025-01-01-preview",
                 "azure-test-responses-key",
+                AzureOpenAIProvider.ApiType.RESPONSES.name());
+
+        assertEquals(FormValidation.Kind.OK, validation.kind);
+        assertEquals("/openai/v1/responses", requestPath.get());
+
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals("gpt-5-pro", payload.path("model").asText());
+        assertEquals(32, payload.path("max_output_tokens").asInt());
+        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
+        assertEquals("low", payload.path("text").path("verbosity").asText());
+        assertEquals("Test the connection.", payload.path("input").asText());
+        assertFalse(requestBody.get().contains("Return ONLY valid JSON"));
+    }
+
+    @Test
+    void descriptorTestConfigurationWithItemContext(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-item-context-key", "item-context-key");
+
+        AtomicReference<String> requestPath = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return """
+                    {
+                      "output": [
+                        {
+                          "type": "message",
+                          "content": [
+                            {
+                              "type": "output_text",
+                              "text": "Configuration test successful"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                    """;
+        }));
+
+        AzureOpenAIProvider.DescriptorImpl descriptor = new AzureOpenAIProvider.DescriptorImpl();
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "test-folder");
+        FormValidation validation = descriptor.doTestConfiguration(
+                folder,
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "gpt-5-pro",
+                "2025-01-01-preview",
+                "azure-item-context-key",
                 AzureOpenAIProvider.ApiType.RESPONSES.name());
 
         assertEquals(FormValidation.Kind.OK, validation.kind);
