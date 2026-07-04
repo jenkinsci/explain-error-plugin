@@ -48,7 +48,7 @@ class ProviderSmokeTest {
     @Test
     void ollamaProviderSmokeTest() throws Exception {
         try (StubAiServer server = StubAiServer.ollama("Ollama smoke passed")) {
-            OllamaProvider provider = new OllamaProvider(server.baseUrl(), "test-model");
+            OllamaProvider provider = new OllamaProvider(server.baseUrl(), "test-model", null);
 
             String explanation = provider.explainError(ERROR_LOGS, null);
 

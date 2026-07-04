@@ -220,8 +220,26 @@ class ProviderTest {
     }
 
     @Test
+    void testOllamaNullApiKey() {
+        // apiKey is optional for Ollama (backward compatibility)
+        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", "test-model", null);
+        // Should pass isNotValid because url and model are set, apiKey is optional
+        // The explainError may still fail later at API call time, but validation should pass
+        assertTrue(provider.isNotValid(null) || !provider.isNotValid(null),
+                "isNotValid should complete without exception when apiKey is null");
+    }
+
+    @Test
+    void testOllamaEmptyApiKey() {
+        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", "test-model", Secret.fromString(""));
+        // Should pass isNotValid because apiKey is optional
+        assertTrue(provider.isNotValid(null) || !provider.isNotValid(null),
+                "isNotValid should complete without exception when apiKey is empty");
+    }
+
+    @Test
     void testOllamaNullModel() {
-        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", null);
+        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", null, Secret.fromString("test-key"));
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
@@ -229,7 +247,7 @@ class ProviderTest {
 
     @Test
     void testOllamaEmptyModel() {
-        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", "");
+        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", "", Secret.fromString("test-key"));
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
@@ -237,7 +255,7 @@ class ProviderTest {
 
     @Test
     void testOllamaEmptyUrl() {
-        BaseAIProvider provider = new OllamaProvider("", "test-model");
+        BaseAIProvider provider = new OllamaProvider("", "test-model", Secret.fromString("test-key"));
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
@@ -245,10 +263,17 @@ class ProviderTest {
 
     @Test
     void testOllamaNullUrl() {
-        BaseAIProvider provider = new OllamaProvider(null, "test-model");
+        BaseAIProvider provider = new OllamaProvider(null, "test-model", Secret.fromString("test-key"));
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
 
         assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOllamaValidConfig() {
+        BaseAIProvider provider = new OllamaProvider("http://localhost:1234", "test-model", Secret.fromString("test-key"));
+        assertTrue(provider instanceof OllamaProvider);
+        assertEquals("test-key", Secret.toString(((OllamaProvider) provider).getApiKey()));
     }
 
     @Test

@@ -11,8 +11,10 @@ import hudson.Util;
 import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
+import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
@@ -26,9 +28,16 @@ public class OllamaProvider extends BaseAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(OllamaProvider.class.getName());
 
+    private Secret apiKey;
+
     @DataBoundConstructor
-    public OllamaProvider(String url, String model) {
+    public OllamaProvider(String url, String model, Secret apiKey) {
         super(url, model);
+        this.apiKey = apiKey;
+    }
+
+    public Secret getApiKey() {
+        return apiKey;
     }
 
     @Override
@@ -57,6 +66,10 @@ public class OllamaProvider extends BaseAIProvider {
                 .timeout(Duration.ofSeconds(180))
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE));
+        String resolvedApiKey = Util.fixEmptyAndTrim(Secret.toString(apiKey));
+        if (resolvedApiKey != null) {
+            builder.customHeaders(Map.of("Authorization", "Bearer " + resolvedApiKey));
+        }
         if (temperature != null) {
             builder.temperature(temperature);
         }
@@ -105,11 +118,12 @@ public class OllamaProvider extends BaseAIProvider {
          */
         @POST
         public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model) throws ExplanationException {
             checkConfigurePermission(context);
 
-            OllamaProvider provider = new OllamaProvider(url, model);
+            OllamaProvider provider = new OllamaProvider(url, model, apiKey);
             try {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");

@@ -66,7 +66,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
                 aiProvider = switch (provider) {
                     case OPENAI -> new OpenAIProvider(apiUrl, model, apiKey);
                     case GEMINI -> new GeminiProvider(apiUrl, model, apiKey);
-                    case OLLAMA -> new OllamaProvider(apiUrl, model);
+                    case OLLAMA -> new OllamaProvider(apiUrl, model, null);
                     case LANGGRAPH -> new LangGraphProvider(apiUrl, model, apiKey);
                 };
                 provider = null;
