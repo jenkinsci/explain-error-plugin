@@ -305,6 +305,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Note**: Claude Opus 4.7 and newer models have deprecated the `temperature` parameter. See [model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) for migration details.
 
 ### AWS Bedrock
+- **Requires**: the [AWS SDK 2.x](https://plugins.jenkins.io/aws-java-sdk2/) plugin (`aws-java-sdk2-core`). This dependency is intentionally **optional** so installations that don't use Bedrock are not forced to carry the AWS SDK. As a result, **AWS Bedrock appears in the AI Provider list only after you install that plugin**. To enable it: **Manage Jenkins → Plugins → Available plugins**, search for `AWS SDK`, install the AWS SDK 2.x plugin, and restart Jenkins.
 - **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
 - **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
 - **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
