@@ -1,0 +1,58 @@
+src/main/resources/io/jenkins/plugins/explain_error/GlobalConfigurationImpl/config.jelly
+  s_3bdec2f40d119b::t_37c038a4bbd42f 30
+  s_3bdec2f40d119b::t_61f448812971b6 27-29
+  s_3bdec2f40d119b::t_edf7dce94d3aba 31-33
+  s_3bdec2f40d119b::t_8287a407f19c3c 19-26,34-37
+README.md
+  s_3bdec2f40d119b::t_51c18510610f78 615
+  s_3bdec2f40d119b::t_9d1d9f718e04bc 44,90-94,98-99
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplainer.java
+  s_3bdec2f40d119b::t_a2a4e53cafc91a 170
+  s_3bdec2f40d119b::t_8121eed95844cf 318-321,323-325
+  s_3bdec2f40d119b::t_7f4794d47cc60e 179
+  s_3bdec2f40d119b::t_f7291ff5caf7a4 171-173
+  s_3bdec2f40d119b::t_191319ff1b0061 180
+  s_3bdec2f40d119b::t_c487e067d1f749 18,35,174-175,193-194,214-217,279,328,341-394,669-672
+docs/data-protection.md
+  s_3bdec2f40d119b::t_f01b4eaecd8817 1-40
+src/main/java/io/jenkins/plugins/explain_error/ConsoleExplainErrorAction.java
+  s_3bdec2f40d119b::t_b1ac47fa70b8ab 95,119-152,200-212
+src/main/java/io/jenkins/plugins/explain_error/ConsolePageDecorator.java
+  s_3bdec2f40d119b::t_ef146628d9d965 41-44
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplanationAction.java
+  s_3bdec2f40d119b::t_129e26d7771e72 18,20-21,34-39,42,48-49,90-93,124-137
+src/main/java/io/jenkins/plugins/explain_error/ExplainErrorStep.java
+  s_3bdec2f40d119b::t_e084f926c33542 315-318
+src/main/java/io/jenkins/plugins/explain_error/GlobalConfigurationImpl.java
+  s_3bdec2f40d119b::t_3f12ab35f71ed1 41-45,223-274,318-338
+src/main/java/io/jenkins/plugins/explain_error/LogSanitizer.java
+  s_3bdec2f40d119b::t_59b946e266ac73 1-149
+src/main/resources/io/jenkins/plugins/explain_error/ConsolePageDecorator/footer.jelly
+  s_3bdec2f40d119b::t_c5c05a55e8f6d9 21-22
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/index.jelly
+  s_3bdec2f40d119b::t_ef5b5d6db74846 17-22
+src/main/webapp/js/explain-error-footer.js
+  s_3bdec2f40d119b::t_805ee7e90199cb 162-219
+src/test/java/io/jenkins/plugins/explain_error/ErrorExplainerTest.java
+  s_3bdec2f40d119b::t_f94412c448cfbe 179-224
+src/test/java/io/jenkins/plugins/explain_error/GlobalConfigurationImplTest.java
+  s_3bdec2f40d119b::t_a052ae248c8610 56-58,203-218
+src/test/java/io/jenkins/plugins/explain_error/LogSanitizerTest.java
+  s_3bdec2f40d119b::t_d7a17b8631f153 1-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "289675800a24918eb055f41aa5297e6ce07d75d5",
+  "prompts": {},
+  "sessions": {
+    "s_3bdec2f40d119b": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f535e-dfcc-7c01-b11a-6d89c52194dd",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "shenxianpeng <xianpeng.shen@gmail.com>"
+    }
+  }
+}
