@@ -4,13 +4,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.TestProvider;
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 import net.sf.json.JSONObject;
 import org.htmlunit.HttpMethod;
 import org.htmlunit.Page;
 import org.htmlunit.WebRequest;
+import org.jenkinsci.plugins.workflow.actions.LabelAction;
+import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
+import org.jenkinsci.plugins.workflow.cps.nodes.StepAtomNode;
+import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.FailureBuilder;
@@ -247,5 +256,146 @@ class GraphViewExplainErrorActionTest {
             assertTrue(responseJson.getString("message").contains("Second call"));
             assertEquals(2, provider.getCallCount());
         }
+    }
+
+    @Test
+    void testIsFailedNodeMultiStagePipeline() throws Exception {
+        WorkflowRun pipelineRun = buildMinimalMultiStagePipeline("multi-stage");
+        GraphViewExplainErrorAction pipelineAction = new GraphViewExplainErrorAction(pipelineRun);
+
+        FlowNode stageA = findStageNode(pipelineRun, "A");
+        FlowNode stageB = findStageNode(pipelineRun, "B");
+        FlowNode failedStep = findStepNode(pipelineRun, true);
+        FlowNode successfulStep = findStepNode(pipelineRun, false);
+
+        assertTrue(pipelineAction.isFailedNode(stageB.getId()),
+                "failed stage must be reported as failed");
+        assertTrue(pipelineAction.isFailedNode(failedStep.getId()),
+                "failing step must be reported as failed");
+        assertFalse(pipelineAction.isFailedNode(stageA.getId()),
+                "successful stage that ran before the failure must not be reported as failed");
+        assertFalse(pipelineAction.isFailedNode(successfulStep.getId()),
+                "successful step that ran before the failure must not be reported as failed");
+    }
+
+    @Test
+    void testExtractNodeLogFromStageBlockNode() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("multi-stage-log");
+        PipelineLogExtractor extractor = new PipelineLogExtractor(pipelineRun, 200);
+
+        List<String> failedStageLog = extractor.extractNodeLog(findStageNode(pipelineRun, "B").getId());
+        assertFalse(failedStageLog.isEmpty(),
+                "failed stage must yield the enclosed failing step's log");
+        assertTrue(failedStageLog.stream().anyMatch(
+                        line -> line.contains("boom") || line.contains("stage B log")),
+                "stage log must contain output from inside the failed stage, got: " + failedStageLog);
+        assertFalse(failedStageLog.stream().anyMatch(line -> line.contains("hello from A")),
+                "stage log must not leak output from a preceding stage");
+
+        List<String> successfulStageLog = extractor.extractNodeLog(findStageNode(pipelineRun, "A").getId());
+        assertTrue(successfulStageLog.isEmpty(),
+                "successful stage has no failing content and must not fall back to a predecessor's log");
+    }
+
+    @Test
+    void testExplainNodeErrorOnStageNode() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("multi-stage-explain");
+        String stageBId = findStageNode(pipelineRun, "B").getId();
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl()
+                    + pipelineRun.getUrl() + "graph-explain-error/explainNodeError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            request.setRequestParameters(java.util.Collections.singletonList(
+                new org.htmlunit.util.NameValuePair("nodeId", stageBId)
+            ));
+            Page page = client.getPage(request);
+            JSONObject responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", responseJson.getString("status"));
+            String sentLogs = provider.getLastErrorLogs();
+            assertTrue(sentLogs.contains("boom") || sentLogs.contains("stage B log"),
+                    "provider must receive log output from inside the failed stage, got: " + sentLogs);
+            assertFalse(sentLogs.contains("hello from A"),
+                    "provider must not receive output leaked from a preceding stage");
+        }
+    }
+
+    @Test
+    void testExplainNodeErrorCachedResponseIncludesUrl() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("multi-stage-cache-url");
+        String failedStepId = findStepNode(pipelineRun, true).getId();
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl()
+                    + pipelineRun.getUrl() + "graph-explain-error/explainNodeError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            request.setRequestParameters(java.util.Collections.singletonList(
+                new org.htmlunit.util.NameValuePair("nodeId", failedStepId)
+            ));
+
+            // First call generates and stores the explanation
+            client.getPage(request);
+            ErrorExplanationAction explanationAction =
+                    pipelineRun.getAction(ErrorExplanationAction.class);
+            assertNotNull(explanationAction);
+            assertNotNull(explanationAction.getUrlString());
+
+            // Second call is a cache hit and must still carry the stored URL
+            Page page = client.getPage(request);
+            JSONObject responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", responseJson.getString("status"));
+            assertTrue(responseJson.getString("message").contains("previously generated"));
+            assertEquals(explanationAction.getUrlString(), responseJson.getString("url"),
+                    "cached response must carry the stored explanation URL");
+        }
+    }
+
+    /**
+     * Two-stage pipeline where the second stage fails. Stage B contains an
+     * {@code echo} before the {@code error} step so that log extraction has
+     * in-stage output to fall back to when the {@code error} step node itself
+     * carries no log.
+     */
+    private WorkflowRun buildMultiStagePipeline(String name) throws Exception {
+        return buildPipeline(name,
+                "stage('A') { echo 'hello from A' }\n"
+                + "stage('B') { echo 'stage B log'; error 'boom' }");
+    }
+
+    /**
+     * Minimal two-stage pipeline: the only successful step is stage A's
+     * {@code echo}, so {@link #findStepNode} can unambiguously locate a
+     * successful step that ran before the failure.
+     */
+    private WorkflowRun buildMinimalMultiStagePipeline(String name) throws Exception {
+        return buildPipeline(name,
+                "stage('A') { echo 'hello from A' }\n"
+                + "stage('B') { error 'boom' }");
+    }
+
+    private WorkflowRun buildPipeline(String name, String script) throws Exception {
+        WorkflowJob job = rule.jenkins.createProject(WorkflowJob.class, name);
+        job.setDefinition(new CpsFlowDefinition(script, true));
+        WorkflowRun pipelineRun = job.scheduleBuild2(0).get();
+        rule.assertBuildStatus(Result.FAILURE, pipelineRun);
+        return pipelineRun;
+    }
+
+    private static FlowNode findStageNode(WorkflowRun pipelineRun, String stageName) {
+        for (FlowNode node : new FlowGraphWalker(pipelineRun.getExecution())) {
+            if (node.getAction(LabelAction.class) != null && stageName.equals(node.getDisplayName())) {
+                return node;
+            }
+        }
+        throw new AssertionError("Stage node not found: " + stageName);
+    }
+
+    private static FlowNode findStepNode(WorkflowRun pipelineRun, boolean failed) {
+        for (FlowNode node : new FlowGraphWalker(pipelineRun.getExecution())) {
+            if (node instanceof StepAtomNode && (node.getError() != null) == failed) {
+                return node;
+            }
+        }
+        throw new AssertionError("Step node not found (failed=" + failed + ")");
     }
 }
