@@ -6,6 +6,7 @@ import hudson.model.Item;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
@@ -323,9 +324,14 @@ public class PipelineLogExtractor {
      * Used by the Pipeline Graph View integration to extract logs for the
      * node that the user selected.
      * <p>
-     * Supports the {@code catchError + sh(returnStatus:true) + error()} pattern
-     * by falling back to the immediate parent when the target node has no
-     * {@link LogAction}.
+     * When the target node itself has no {@link LogAction}:
+     * <ul>
+     *   <li>For a block node (e.g. a stage selected in the graph view), the
+     *       log of the failing node <em>enclosed</em> by the block is used —
+     *       the failure lives inside the block, not before it.</li>
+     *   <li>For a step node, the immediate parent is checked to support the
+     *       {@code catchError + sh(returnStatus:true) + error()} pattern.</li>
+     * </ul>
      *
      * @param nodeId the flow node ID to extract logs from
      * @return the log lines for the specified node, or an empty list if the
@@ -341,31 +347,86 @@ public class PipelineLogExtractor {
             return Collections.emptyList();
         }
 
-        FlowGraphWalker walker = new FlowGraphWalker(execution);
-        for (FlowNode node : walker) {
-            if (!node.getId().equals(nodeId)) {
+        FlowNode target = null;
+        for (FlowNode node : new FlowGraphWalker(execution)) {
+            if (node.getId().equals(nodeId)) {
+                target = node;
+                break;
+            }
+        }
+        if (target == null) {
+            return Collections.emptyList();
+        }
+
+        FlowNode logNode = target;
+        if (target.getAction(LogAction.class) == null) {
+            // A block node's failure output lives in the nodes it encloses;
+            // a step node's missing log may live in its immediate parent
+            // (catchError + sh(returnStatus:true) + error() pattern).
+            logNode = target instanceof BlockStartNode
+                    ? findFailedEnclosedNodeWithLog(execution, nodeId)
+                    : findImmediateParentWithLog(target);
+            if (logNode == null) {
+                return Collections.emptyList();
+            }
+        }
+
+        LogAction logAction = logNode.getAction(LogAction.class);
+        if (logAction == null) {
+            return Collections.emptyList();
+        }
+        List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
+        if (stepLog.isEmpty()) {
+            return Collections.emptyList();
+        }
+        addHeaderLog(logNode, stepLog);
+        setUrl(nodeId);
+        return stepLog;
+    }
+
+    /**
+     * Finds a failed node (one with an {@link ErrorAction}, or a
+     * {@link WarningAction} with result {@link Result#FAILURE}) that is
+     * enclosed by the given block node and carries a {@link LogAction}.
+     * When the failed node itself has no log (e.g. an {@code error()} step),
+     * its immediate parent is used if it has a log and lives inside the same
+     * block.
+     *
+     * @param execution the flow execution to search
+     * @param blockId   the ID of the enclosing block node (e.g. a stage)
+     * @return the enclosed failed node with a log, or {@code null} if none
+     */
+    private FlowNode findFailedEnclosedNodeWithLog(FlowExecution execution, String blockId) {
+        for (FlowNode node : new FlowGraphWalker(execution)) {
+            if (!isEnclosedBy(node, blockId) || !isFailedFlowNode(node)) {
                 continue;
             }
-            LogAction logAction = node.getAction(LogAction.class);
-            // catchError + sh(returnStatus:true) + error() fallback
-            if (logAction == null) {
-                FlowNode immediateParent = findImmediateParentWithLog(node);
-                if (immediateParent != null) {
-                    logAction = immediateParent.getAction(LogAction.class);
-                }
+            if (node.getAction(LogAction.class) != null) {
+                return node;
             }
-            if (logAction == null) {
-                return Collections.emptyList();
+            FlowNode parent = findImmediateParentWithLog(node);
+            if (parent != null && isEnclosedBy(parent, blockId)) {
+                return parent;
             }
-            List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
-            if (stepLog.isEmpty()) {
-                return Collections.emptyList();
-            }
-            addHeaderLog(node, stepLog);
-            setUrl(nodeId);
-            return stepLog;
         }
-        return Collections.emptyList();
+        return null;
+    }
+
+    private static boolean isFailedFlowNode(FlowNode node) {
+        if (node.getError() != null) {
+            return true;
+        }
+        WarningAction warn = node.getAction(WarningAction.class);
+        return warn != null && warn.getResult() == Result.FAILURE;
+    }
+
+    private static boolean isEnclosedBy(FlowNode node, String blockId) {
+        for (FlowNode enclosing : node.getEnclosingBlocks()) {
+            if (enclosing.getId().equals(blockId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public ExtractionResult extractFailedStepLog() throws IOException {

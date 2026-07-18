@@ -231,14 +231,7 @@
   // ---- Explain flow ----
 
   function handleExplainClick() {
-    var container = document.getElementById('explain-error-graph-container');
-    var hasExplanation = container.dataset.hasExplanation === 'true';
-
-    if (hasExplanation) {
-      showExplanationPanel();
-    } else {
-      sendExplainRequest();
-    }
+    showExplanationPanel();
   }
 
   function sendExplainRequest(forceNew) {
@@ -360,14 +353,12 @@
   }
 
   function showExplanationPanel() {
-    var container = document.getElementById('explain-error-graph-container');
-    var hasExplanation = container.dataset.hasExplanation === 'true';
-    if (!hasExplanation) {
-      var content = document.getElementById('explain-error-graph-content');
-      if (!content || !content.textContent) {
-        sendExplainRequest();
-        return;
-      }
+    var content = document.getElementById('explain-error-graph-content');
+    if (!content || !content.textContent) {
+      // Nothing rendered yet — fetch from the server, which returns the
+      // cached explanation when one exists and generates one otherwise.
+      sendExplainRequest();
+      return;
     }
     var panel = ensureExplanationPanel();
     panel.classList.remove('jenkins-hidden');

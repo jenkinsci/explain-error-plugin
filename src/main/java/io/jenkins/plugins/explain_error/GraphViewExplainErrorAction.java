@@ -6,11 +6,7 @@ import hudson.model.Run;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
-import java.util.Set;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import jenkins.model.RunAction2;
@@ -161,6 +157,7 @@ public class GraphViewExplainErrorAction implements RunAction2 {
             // Check if an explanation already exists
             ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
             if (!forceNew && existingAction != null && existingAction.hasValidExplanation()) {
+                this.urlString = existingAction.getUrlString();
                 recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
                         existingAction.getProviderModel(), startTimeNanos,
                         existingAction.getInputLogLineCount());
@@ -197,18 +194,23 @@ public class GraphViewExplainErrorAction implements RunAction2 {
     }
 
     /**
-     * Determines whether a flow node (or any of its descendants) represents
+     * Determines whether a flow node (or any node it encloses) represents
      * a failure.
      * <p>
      * A node is considered failed if:
      * <ul>
      *   <li>It has an {@link ErrorAction} directly, or</li>
      *   <li>It has a {@link WarningAction} with {@link Result#FAILURE}, or</li>
-     *   <li>Any of its descendants (via BFS) has an {@link ErrorAction}.</li>
+     *   <li>It is a block node (e.g. a stage) and a node enclosed by it fails
+     *       by either of the above criteria.</li>
      * </ul>
+     * Containment is determined via {@link FlowNode#getEnclosingBlocks()}
+     * rather than the parent chain: parents link to execution-order
+     * predecessors, so following them would wrongly mark every node that ran
+     * before the failure as failed.
      *
      * @param nodeId the flow node ID to check
-     * @return {@code true} if the node or its descendants contain a failure
+     * @return {@code true} if the node or a node it encloses failed
      */
     @VisibleForTesting
     boolean isFailedNode(String nodeId) {
@@ -223,67 +225,45 @@ public class GraphViewExplainErrorAction implements RunAction2 {
             return false;
         }
 
-        FlowGraphWalker walker = new FlowGraphWalker(execution);
-        FlowNode targetNode = null;
-        for (FlowNode node : walker) {
-            if (node.getId().equals(nodeId)) {
-                targetNode = node;
-                break;
-            }
-        }
+        FlowNode targetNode = findNode(execution, nodeId);
         if (targetNode == null) {
             return false;
         }
 
-        // Check the node itself
-        if (targetNode.getError() != null) {
-            return true;
-        }
-        WarningAction warn = targetNode.getAction(WarningAction.class);
-        if (warn != null && warn.getResult() == Result.FAILURE) {
+        if (isFailure(targetNode)) {
             return true;
         }
 
-        // Walk the full graph and check if any node with ErrorAction
-        // has targetNode in its ancestor chain
-        FlowGraphWalker walker2 = new FlowGraphWalker(execution);
-        for (FlowNode node : walker2) {
-            if (node.getError() == null) {
-                continue;
-            }
-            if (node.getId().equals(nodeId)) {
-                return true;
-            }
-            if (isDescendantOf(node, targetNode)) {
+        FlowGraphWalker walker = new FlowGraphWalker(execution);
+        for (FlowNode node : walker) {
+            if (isFailure(node) && isEnclosedBy(node, nodeId)) {
                 return true;
             }
         }
         return false;
     }
 
-    /**
-     * Checks whether {@code node} is a descendant of {@code ancestor} by
-     * walking the node's parent chain.
-     */
-    private boolean isDescendantOf(FlowNode node, FlowNode ancestor) {
-        Set<String> visited = new HashSet<>();
-        Queue<FlowNode> queue = new LinkedList<>();
-        queue.add(node);
+    private static FlowNode findNode(FlowExecution execution, String nodeId) {
+        for (FlowNode node : new FlowGraphWalker(execution)) {
+            if (node.getId().equals(nodeId)) {
+                return node;
+            }
+        }
+        return null;
+    }
 
-        while (!queue.isEmpty()) {
-            FlowNode current = queue.poll();
-            if (!visited.add(current.getId())) {
-                continue;
-            }
-            if (current.getId().equals(ancestor.getId())) {
+    private static boolean isFailure(FlowNode node) {
+        if (node.getError() != null) {
+            return true;
+        }
+        WarningAction warn = node.getAction(WarningAction.class);
+        return warn != null && warn.getResult() == Result.FAILURE;
+    }
+
+    private static boolean isEnclosedBy(FlowNode node, String blockId) {
+        for (FlowNode enclosing : node.getEnclosingBlocks()) {
+            if (enclosing.getId().equals(blockId)) {
                 return true;
-            }
-            // Check parents — if we reach the ancestor, node is a descendant
-            queue.addAll(current.getParents());
-            // Stop searching if we've gone past the ancestor's position
-            // (approximation: stop if we've searched too many nodes)
-            if (visited.size() > 10_000) {
-                return false;
             }
         }
         return false;
