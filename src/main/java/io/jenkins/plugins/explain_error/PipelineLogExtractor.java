@@ -359,10 +359,14 @@ public class PipelineLogExtractor {
         }
 
         FlowNode logNode = target;
-        if (target.getAction(LogAction.class) == null) {
+        if (target.getAction(LogAction.class) == null
+                || !hasLogContent(target.getAction(LogAction.class))) {
             // A block node's failure output lives in the nodes it encloses;
             // a step node's missing log may live in its immediate parent
             // (catchError + sh(returnStatus:true) + error() pattern).
+            // Also enter this branch when the target has a LogAction but its
+            // content is empty (e.g. the error() step creates a node with a
+            // LogAction that carries no output).
             logNode = target instanceof BlockStartNode
                     ? findFailedEnclosedNodeWithLog(execution, nodeId)
                     : findImmediateParentWithLog(target);
@@ -401,7 +405,7 @@ public class PipelineLogExtractor {
             if (!isEnclosedBy(node, blockId) || !isFailedFlowNode(node)) {
                 continue;
             }
-            if (node.getAction(LogAction.class) != null) {
+            if (node.getAction(LogAction.class) != null && hasLogContent(node.getAction(LogAction.class))) {
                 return node;
             }
             FlowNode parent = findImmediateParentWithLog(node);
@@ -410,6 +414,15 @@ public class PipelineLogExtractor {
             }
         }
         return null;
+    }
+
+    private static boolean hasLogContent(LogAction logAction) {
+        try {
+            StringWriter sw = new StringWriter();
+            return logAction.getLogText().writeLogTo(0, sw) > 0;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private static boolean isFailedFlowNode(FlowNode node) {
