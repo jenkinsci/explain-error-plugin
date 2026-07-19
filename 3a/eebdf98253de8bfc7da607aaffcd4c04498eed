@@ -1,0 +1,20 @@
+src/main/java/io/jenkins/plugins/explain_error/PipelineLogExtractor.java
+  s_8aeb1018a81e49::t_f07457ec9da40b 362-363,367-369,408,419-425
+  s_8aeb1018a81e49::t_d21baea70a0c20 426-427
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "3aeebdf98253de8bfc7da607aaffcd4c04498eed",
+  "prompts": {},
+  "sessions": {
+    "s_8aeb1018a81e49": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019f7aef-5f96-79a0-93b9-a7fc5219d306",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "shenxianpeng <xianpeng.shen@gmail.com>"
+    }
+  }
+}
