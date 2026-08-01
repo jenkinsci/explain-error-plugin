@@ -1,6 +1,6 @@
 <!-- [![Jenkins Plugin Installs](https://img.shields.io/jenkins/plugin/i/explain-error.svg?color=blue)](https://plugins.jenkins.io/explain-error/) -->
 <p align="center">
-  <img src="docs/images/logo-new.png" width="600" alt="Explain Error Plugin">
+  <img src="docs/images/banner.png" width="600" alt="Explain Error Plugin">
 </p>
 
 <h1 align="center">Explain Error Plugin for Jenkins</h1>
