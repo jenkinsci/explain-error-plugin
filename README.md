@@ -1,8 +1,6 @@
+# Explain Error Plugin
+
 ![Explain Error Plugin](docs/images/explain-error-banner.svg)
-
-# Explain Error Plugin for Jenkins
-
-🤖 AI-powered plugin that explains Jenkins job failures with human-readable insights.
 
 ![Jenkins Plugin](https://img.shields.io/jenkins/plugin/v/explain-error.svg)
 [![GitHub Release](https://img.shields.io/github/release/jenkinsci/explain-error-plugin.svg?label=changelog)](https://github.com/jenkinsci/explain-error-plugin/releases/latest)
