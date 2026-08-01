@@ -1,0 +1,41 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <rect width="1200" height="300" fill="#ffffff"></rect>
+  <rect width="1200" height="6" fill="#335061"></rect>
+  <rect width="1200" height="6" y="294" fill="#D33834"></rect>
+
+  
+  <g transform="translate(60,0)">
+    
+    <g transform="translate(0,68)">
+      <circle cx="30" cy="30" r="30" fill="#FBEAE9"></circle>
+      <path d="M18 18 L42 42 M42 18 L18 42" stroke="#D33834" stroke-width="4" stroke-linecap="round"></path>
+      <path d="M70 30 H108" stroke="#6D6B6D" stroke-width="3" stroke-linecap="round"></path>
+      <path d="M100 22 L110 30 L100 38" fill="none" stroke="#6D6B6D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="160" cy="30" r="30" fill="#48728B"></circle>
+      <path d="M160 14 a16 16 0 0 1 8 29.8 V48 h-16 v-4.2 A16 16 0 0 1 160 14 Z" fill="#ffffff"></path>
+      <rect x="152" y="49" width="16" height="5" rx="2" fill="#ffffff"></rect>
+    </g>
+
+    <text x="0" y="178" fill="#20262B" font-size="52" font-weight="700" letter-spacing="-1">explain-error</text>
+    <text x="0" y="214" fill="#6D6B6D" font-size="22" font-weight="400">AI-powered failure explanations for Jenkins Pipelines</text>
+  </g>
+
+  
+  <g transform="translate(700,48)">
+    <rect width="440" height="204" rx="10" fill="#F4F6F7" stroke="#D8DEE2" stroke-width="1"></rect>
+    <rect width="440" height="30" rx="10" fill="#E9EDEF"></rect>
+    <rect width="440" height="15" y="15" fill="#E9EDEF"></rect>
+    <circle cx="18" cy="15" r="5" fill="#D33834"></circle>
+    <circle cx="36" cy="15" r="5" fill="#E0A840"></circle>
+    <circle cx="54" cy="15" r="5" fill="#48728B"></circle>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#3D4A52">
+      <text x="16" y="52">[explain-error] Starting explanation for build #1.</text>
+      <text x="16" y="72">[explain-error] Using provider OpenAI, model gpt-4.1.</text>
+      <text x="16" y="92">[explain-error] Extracting failure logs.</text>
+      <text x="16" y="112">[explain-error] Sending AI request.</text>
+      <text x="16" y="132" fill="#3B7A54">[explain-error] Explanation saved to the build.</text>
+      <text x="16" y="160" fill="#D33834">ERROR: script returned exit code 127</text>
+      <text x="16" y="180" fill="#D33834">Finished: FAILURE</text>
+    </g>
+  </g>
+</svg>
