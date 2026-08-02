@@ -1,0 +1,42 @@
+src/test/java/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProviderTest.java
+  s_853821c48bc770::t_d0fe06e1d5a85a 1-104,106,109-124,128-164,173-219
+  s_853821c48bc770::t_17a89729318b8a 105,108,125,127
+  s_853821c48bc770::t_6a6fa773c82abe 107,126,165-172
+src/main/resources/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider/help-model.html
+  s_853821c48bc770::t_3e2ce141572f33 1-4
+docs/auto-fix.md
+  s_853821c48bc770::t_35989adb661237 30
+README.md
+  s_853821c48bc770::t_8f524bf8912872 45,80-82,375-380
+  s_853821c48bc770::t_fe48740d4467d2 262-273
+  s_853821c48bc770::t_df7d297b6725b5 381
+src/main/resources/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider/help-url.html
+  s_853821c48bc770::t_f9a49ac3ef4b78 1-10
+src/main/java/io/jenkins/plugins/explain_error/provider/BaseAIProvider.java
+  s_853821c48bc770::t_7e8cacc0f17c98 276,280-282,284-287
+src/main/java/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider.java
+  s_853821c48bc770::t_64c61bee0ffb56 1-2,4-120,125-134,144-147,159-215
+  s_853821c48bc770::t_dec24ede6c00ff 3,121-124,135-143,148-158
+src/test/java/io/jenkins/plugins/explain_error/provider/ProviderTest.java
+  s_853821c48bc770::t_926bc8ede2c6e5 279-338
+src/main/resources/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider/config.jelly
+  s_853821c48bc770::t_c91b10be7462ae 1-18
+src/main/resources/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider/help-apiKey.html
+  s_853821c48bc770::t_f61572eed4d792 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "8dd616e6abb17f0e7d231315418546bd26b15743",
+  "prompts": {},
+  "sessions": {
+    "s_853821c48bc770": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019fbdc6-6a5c-7843-910a-fb19c3943ee8",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "shenxianpeng <xianpeng.shen@gmail.com>"
+    }
+  }
+}
