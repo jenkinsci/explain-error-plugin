@@ -273,12 +273,18 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     }
 
     protected final HttpClient.Builder newJenkinsHttpClientBuilder() {
+        HttpClient.Builder builder;
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
         if (proxyConfiguration != null) {
-            return proxyConfiguration.newHttpClientBuilder();
+            builder = proxyConfiguration.newHttpClientBuilder();
+        } else {
+            builder = HttpClient.newBuilder();
         }
-        return HttpClient.newBuilder();
+        // Follow redirects returned by AI gateways and proxies (e.g. http -> https
+        // upgrades behind load balancers). Matches Jenkins core's own HttpClient
+        // behaviour; the default is NEVER, which fails any 3xx response.
+        return builder.followRedirects(HttpClient.Redirect.NORMAL);
     }
 
     protected final HttpClientBuilder newLangChainHttpClientBuilder() {

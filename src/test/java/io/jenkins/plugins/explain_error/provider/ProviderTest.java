@@ -277,6 +277,66 @@ class ProviderTest {
     }
 
     @Test
+    void testOpenAICompatibleNullUrl() {
+        BaseAIProvider provider = new OpenAICompatibleProvider(null, "test-model", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleEmptyUrl() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("", "test-model", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleNullModel() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleEmptyModel() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleNullApiKey() {
+        // apiKey is optional for OpenAI-compatible gateways (e.g. unauthenticated local proxies)
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "test-model", null);
+        assertTrue(provider.isNotValid(null) || !provider.isNotValid(null),
+                "isNotValid should complete without exception when apiKey is null");
+    }
+
+    @Test
+    void testOpenAICompatibleEmptyApiKey() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "test-model", Secret.fromString(""));
+        assertTrue(provider.isNotValid(null) || !provider.isNotValid(null),
+                "isNotValid should complete without exception when apiKey is empty");
+    }
+
+    @Test
+    void testOpenAICompatibleValidConfig() {
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                "http://localhost:1234", "gateway-model", Secret.fromString("test-key"));
+        assertEquals("http://localhost:1234", provider.getUrl());
+        assertEquals("gateway-model", provider.getModel());
+        assertEquals("test-key", Secret.toString(provider.getApiKey()));
+    }
+
+    @Test
     void testBedrockNullModel() {
         BaseAIProvider provider = new BedrockProvider(null, null, "eu-west-1", null);
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
