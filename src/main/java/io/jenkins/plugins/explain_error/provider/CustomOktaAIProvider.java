@@ -243,13 +243,14 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         String credentials = getClientId() + ':' + Secret.toString(getClientSecret());
         String basicAuth = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
 
-        HttpRequest request = HttpRequest.newBuilder(URI.create(getTokenUrl()))
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(getTokenUrl()))
                 .timeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("Authorization", "Basic " + basicAuth)
-                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()));
+        withProxyAuthorization(builder);
+        HttpRequest request = builder.build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() >= 400) {
@@ -276,13 +277,14 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
     private String requestRawContent(HttpClient client, String accessToken, String requestBody)
             throws IOException, InterruptedException, ExplanationException {
-        HttpRequest request = HttpRequest.newBuilder(buildChatUri())
+        HttpRequest.Builder builder = HttpRequest.newBuilder(buildChatUri())
                 .timeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .header(resolveAccessTokenHeader(), buildAccessTokenHeaderValue(accessToken))
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody));
+        withProxyAuthorization(builder);
+        HttpRequest request = builder.build();
 
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.fine("Sending Custom Okta AI request to " + request.uri());
@@ -296,6 +298,13 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
         JsonNode json = OBJECT_MAPPER.readTree(response.body());
         return extractAssistantContent(json);
+    }
+
+    private void withProxyAuthorization(HttpRequest.Builder builder) {
+        String proxyAuthorization = getProxyAuthorizationHeader();
+        if (proxyAuthorization != null) {
+            builder.header("Proxy-Authorization", proxyAuthorization);
+        }
     }
 
     private URI buildChatUri() {
