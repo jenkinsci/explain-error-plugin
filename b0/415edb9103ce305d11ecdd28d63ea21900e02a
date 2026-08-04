@@ -1,0 +1,28 @@
+src/main/java/io/jenkins/plugins/explain_error/provider/ProxyAwareHttpClient.java
+  s_1b671bf50a4d9a::t_f4eccaf9105d0c 1-11,13-101,103-109
+  s_1b671bf50a4d9a::t_f5dbbdbe06ecbd 12,102
+src/main/java/io/jenkins/plugins/explain_error/provider/BaseAIProvider.java
+  s_1b671bf50a4d9a::t_ecaff917d2e28a 5,7-9,14-16,35,284,287-303,305-309,316-337,339-341
+src/main/java/io/jenkins/plugins/explain_error/provider/CustomOktaAIProvider.java
+  s_1b671bf50a4d9a::t_8ca2b7a8a2590a 246,251-253,280,285-287,303-307
+  s_1b671bf50a4d9a::t_fa89a259cd8224 308-309
+src/test/java/io/jenkins/plugins/explain_error/provider/ProxyAwareHttpClientTest.java
+  s_1b671bf50a4d9a::t_cf869e841addb8 1-95,97-139
+  s_1b671bf50a4d9a::t_8a2ca4322f6f2e 96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "b0415edb9103ce305d11ecdd28d63ea21900e02a",
+  "prompts": {},
+  "sessions": {
+    "s_1b671bf50a4d9a": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "019fcdca-413c-7fd8-9925-c9bced310547",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "shenxianpeng <xianpeng.shen@gmail.com>"
+    }
+  }
+}
