@@ -174,6 +174,7 @@ public class OpenAICompatibleProvider extends BaseAIProvider {
             return "";
         }
 
+        @Override
         @POST
         @SuppressWarnings("lgtm[jenkins/no-permission-check]")
         public FormValidation doCheckUrl(@QueryParameter String value) {

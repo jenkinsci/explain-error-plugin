@@ -326,7 +326,12 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     protected final String getProxyAuthorizationHeader() {
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
-        if (proxyConfiguration == null || proxyConfiguration.getUserName() == null) {
+        // Require a proxy host as well as a user name: newJenkinsHttpClientBuilder()
+        // only routes through the proxy when a host is configured, and without one
+        // this header would be sent to the origin server, leaking the credentials.
+        if (proxyConfiguration == null
+                || proxyConfiguration.getName() == null
+                || proxyConfiguration.getUserName() == null) {
             return null;
         }
         Secret secretPassword = proxyConfiguration.getSecretPassword();

@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error.provider;
 
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -316,15 +317,15 @@ class ProviderTest {
     void testOpenAICompatibleNullApiKey() {
         // apiKey is optional for OpenAI-compatible gateways (e.g. unauthenticated local proxies)
         BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "test-model", null);
-        assertTrue(provider.isNotValid(null) || !provider.isNotValid(null),
-                "isNotValid should complete without exception when apiKey is null");
+        assertFalse(provider.isNotValid(null),
+                "provider with url and model set must be valid even when apiKey is null");
     }
 
     @Test
     void testOpenAICompatibleEmptyApiKey() {
         BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "test-model", Secret.fromString(""));
-        assertTrue(provider.isNotValid(null) || !provider.isNotValid(null),
-                "isNotValid should complete without exception when apiKey is empty");
+        assertFalse(provider.isNotValid(null),
+                "provider with url and model set must be valid even when apiKey is empty");
     }
 
     @Test
