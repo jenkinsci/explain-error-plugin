@@ -1,0 +1,56 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="70" x2="1160" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <circle cx="174" cy="124" r="110" fill="#6366F1" fill-opacity="0.08"/>
+  <circle cx="1160" cy="548" r="160" fill="#0EA5E9" fill-opacity="0.10"/>
+  <circle cx="1200" cy="96" r="72" fill="#EF4444" fill-opacity="0.06"/>
+
+  <g filter="url(#shadow)">
+    <rect x="716" y="96" width="438" height="448" rx="30" fill="white" stroke="#CBD5E1"/>
+
+    <rect x="748" y="136" width="374" height="56" rx="16" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="782" y="171" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">AI Error Explanation</text>
+
+    <rect x="748" y="220" width="374" height="120" rx="16" fill="#0F172A"/>
+    <text x="776" y="254" fill="#94A3B8" font-family="Menlo, Consolas, monospace" font-size="17">$ mvn -B deploy</text>
+    <text x="776" y="284" fill="#F87171" font-family="Menlo, Consolas, monospace" font-size="17" font-weight="700">ERROR: NullPointerException</text>
+    <text x="776" y="314" fill="#FCA5A5" font-family="Menlo, Consolas, monospace" font-size="17">Finished: FAILURE</text>
+
+    <text x="780" y="384" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Root cause</text>
+    <text x="780" y="412" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="16">The deploy step lacks a credential binding.</text>
+
+    <circle cx="791" cy="437" r="11" fill="#10B981"/>
+    <path d="M786 437L790 441L797 433" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="812" y="443" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600">Fix: wrap Deploy in withCredentials</text>
+
+    <path d="M780 472H1090" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="780" y="500" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600">OpenAI &#183; Claude &#183; Gemini &#183; Ollama + more</text>
+  </g>
+
+  <text x="92" y="188" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700">Explain Error</text>
+  <text x="92" y="248" fill="#4F46E5" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Explain failed Jenkins builds with AI</text>
+  <text x="92" y="320" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="25">Turns raw console logs into a clear root cause</text>
+  <text x="92" y="356" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="25">and concrete fix steps &#8212; right in your build.</text>
+
+  <g>
+    <rect x="92" y="416" width="206" height="54" rx="18" fill="#0F172A"/>
+    <text x="195" y="451" text-anchor="middle" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">One-click explain</text>
+    <rect x="316" y="416" width="164" height="54" rx="18" fill="url(#accent)"/>
+    <text x="398" y="451" text-anchor="middle" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">Auto-fix PRs</text>
+  </g>
+
+  <path d="M92 522H520" stroke="#6366F1" stroke-width="5" stroke-linecap="round"/>
+</svg>
