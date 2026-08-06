@@ -92,6 +92,11 @@ public class DeepSeekProvider extends BaseAIProvider {
         return trimmedUrl != null ? trimmedUrl : DEFAULT_URL;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        return resolveUrl(getUrl());
+    }
+
     @Extension
     @Symbol("deepseek")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -143,7 +148,7 @@ public class DeepSeekProvider extends BaseAIProvider {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
     }

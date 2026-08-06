@@ -87,6 +87,13 @@ public class OpenAIProvider extends BaseAIProvider {
                 Util.fixEmptyAndTrim(getModel()) == null;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        String configured = Util.fixEmptyAndTrim(getUrl());
+        // langchain4j's OpenAI default base URL when none is configured.
+        return configured != null ? configured : "https://api.openai.com/v1";
+    }
+
     @Extension
     @Symbol("openai")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -141,7 +148,7 @@ public class OpenAIProvider extends BaseAIProvider {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
     }

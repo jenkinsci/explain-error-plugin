@@ -58,6 +58,16 @@ public class BedrockProvider extends BaseAIProvider {
         return region;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        String configured = Util.fixEmptyAndTrim(getUrl());
+        if (configured != null) {
+            // A private VPC endpoint may be configured as a bare hostname.
+            return configured.contains("://") ? configured : "https://" + configured;
+        }
+        return region != null ? "https://bedrock-runtime." + region + ".amazonaws.com" : null;
+    }
+
     public String getRoleArn() {
         return roleArn;
     }
@@ -282,7 +292,7 @@ public class BedrockProvider extends BaseAIProvider {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! AWS Bedrock connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
 

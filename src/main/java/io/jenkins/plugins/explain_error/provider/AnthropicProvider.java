@@ -210,6 +210,13 @@ public class AnthropicProvider extends BaseAIProvider {
         return !hasAnyAuth || modelName == null;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        String configured = Util.fixEmptyAndTrim(getUrl());
+        // langchain4j's Anthropic default base URL when none is configured.
+        return configured != null ? configured : "https://api.anthropic.com/v1/";
+    }
+
     @Extension
     @Symbol("anthropic")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -273,7 +280,7 @@ public class AnthropicProvider extends BaseAIProvider {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
     }

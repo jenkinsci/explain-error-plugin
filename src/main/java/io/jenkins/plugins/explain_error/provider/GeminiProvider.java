@@ -82,6 +82,13 @@ public class GeminiProvider extends BaseAIProvider {
                 Util.fixEmptyAndTrim(getModel()) == null;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        String configured = Util.fixEmptyAndTrim(getUrl());
+        // langchain4j's Gemini default base URL when none is configured.
+        return configured != null ? configured : "https://generativelanguage.googleapis.com";
+    }
+
     @Extension
     @Symbol("gemini")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -112,7 +119,7 @@ public class GeminiProvider extends BaseAIProvider {
                 provider.explainError("Send 'Configuration test successful' to me.", null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
 
