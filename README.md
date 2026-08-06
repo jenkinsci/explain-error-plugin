@@ -1,9 +1,6 @@
-# Explain Error Plugin
-
 ![Explain Error Plugin](docs/images/explain-error-banner.svg)
 
 ![Jenkins Plugin](https://img.shields.io/jenkins/plugin/v/explain-error.svg)
-[![GitHub Release](https://img.shields.io/github/release/jenkinsci/explain-error-plugin.svg?label=changelog)](https://github.com/jenkinsci/explain-error-plugin/releases/latest)
 [![Build Status](https://ci.jenkins.io/buildStatus/icon?job=Plugins%2Fexplain-error-plugin%2Fmain)](https://ci.jenkins.io/job/Plugins/job/explain-error-plugin/job/main/)
 [![License](https://img.shields.io/github/license/jenkinsci/explain-error-plugin)](LICENSE.md)
 
