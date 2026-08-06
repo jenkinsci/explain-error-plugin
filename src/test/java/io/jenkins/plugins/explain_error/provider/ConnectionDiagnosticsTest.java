@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
@@ -13,12 +14,24 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
+/**
+ * Every test declares the {@link JenkinsRule} parameter even when it never
+ * reads it: {@code JenkinsExtension} boots Jenkins from {@code resolveParameter}
+ * (it has no {@code BeforeEachCallback}), so dropping the parameter would leave
+ * {@code Jenkins.getInstanceOrNull()} null and silently exercise a different
+ * code path than the one these tests cover.
+ */
 @WithJenkins
 class ConnectionDiagnosticsTest {
+
+    private static final String PROXY_USER = "proxy-user";
+    private static final String PROXY_PASSWORD = "proxy-pass";
 
     @Test
     void reachableEndpointReportsAllLayers(JenkinsRule jenkins) throws Exception {
@@ -83,7 +96,7 @@ class ConnectionDiagnosticsTest {
     @Test
     void proxiedHostReportsProxyDecision(JenkinsRule jenkins) {
         jenkins.jenkins.proxy = new ProxyConfiguration(
-                "proxy.example.invalid", 3128, "proxy-user", "proxy-pass", "excluded.example.com");
+                "proxy.example.invalid", 3128, PROXY_USER, PROXY_PASSWORD, "excluded.example.com");
 
         String report = ConnectionDiagnostics.run("https://api.example.invalid",
                 new RuntimeException("boom"));
@@ -91,7 +104,7 @@ class ConnectionDiagnosticsTest {
         assertTrue(report.contains("Proxy: via proxy.example.invalid:3128 (credentials configured)"), report);
         assertTrue(report.contains("Jenkins proxy settings: host=proxy.example.invalid port=3128"
                 + " credentials=configured noProxyHost=excluded.example.com"), report);
-        assertFalse(report.contains("proxy-pass"), "credentials must never be printed: " + report);
+        assertFalse(report.contains(PROXY_PASSWORD), "credentials must never be printed: " + report);
     }
 
     @Test
@@ -103,6 +116,70 @@ class ConnectionDiagnosticsTest {
                 new RuntimeException("boom"));
 
         assertTrue(report.contains("matches noProxyHost — connecting directly"), report);
+    }
+
+    @Test
+    void directConnectionNeverSendsProxyCredentials(JenkinsRule jenkins) throws Exception {
+        AtomicReference<String> proxyAuthorization = new AtomicReference<>();
+        HttpServer server = startCapturingServer(proxyAuthorization);
+        try {
+            // Proxy credentials are configured, but this host is excluded from
+            // the proxy, so the probe connects directly and must not leak them.
+            jenkins.jenkins.proxy = new ProxyConfiguration(
+                    "proxy.example.invalid", 3128, PROXY_USER, PROXY_PASSWORD, "127.0.0.1");
+
+            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+            String report = ConnectionDiagnostics.run(url, new RuntimeException("boom"));
+
+            assertTrue(report.contains("matches noProxyHost — connecting directly"), report);
+            assertTrue(report.contains("-> HTTP 200"), report);
+            assertNull(proxyAuthorization.get(),
+                    "Proxy credentials must not be sent on a direct connection");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void proxiedConnectionSendsProxyCredentials(JenkinsRule jenkins) throws Exception {
+        AtomicReference<String> proxyAuthorization = new AtomicReference<>();
+        // Stands in for the proxy: a plain http request through a proxy is sent
+        // to the proxy itself, so this server sees the probe and its headers.
+        HttpServer proxyServer = startCapturingServer(proxyAuthorization);
+        try {
+            jenkins.jenkins.proxy = new ProxyConfiguration(
+                    "127.0.0.1", proxyServer.getAddress().getPort(), PROXY_USER, PROXY_PASSWORD, null);
+
+            String report = ConnectionDiagnostics.run("http://target.example.invalid/v1",
+                    new RuntimeException("boom"));
+
+            assertTrue(report.contains("-> HTTP 200"), report);
+            String expected = "Basic " + Base64.getEncoder().encodeToString(
+                    (PROXY_USER + ":" + PROXY_PASSWORD).getBytes(StandardCharsets.UTF_8));
+            assertEquals(expected, proxyAuthorization.get(),
+                    "Proxy credentials must be sent when the host goes through the proxy");
+            assertFalse(report.contains(PROXY_PASSWORD), "credentials must never be printed: " + report);
+        } finally {
+            proxyServer.stop(0);
+        }
+    }
+
+    /**
+     * Starts a local server that records the {@code Proxy-Authorization} header
+     * of the first request it receives and answers 200.
+     */
+    private static HttpServer startCapturingServer(AtomicReference<String> proxyAuthorization) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            proxyAuthorization.compareAndSet(null, exchange.getRequestHeaders().getFirst("Proxy-Authorization"));
+            byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream out = exchange.getResponseBody()) {
+                out.write(body);
+            }
+        });
+        server.start();
+        return server;
     }
 
     @Test

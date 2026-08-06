@@ -65,7 +65,7 @@ final class ConnectionDiagnostics {
                 Proxy proxy = appendProxyDecision(out, uri.getHost());
                 boolean dnsOk = appendDnsProbe(out, uri.getHost(), proxy);
                 appendTcpProbe(out, uri, proxy, dnsOk);
-                appendHttpProbe(out, uri);
+                appendHttpProbe(out, uri, proxy);
             }
 
             appendJenkinsProxySummary(out);
@@ -204,7 +204,7 @@ final class ConnectionDiagnostics {
      * reachable — 401/404 from the base URL still proves DNS, TCP, TLS and
      * proxy traversal all work.
      */
-    private static void appendHttpProbe(StringBuilder out, URI uri) {
+    private static void appendHttpProbe(StringBuilder out, URI uri, Proxy proxy) {
         long start = System.nanoTime();
         try {
             HttpClient client = HttpClient.newBuilder()
@@ -215,9 +215,14 @@ final class ConnectionDiagnostics {
             HttpRequest.Builder request = HttpRequest.newBuilder(uri)
                     .timeout(HTTP_TIMEOUT)
                     .GET();
-            String proxyAuthorization = BaseAIProvider.proxyAuthorizationHeaderOrNull();
-            if (proxyAuthorization != null) {
-                request.header("Proxy-Authorization", proxyAuthorization);
+            // Only send proxy credentials when this host actually goes through
+            // the proxy — on a direct connection (no proxy, or noProxyHost
+            // exclusion) the header would leak them to the endpoint itself.
+            if (proxy != Proxy.NO_PROXY) {
+                String proxyAuthorization = BaseAIProvider.proxyAuthorizationHeaderOrNull();
+                if (proxyAuthorization != null) {
+                    request.header("Proxy-Authorization", proxyAuthorization);
+                }
             }
             HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
             out.append("HTTP probe: GET ").append(uri).append(" -> HTTP ").append(response.statusCode())
