@@ -30,7 +30,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI GPT models, Qwen, or generic Okta-authenticated company AI gateways
+* **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI GPT models, OpenAI-compatible gateways (LiteLLM, OpenWebUI, self-hosted proxies), Qwen, or generic Okta-authenticated company AI gateways
 * **Folder-level configuration** so teams can use project-specific settings
 * **Smart provider management** — LangChain4j handles most providers automatically
 * **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
@@ -65,9 +65,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | Setting | Description | Default |
 |---------|-------------|---------|
 | **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI, or Qwen | `OpenAI` |
-| **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI and Ollama providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
+| **AI Provider** | Choose between Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI, OpenAI Compatible, or Qwen | `OpenAI` |
+| **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers. Optional for OpenAI Compatible and Ollama providers |
+| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI, Ollama, and OpenAI Compatible providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
 | **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
@@ -247,6 +247,18 @@ unclassified:
       - Check if the error might be caused by a builder crash and suggest restarting the pipeline
 ```
 
+**OpenAI Compatible Configuration (LiteLLM / custom gateways):**
+```yaml
+unclassified:
+  explainError:
+    aiProvider:
+      openaiCompatible:
+        url: "https://litellm.example.com" # Required: base URL of your gateway
+        model: "azure/gpt-4o" # Any model name exposed by the gateway
+        # apiKey: "${GATEWAY_API_KEY}" # Optional, sent as Bearer token
+    enableExplanation: true
+```
+
 **Environment Variable Example:**
 ```bash
 export AI_API_KEY="your-api-key-here"
@@ -347,6 +359,13 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **API Key**: Not required by default (unless your Ollama server is secured)
 - **Endpoint**: `http://localhost:11434` (or your Ollama server URL)
 - **Best for**: Private, local, or open-source LLMs; no external API usage or cost
+
+### OpenAI Compatible
+- **Models**: Any model exposed by your gateway, e.g. `gpt-4o`, `azure/gpt-4o`, `claude-3-5-sonnet`, `llama-3.1-70b`
+- **API Key**: Optional. Sent as a standard `Authorization: Bearer` header; leave empty for unauthenticated gateways
+- **Endpoint**: Base URL of any OpenAI-compatible gateway, e.g. `https://litellm.example.com` (LiteLLM), `https://openwebui.example.com/api/v1` (OpenWebUI), or a self-hosted proxy. `/chat/completions` is appended automatically
+- **Redirects**: HTTP redirects (e.g. `http` to `https` upgrades behind load balancers) are followed automatically
+- **Best for**: Enterprises standardizing on AI gateways, proxies, or self-hosted LLM platforms; works with LiteLLM, OpenWebUI, Azure OpenAI gateways, and other OpenAI-compatible backends
 
 ### OpenAI
 - **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.

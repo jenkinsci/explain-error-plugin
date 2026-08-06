@@ -2,11 +2,18 @@ package io.jenkins.plugins.explain_error.provider;
 
 import dev.langchain4j.http.client.HttpClientBuilder;
 import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder;
+import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.StringUtils;
@@ -25,6 +32,7 @@ import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.security.AccessControlled;
 import hudson.util.FormValidation;
+import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import jenkins.model.Jenkins;
@@ -273,17 +281,69 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     }
 
     protected final HttpClient.Builder newJenkinsHttpClientBuilder() {
+        HttpClient.Builder builder = HttpClient.newBuilder();
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
-        if (proxyConfiguration != null) {
-            return proxyConfiguration.newHttpClientBuilder();
+        if (proxyConfiguration != null && proxyConfiguration.getName() != null) {
+            builder.proxy(new ProxySelector() {
+                @Override
+                public List<Proxy> select(URI uri) {
+                    String scheme = uri.getScheme();
+                    if (scheme != null && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+                        // Honors the noProxyHost exclusions, same as Jenkins core.
+                        return List.of(proxyConfiguration.createProxy(uri.getHost()));
+                    }
+                    return List.of(Proxy.NO_PROXY);
+                }
+
+                @Override
+                public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+                    // Ignore, same as Jenkins core's own proxy selector.
+                }
+            });
         }
-        return HttpClient.newBuilder();
+        // Deliberately no Authenticator: Jenkins core attaches one when the proxy has
+        // credentials, and since JDK-8326949 (fixed only in JDK 24) the JDK HttpClient
+        // drops user-set Authorization headers whenever an Authenticator is present.
+        // Proxy credentials are instead sent preemptively via Proxy-Authorization,
+        // see getProxyAuthorizationHeader() and ProxyAwareHttpClient.
+        // Follow redirects returned by AI gateways and proxies (e.g. http -> https
+        // upgrades behind load balancers). Matches Jenkins core's own HttpClient
+        // behaviour; the default is NEVER, which fails any 3xx response.
+        return builder.followRedirects(HttpClient.Redirect.NORMAL);
+    }
+
+    /**
+     * Preemptive {@code Proxy-Authorization} header value for the Jenkins proxy, or
+     * {@code null} when no proxy credentials are configured.
+     *
+     * <p>Sent as a user-set header instead of relying on a JDK {@link java.net.Authenticator}:
+     * with an Authenticator present, the JDK HttpClient drops user-set Authorization
+     * headers (JDK-8326949, fixed only in JDK 24), which silently removes the API key
+     * from AI requests on Jenkins instances with an authenticated proxy.
+     */
+    @CheckForNull
+    protected final String getProxyAuthorizationHeader() {
+        Jenkins jenkins = Jenkins.getInstanceOrNull();
+        ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
+        // Require a proxy host as well as a user name: newJenkinsHttpClientBuilder()
+        // only routes through the proxy when a host is configured, and without one
+        // this header would be sent to the origin server, leaking the credentials.
+        if (proxyConfiguration == null
+                || proxyConfiguration.getName() == null
+                || proxyConfiguration.getUserName() == null) {
+            return null;
+        }
+        Secret secretPassword = proxyConfiguration.getSecretPassword();
+        String password = secretPassword == null ? "" : Secret.toString(secretPassword);
+        String credentials = proxyConfiguration.getUserName() + ":" + password;
+        return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
     }
 
     protected final HttpClientBuilder newLangChainHttpClientBuilder() {
-        return new JdkHttpClientBuilder()
-                .httpClientBuilder(newJenkinsHttpClientBuilder());
+        return new ProxyAwareHttpClientBuilder(
+                new JdkHttpClientBuilder().httpClientBuilder(newJenkinsHttpClientBuilder()),
+                getProxyAuthorizationHeader());
     }
 
     public String getProviderName() {
