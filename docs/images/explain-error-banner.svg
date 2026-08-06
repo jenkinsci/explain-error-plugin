@@ -1,41 +1,56 @@
-<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
-  <rect width="1200" height="300" fill="#ffffff"></rect>
-  <rect width="1200" height="6" fill="#335061"></rect>
-  <rect width="1200" height="6" y="294" fill="#D33834"></rect>
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="70" x2="1160" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#0F172A" flood-opacity="0.14"/>
+    </filter>
+  </defs>
 
-  
-  <g transform="translate(60,0)">
-    
-    <g transform="translate(0,68)">
-      <circle cx="30" cy="30" r="30" fill="#FBEAE9"></circle>
-      <path d="M18 18 L42 42 M42 18 L18 42" stroke="#D33834" stroke-width="4" stroke-linecap="round"></path>
-      <path d="M70 30 H108" stroke="#6D6B6D" stroke-width="3" stroke-linecap="round"></path>
-      <path d="M100 22 L110 30 L100 38" fill="none" stroke="#6D6B6D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
-      <circle cx="160" cy="30" r="30" fill="#48728B"></circle>
-      <path d="M160 14 a16 16 0 0 1 8 29.8 V48 h-16 v-4.2 A16 16 0 0 1 160 14 Z" fill="#ffffff"></path>
-      <rect x="152" y="49" width="16" height="5" rx="2" fill="#ffffff"></rect>
-    </g>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <circle cx="174" cy="124" r="110" fill="#6366F1" fill-opacity="0.08"/>
+  <circle cx="1160" cy="548" r="160" fill="#0EA5E9" fill-opacity="0.10"/>
+  <circle cx="1200" cy="96" r="72" fill="#EF4444" fill-opacity="0.06"/>
 
-    <text x="0" y="178" fill="#20262B" font-size="52" font-weight="700" letter-spacing="-1">explain-error</text>
-    <text x="0" y="214" fill="#6D6B6D" font-size="22" font-weight="400">AI-powered failure explanations for Jenkins Pipelines</text>
+  <g filter="url(#shadow)">
+    <rect x="716" y="96" width="438" height="448" rx="30" fill="white" stroke="#CBD5E1"/>
+
+    <rect x="748" y="136" width="374" height="56" rx="16" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text x="782" y="171" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">AI Error Explanation</text>
+
+    <rect x="748" y="220" width="374" height="120" rx="16" fill="#0F172A"/>
+    <text x="776" y="254" fill="#94A3B8" font-family="Menlo, Consolas, monospace" font-size="17">$ mvn -B deploy</text>
+    <text x="776" y="284" fill="#F87171" font-family="Menlo, Consolas, monospace" font-size="17" font-weight="700">ERROR: NullPointerException</text>
+    <text x="776" y="314" fill="#FCA5A5" font-family="Menlo, Consolas, monospace" font-size="17">Finished: FAILURE</text>
+
+    <text x="780" y="384" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Root cause</text>
+    <text x="780" y="412" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="16">The deploy step lacks a credential binding.</text>
+
+    <circle cx="791" cy="437" r="11" fill="#10B981"/>
+    <path d="M786 437L790 441L797 433" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="812" y="443" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600">Fix: wrap Deploy in withCredentials</text>
+
+    <path d="M780 472H1090" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="780" y="500" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600">OpenAI &#183; Claude &#183; Gemini &#183; Ollama + more</text>
   </g>
 
-  
-  <g transform="translate(700,48)">
-    <rect width="440" height="204" rx="10" fill="#F4F6F7" stroke="#D8DEE2" stroke-width="1"></rect>
-    <rect width="440" height="30" rx="10" fill="#E9EDEF"></rect>
-    <rect width="440" height="15" y="15" fill="#E9EDEF"></rect>
-    <circle cx="18" cy="15" r="5" fill="#D33834"></circle>
-    <circle cx="36" cy="15" r="5" fill="#E0A840"></circle>
-    <circle cx="54" cy="15" r="5" fill="#48728B"></circle>
-    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#3D4A52">
-      <text x="16" y="52">[explain-error] Starting explanation for build #1.</text>
-      <text x="16" y="72">[explain-error] Using provider OpenAI, model gpt-4.1.</text>
-      <text x="16" y="92">[explain-error] Extracting failure logs.</text>
-      <text x="16" y="112">[explain-error] Sending AI request.</text>
-      <text x="16" y="132" fill="#3B7A54">[explain-error] Explanation saved to the build.</text>
-      <text x="16" y="160" fill="#D33834">ERROR: script returned exit code 127</text>
-      <text x="16" y="180" fill="#D33834">Finished: FAILURE</text>
-    </g>
+  <text x="92" y="188" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700">Explain Error</text>
+  <text x="92" y="248" fill="#4F46E5" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Explain failed Jenkins builds with AI</text>
+  <text x="92" y="320" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="25">Turns raw console logs into a clear root cause</text>
+  <text x="92" y="356" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="25">and concrete fix steps &#8212; right in your build.</text>
+
+  <g>
+    <rect x="92" y="416" width="206" height="54" rx="18" fill="#0F172A"/>
+    <text x="195" y="451" text-anchor="middle" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">One-click explain</text>
+    <rect x="316" y="416" width="164" height="54" rx="18" fill="url(#accent)"/>
+    <text x="398" y="451" text-anchor="middle" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">Auto-fix PRs</text>
   </g>
+
+  <path d="M92 522H520" stroke="#6366F1" stroke-width="5" stroke-linecap="round"/>
 </svg>
