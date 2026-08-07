@@ -9,7 +9,8 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 ### Key Components
 
 - **GlobalConfigurationImpl**: Main plugin configuration class with `@Symbol("explainError")` for Configuration as Code support, handles migration from legacy enum-based configuration
-- **BaseAIProvider**: Abstract base class for AI provider implementations with nested `Assistant` interface and `BaseProviderDescriptor` for extensibility
+- **BaseAIProvider**: Abstract base class for AI provider implementations with nested `Assistant` interface and `BaseProviderDescriptor` for extensibility; the primary factories carry the full request context (`item`, `authentication`, `temperature`) and the narrower overloads are final
+- **ChatModelAIProvider**: Intermediate base for LangChain4j-backed providers — subclasses implement a single `createChatModel(item, authentication, temperature)` and inherit the assistant plumbing
 - **OpenAIProvider** / **GeminiProvider** / **BedrockProvider** / **OllamaProvider**: LangChain4j-based AI service implementations with provider-specific configurations
 - **ExplainErrorStep**: Pipeline step implementation for `explainError()` function (supports `logPattern`, `maxLines`, `language`, `customContext`, `collectDownstreamLogs`, `downstreamJobPattern`, and all `autoFix*` parameters)
 - **ExplainErrorFolderProperty**: Folder-level AI provider override — allows teams to configure their own provider without touching global settings; walks up the folder hierarchy
@@ -46,6 +47,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 ├── AIProvider.java                         # @Deprecated enum (backward compatibility)
 ├── provider/
 │   ├── BaseAIProvider.java                 # Abstract AI service with Assistant interface
+│   ├── ChatModelAIProvider.java            # Base for LangChain4j ChatModel providers
 │   ├── OpenAIProvider.java                 # OpenAI/LangChain4j implementation
 │   ├── GeminiProvider.java                 # Google Gemini/LangChain4j implementation
 │   ├── BedrockProvider.java                # AWS Bedrock/LangChain4j implementation
@@ -90,7 +92,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 - All AI services extend `BaseAIProvider` and implement `ExtensionPoint`
 - LangChain4j integration (v1.11.0) for OpenAI, Gemini, AWS Bedrock, and Ollama providers
 - Structured output parsing using `JenkinsLogAnalysis` record with `@Description` annotations
-- Each provider implements `createAssistant()` to build LangChain4j assistants
+- LangChain4j-backed providers extend `ChatModelAIProvider` and implement `createChatModel(item, authentication, temperature)`; direct-HTTP providers (Azure OpenAI, Custom Okta, LangGraph) implement the full-context `createAssistant`/`createFixAssistant` instead
 - Provider descriptors extend `BaseProviderDescriptor` with `@Symbol` annotations for CasC
 - Graceful error handling with `ExplanationException` and fallback messages
 - No direct HTTP/JSON handling - LangChain4j abstracts API communication
@@ -105,7 +107,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 
 ### TestProvider Pattern
 
-All tests that exercise AI-integrated code use `TestProvider` — a subclass of `OpenAIProvider` that overrides `createAssistant()` with a controllable in-memory implementation:
+All tests that exercise AI-integrated code use `TestProvider` — a subclass of `OpenAIProvider` that overrides the full-context `createAssistant(item, authentication, temperature)` with a controllable in-memory implementation:
 
 ```java
 // src/test/java/io/jenkins/plugins/explain_error/provider/TestProvider.java
@@ -120,7 +122,8 @@ public class TestProvider extends OpenAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature) {
         return (errorLogs, language, customContext) -> {
             if (throwError) throw new RuntimeException("Request failed.");
             lastCustomContext = customContext;

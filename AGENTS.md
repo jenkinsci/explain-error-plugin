@@ -51,7 +51,7 @@ make reinstall     # Clean build and install .hpi locally
 ## Adding a New AI Provider
 
 - Read the source of an existing provider that is closest to the new one (e.g., `OpenAIProvider.java` for OpenAI-compatible APIs, `BedrockProvider.java` for AWS Bedrock, `CustomOktaAIProvider.java` for OAuth2-based auth)
-- Follow the same patterns: extend `BaseAIProvider`, annotate with `@Extension`, use `@DataBoundConstructor`, implement `createAssistant()` / `createFixAssistant()` / `isNotValid()`, and add a `DescriptorImpl` with `@Symbol`
+- Follow the same patterns: LangChain4j-backed providers extend `ChatModelAIProvider` and implement a single `createChatModel(item, authentication, temperature)`; providers that call their API directly extend `BaseAIProvider` and implement the full-context `createAssistant(item, authentication, temperature)` / `createFixAssistant(item, authentication)` (the narrower overloads are final — parameters cannot be dropped by overriding the wrong variant). Implement `isNotValid()`, annotate with `@Extension`, use `@DataBoundConstructor`, and add a `DescriptorImpl` with `@Symbol` whose `doTestConfiguration` is a one-liner delegating to `runConfigurationTest(context, provider)`
 - If a new LangChain4j module is needed, add it to `pom.xml` (following existing exclusion patterns) and to `<hpi.bundledArtifacts>`
 - Add null/empty validation tests in `ProviderTest.java`; put provider-specific tests in a separate `<ProviderName>Test.java`
 - No changes needed in `GlobalConfigurationImpl` — providers are discovered via `ExtensionPoint`

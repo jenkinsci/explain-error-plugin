@@ -563,7 +563,8 @@ public class TestProvider extends OpenAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature) {
         return (errorLogs, language, customContext) -> {
             if (throwError) throw new RuntimeException("Request failed.");
             lastCustomContext = customContext;
