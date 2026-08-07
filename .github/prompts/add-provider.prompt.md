@@ -97,7 +97,7 @@ Create `src/test/java/io/jenkins/plugins/explain_error/provider/AnthropicProvide
 ## Step 5 — Update Documentation
 
 - Add provider to `README.md` feature list and CasC YAML example
-- Update `copilot-instructions.md` provider list and Key Components
+- Update the `AGENTS.md` Architecture section (Key Components, provider notes)
 
 ## Implementation Notes
 
