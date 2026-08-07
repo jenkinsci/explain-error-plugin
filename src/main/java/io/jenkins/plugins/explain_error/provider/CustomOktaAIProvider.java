@@ -31,6 +31,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.springframework.security.core.Authentication;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -146,12 +147,10 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature) {
+        // Authentication against the gateway uses the configured OAuth client
+        // credentials; item-scoped credentials do not apply to this provider.
         return (errorLogs, language, customContext) -> {
             try {
                 return analyzeWithOkta(errorLogs, language, customContext, temperature);
@@ -162,7 +161,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
+            @CheckForNull Item item, @CheckForNull Authentication authentication) {
         return errorLogs -> {
             try {
                 return requestFixSuggestion(errorLogs);
@@ -606,7 +606,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("appKey") Secret appKey,
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
-                throws ExplanationException {
+ {
             checkConfigurePermission(context);
 
             CustomOktaAIProvider provider = new CustomOktaAIProvider(url, tokenUrl, model, clientId, clientSecret);
@@ -618,12 +618,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             provider.setUserId(userId);
             provider.setTimeoutSeconds(timeoutSeconds);
 
-            try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } catch (ExplanationException e) {
-                return testConfigurationFailed(provider, e);
-            }
+            return runConfigurationTest(context, provider);
         }
     }
 }

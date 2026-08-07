@@ -9,7 +9,7 @@ import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 
-public class TestProvider extends OpenAIProvider {
+public class FakeAIProvider extends OpenAIProvider {
 
     private boolean throwError = false;
     private JenkinsLogAnalysis answerMessage = new JenkinsLogAnalysis(
@@ -24,17 +24,14 @@ public class TestProvider extends OpenAIProvider {
     private Double lastTemperature;
 
     @DataBoundConstructor
-    public TestProvider() {
+    public FakeAIProvider() {
         super("https://localhost:1234", "test-model", Secret.fromString("test-api-key"));
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
+    public Assistant createAssistant(@CheckForNull hudson.model.Item item,
+                                     @CheckForNull org.springframework.security.core.Authentication authentication,
+                                     @CheckForNull Double temperature) {
         return new Assistant() {
             @Override
             public JenkinsLogAnalysis analyzeLogs(String errorLogs, String language, String customContext) {

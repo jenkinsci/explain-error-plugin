@@ -30,6 +30,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.springframework.security.core.Authentication;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -77,10 +78,13 @@ public class LangGraphProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature) {
+        // Authentication uses the configured platform API key; item-scoped
+        // credentials do not apply to this provider.
         return (errorLogs, language, customContext) -> {
             try {
-                return analyzeWithLangGraph(errorLogs, language, customContext);
+                return analyzeWithLangGraph(errorLogs, language, customContext, temperature);
             } catch (ExplanationException e) {
                 throw new RuntimeException(e.getMessage(), e);
             }
@@ -88,7 +92,7 @@ public class LangGraphProvider extends BaseAIProvider {
     }
 
     @Override
-    public FixAssistant createFixAssistant() {
+    public FixAssistant createFixAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
         return errorLogs -> {
             try {
                 return requestFixSuggestion(errorLogs);
@@ -113,14 +117,15 @@ public class LangGraphProvider extends BaseAIProvider {
         return urlValue == null || keyValue == null;
     }
 
-    private JenkinsLogAnalysis analyzeWithLangGraph(String errorLogs, String language, String customContext)
+    private JenkinsLogAnalysis analyzeWithLangGraph(String errorLogs, String language, String customContext,
+                                                    @CheckForNull Double temperature)
             throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
             .connectTimeout(Duration.ofSeconds(resolveTimeout()))
             .build();
 
         try {
-            String body = buildRunRequestBody(errorLogs, language, customContext);
+            String body = buildRunRequestBody(errorLogs, language, customContext, temperature);
             String content = sendRequest(client, body);
             return parseAnalysis(content);
         } catch (IOException e) {
@@ -181,14 +186,19 @@ public class LangGraphProvider extends BaseAIProvider {
         return URI.create(base + RUNS_WAIT_PATH);
     }
 
-    private String buildRunRequestBody(String errorLogs, String language, String customContext) throws IOException {
+    private String buildRunRequestBody(String errorLogs, String language, String customContext,
+                                       @CheckForNull Double temperature) throws IOException {
         ObjectNode payload = OBJECT_MAPPER.createObjectNode();
         payload.put("assistant_id", getModel());
 
-        // Pass system prompt override via the agent's configurable context
-        payload.putObject("config")
-               .putObject("configurable")
-               .put("system_prompt", buildSystemPrompt());
+        // Pass system prompt override via the agent's configurable context.
+        // Temperature is forwarded the same way; whether it takes effect is up
+        // to the deployed graph, but it is no longer silently dropped here.
+        ObjectNode configurable = payload.putObject("config").putObject("configurable");
+        configurable.put("system_prompt", buildSystemPrompt());
+        if (temperature != null) {
+            configurable.put("temperature", temperature);
+        }
 
         // Input: error logs as a human message with JSON output instruction
         ObjectNode input = payload.putObject("input");
@@ -357,16 +367,8 @@ public class LangGraphProvider extends BaseAIProvider {
         public FormValidation doTestConfiguration(@AncestorInPath Item context,
                                                   @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
-                                                  @QueryParameter("model") String model) throws ExplanationException {
-            checkConfigurePermission(context);
-
-            LangGraphProvider provider = new LangGraphProvider(url, model, apiKey);
-            try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! LangGraph Platform connection is working.");
-            } catch (ExplanationException e) {
-                return testConfigurationFailed(provider, e);
-            }
+                                                  @QueryParameter("model") String model) {
+            return runConfigurationTest(context, new LangGraphProvider(url, model, apiKey));
         }
     }
 }

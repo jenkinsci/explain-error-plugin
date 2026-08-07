@@ -14,7 +14,10 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -180,6 +183,56 @@ class ConnectionDiagnosticsTest {
         });
         server.start();
         return server;
+    }
+
+    @Test
+    void httpProbeIsHardBoundedAgainstStreamingEndpoints(JenkinsRule jenkins) throws Exception {
+        CountDownLatch release = new CountDownLatch(1);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            // Chunked response that never completes — mimics an SSE/streaming
+            // endpoint. HttpRequest.timeout() alone would not unblock this.
+            exchange.sendResponseHeaders(200, 0);
+            exchange.getResponseBody().write("data: partial".getBytes(StandardCharsets.UTF_8));
+            exchange.getResponseBody().flush();
+            try {
+                release.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        server.start();
+        Duration originalLimit = ConnectionDiagnostics.probeHardLimit;
+        ConnectionDiagnostics.probeHardLimit = Duration.ofSeconds(2);
+        try {
+            long start = System.nanoTime();
+            String report = ConnectionDiagnostics.run(
+                    "http://127.0.0.1:" + server.getAddress().getPort(), new RuntimeException("boom"));
+            long elapsedSeconds = (System.nanoTime() - start) / 1_000_000_000L;
+
+            assertTrue(report.contains("no complete result after 2 s"), report);
+            assertTrue(elapsedSeconds < 10,
+                    "probe must be hard-bounded, took " + elapsedSeconds + " s");
+        } finally {
+            ConnectionDiagnostics.probeHardLimit = originalLimit;
+            release.countDown();
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void nullExceptionMessageFallsBackToClassName(JenkinsRule jenkins) {
+        OpenAICompatibleProvider.DescriptorImpl descriptor =
+                jenkins.jenkins.getDescriptorByType(OpenAICompatibleProvider.DescriptorImpl.class);
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                "http://127.0.0.1:1", "gateway-model", null);
+
+        FormValidation validation = descriptor.testConfigurationFailed(
+                provider, new IllegalStateException((String) null));
+
+        String html = validation.renderHtml();
+        assertTrue(html.contains("Configuration test failed:</b> IllegalStateException"), html);
+        assertFalse(html.contains("failed:</b> null"), html);
     }
 
     @Test

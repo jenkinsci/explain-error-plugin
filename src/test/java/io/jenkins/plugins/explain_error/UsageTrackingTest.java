@@ -8,7 +8,7 @@ import com.cloudbees.hudson.plugins.folder.Folder;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.PrintWriter;
@@ -55,7 +55,7 @@ class UsageTrackingTest {
 
     @Test
     void pipelineStepSuccessEmitsUsageEvent(JenkinsRule jenkins) throws Exception {
-        GlobalConfigurationImpl.get().setAiProvider(new TestProvider());
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "usage-pipeline-success");
         job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
@@ -96,7 +96,7 @@ class UsageTrackingTest {
 
     @Test
     void consoleActionSuccessAndCacheHitEmitDistinctUsageEvents(JenkinsRule jenkins) throws Exception {
-        GlobalConfigurationImpl.get().setAiProvider(new TestProvider());
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
 
         FreeStyleProject project = jenkins.createFreeStyleProject("usage-console-cache");
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
@@ -130,7 +130,7 @@ class UsageTrackingTest {
     void consoleActionDisabledRequestEmitsDisabledUsageEvent(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         config.setEnableExplanation(false);
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
 
         FreeStyleProject project = jenkins.createFreeStyleProject("usage-console-disabled");
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
@@ -153,7 +153,7 @@ class UsageTrackingTest {
     void pipelineStepDisabledRequestEmitsDisabledUsageEventWithConfiguredProvider(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         config.setEnableExplanation(false);
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "usage-pipeline-disabled");
         job.setDefinition(new CpsFlowDefinition("node {\n  explainError()\n}", true));
@@ -172,7 +172,7 @@ class UsageTrackingTest {
 
     @Test
     void directProviderCallsAreNotTracked() throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
 
         provider.explainError("Direct provider call", null);
 
@@ -182,7 +182,7 @@ class UsageTrackingTest {
     @Test
     void quotaRejectedEmitsUsageEventAndDoesNotCallProvider(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
         config.setEnableQuota(true);
         config.setQuotaWindow(QuotaWindow.HOURLY);
         config.setMaxProviderCallsPerWindow(0);
@@ -205,7 +205,7 @@ class UsageTrackingTest {
     @Test
     void quotaDisabledAllowsRequestsNormally(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
         config.setEnableQuota(false);
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "usage-quota-disabled");
@@ -223,14 +223,14 @@ class UsageTrackingTest {
     void folderQuotaOverridesGlobalQuotaWhenExceeded(JenkinsRule jenkins) throws Exception {
         // Global quota is permissive (100 calls), but folder quota is zero
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
         config.setEnableQuota(true);
         config.setMaxProviderCallsPerWindow(100);
 
         Folder folder = jenkins.jenkins.createProject(Folder.class, "quota-folder");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(true);
-        folderProperty.setAiProvider(new TestProvider());
+        folderProperty.setAiProvider(new FakeAIProvider());
         folderProperty.setEnableQuota(true);
         folderProperty.setMaxProviderCallsPerWindow(0);
         folderProperty.setQuotaWindow(QuotaWindow.HOURLY);
@@ -251,7 +251,7 @@ class UsageTrackingTest {
     void folderWithoutQuotaFallsBackToGlobalQuota(JenkinsRule jenkins) throws Exception {
         // Global quota is zero; the folder has its own provider but NO quota enabled
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
         config.setEnableQuota(true);
         config.setMaxProviderCallsPerWindow(0);
         config.setQuotaWindow(QuotaWindow.DAILY);
@@ -259,7 +259,7 @@ class UsageTrackingTest {
         Folder folder = jenkins.jenkins.createProject(Folder.class, "no-quota-folder");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(true);
-        folderProperty.setAiProvider(new TestProvider());
+        folderProperty.setAiProvider(new FakeAIProvider());
         folderProperty.setEnableQuota(false); // no folder-level quota
         folder.addProperty(folderProperty);
 

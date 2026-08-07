@@ -48,7 +48,7 @@ class ProviderTest {
 
     @Test
     void testErrorLogsProcessing() throws IOException, ExplanationException {
-        BaseAIProvider provider = new TestProvider();
+        BaseAIProvider provider = new FakeAIProvider();
         String complexErrorLogs = "Started by user admin\n" +
                                  "Building in workspace /var/jenkins_home/workspace/test\n" +
                                  "ERROR: Could not find or load main class Application\n" +
@@ -66,12 +66,24 @@ class ProviderTest {
 
     @Test
     void testErrorLogsProcessingFailure() throws IOException {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setThrowError(true);
         String logs = "All is good.";
 
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError(logs, null));
         assertEquals("API request failed: Request failed.", result.getMessage());
+    }
+
+    @Test
+    void anthropicClampsTemperatureToProviderRange() {
+        AnthropicProvider provider = new AnthropicProvider(
+                null, "claude-sonnet-4-6", Secret.fromString("test-key"), null, null);
+
+        // 1.5 is valid for OpenAI-style providers but Anthropic accepts 0..1;
+        // out-of-range values must be clamped instead of failing with HTTP 400.
+        assertEquals(1.0, provider.createChatModel(null, null, 1.5).defaultRequestParameters().temperature());
+        assertEquals(0.7, provider.createChatModel(null, null, 0.7).defaultRequestParameters().temperature());
+        assertEquals(0.3, provider.createChatModel(null, null, null).defaultRequestParameters().temperature());
     }
 
     @Test
@@ -609,12 +621,15 @@ class ProviderTest {
         }
 
         @Override
-        public Assistant createAssistant() {
+        public Assistant createAssistant(hudson.model.Item item,
+                                         org.springframework.security.core.Authentication authentication,
+                                         Double temperature) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
+                hudson.model.Item item, org.springframework.security.core.Authentication authentication) {
             throw new UnsupportedOperationException();
         }
 

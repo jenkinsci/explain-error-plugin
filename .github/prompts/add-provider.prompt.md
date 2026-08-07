@@ -8,21 +8,32 @@ Follow these steps in order. Each step has a corresponding file to create or mod
 
 ## Step 1 — Create the Provider class
 
-Create `src/main/java/io/jenkins/plugins/explain_error/provider/AnthropicProvider.java`:
+Create `src/main/java/io/jenkins/plugins/explain_error/provider/MyProvider.java`.
+
+For a LangChain4j-backed API, extend `ChatModelAIProvider` and implement **one** model factory — the assistant plumbing is inherited, and the full-context signature means credentials scope and temperature cannot be silently dropped:
 
 ```java
-public class AnthropicProvider extends BaseAIProvider {
+public class MyProvider extends ChatModelAIProvider {
     private Secret apiKey;
 
     @DataBoundConstructor
-    public AnthropicProvider(String url, String model, Secret apiKey) {
+    public MyProvider(String url, String model, Secret apiKey) {
         super(url, model);
         this.apiKey = apiKey;
     }
 
     @Override
-    public Assistant createAssistant() {
-        // Build LangChain4j model + AiServices.builder(Assistant.class).chatLanguageModel(...).build()
+    protected ChatModel createChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                        @CheckForNull Double temperature) {
+        var builder = SomeChatModel.builder()
+                .httpClientBuilder(newLangChainHttpClientBuilder()) // Jenkins proxy support
+                .baseUrl(getUrl())
+                .apiKey(apiKey.getPlainText())
+                .modelName(getModel());
+        if (temperature != null) {
+            builder.temperature(temperature);
+        }
+        return builder.build();
     }
 
     @Override
@@ -31,13 +42,23 @@ public class AnthropicProvider extends BaseAIProvider {
     }
 
     @Extension
-    @Symbol("anthropic")
+    @Symbol("myProvider")
     public static class DescriptorImpl extends BaseProviderDescriptor {
-        @Override public @NonNull String getDisplayName() { return "Anthropic (Claude)"; }
-        @Override public String getDefaultModel() { return "claude-3-5-sonnet-20241022"; }
+        @Override public @NonNull String getDisplayName() { return "My Provider"; }
+        @Override public String getDefaultModel() { return "my-default-model"; }
+
+        @POST
+        public FormValidation doTestConfiguration(@AncestorInPath Item context,
+                                                  @QueryParameter("apiKey") Secret apiKey,
+                                                  @QueryParameter("url") String url,
+                                                  @QueryParameter("model") String model) {
+            return runConfigurationTest(context, new MyProvider(url, model, apiKey));
+        }
     }
 }
 ```
+
+Providers that call their API directly (no LangChain4j `ChatModel`) extend `BaseAIProvider` instead and implement the full-context `createAssistant(item, authentication, temperature)` and `createFixAssistant(item, authentication)` — see `AzureOpenAIProvider` or `LangGraphProvider`. The narrower `createAssistant()`/`createAssistant(temperature)` overloads are final; never try to override them.
 
 ## Step 2 — Add Jelly UI config
 
@@ -69,13 +90,14 @@ Add the LangChain4j dependency to `pom.xml` with SLF4J and Jackson exclusions to
 
 Create `src/test/java/io/jenkins/plugins/explain_error/provider/AnthropicProviderTest.java`:
 - Test `isNotValid()` with blank/null API key
-- Test `createAssistant()` throws on missing config
+- Test `explainError()` fails cleanly on missing config (`ProviderTest` pattern)
+- Prefer end-to-end tests against a local `com.sun.net.httpserver.HttpServer` (see `OpenAICompatibleProviderTest`)
 - Test CasC round-trip (`CasCTest` pattern)
 
 ## Step 5 — Update Documentation
 
 - Add provider to `README.md` feature list and CasC YAML example
-- Update `copilot-instructions.md` provider list and Key Components
+- Update the `AGENTS.md` Architecture section (Key Components, provider notes)
 
 ## Implementation Notes
 
