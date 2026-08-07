@@ -113,26 +113,26 @@ make reinstall     # Clean build and install .hpi locally
 
 - **JUnit 5 only** — all test classes use `org.junit.jupiter.api.Test`. No JUnit 4 imports (`org.junit.Test`, `org.junit.Assert`).
 - Use `@WithJenkins` (from `org.jvnet.hudson.test.junit.jupiter.WithJenkins`) on test classes that need a JenkinsRule. Tests must declare the `JenkinsRule` parameter even when unused — the extension boots Jenkins from `resolveParameter`, so removing the parameter silently skips Jenkins startup.
-- **Never mock AI APIs directly** — use `TestProvider` to avoid real network calls.
+- **Never mock AI APIs directly** — use `FakeAIProvider` to avoid real network calls.
 - When testing providers, add validation tests (null/empty API keys, models, URLs) in `ProviderTest.java` alongside the existing provider tests.
 - Provider-specific behaviour tests (e.g., custom auth flow, endpoint handling) go in `src/test/java/.../provider/<ProviderName>Test.java`; prefer end-to-end tests against a local `com.sun.net.httpserver.HttpServer` (see `OpenAICompatibleProviderTest`).
 - WireMock (`com.github.tomakehurst.wiremock`) is used for SCM API integration tests in `autofix/scm/`.
 - If you create or modify a test file, run it and iterate until it passes.
 - Do not commit tests that require real API keys, real network calls, or paid tokens.
 
-### TestProvider Pattern
+### FakeAIProvider Pattern
 
-All tests that exercise AI-integrated code use `TestProvider` — a subclass of `OpenAIProvider` that overrides the full-context `createAssistant(item, authentication, temperature)` with a controllable in-memory implementation:
+All tests that exercise AI-integrated code use `FakeAIProvider` — a subclass of `OpenAIProvider` that overrides the full-context `createAssistant(item, authentication, temperature)` with a controllable in-memory implementation:
 
 ```java
-// src/test/java/io/jenkins/plugins/explain_error/provider/TestProvider.java
-public class TestProvider extends OpenAIProvider {
+// src/test/java/io/jenkins/plugins/explain_error/provider/FakeAIProvider.java
+public class FakeAIProvider extends OpenAIProvider {
     private boolean throwError = false;
     private JenkinsLogAnalysis answer = new JenkinsLogAnalysis("Request was successful", null, null, null);
     private String lastCustomContext;
 
     @DataBoundConstructor
-    public TestProvider() {
+    public FakeAIProvider() {
         super("https://localhost:1234", "test-model", Secret.fromString("test-api-key"));
     }
 

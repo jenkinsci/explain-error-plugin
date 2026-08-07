@@ -48,7 +48,7 @@ class ProviderTest {
 
     @Test
     void testErrorLogsProcessing() throws IOException, ExplanationException {
-        BaseAIProvider provider = new TestProvider();
+        BaseAIProvider provider = new FakeAIProvider();
         String complexErrorLogs = "Started by user admin\n" +
                                  "Building in workspace /var/jenkins_home/workspace/test\n" +
                                  "ERROR: Could not find or load main class Application\n" +
@@ -66,7 +66,7 @@ class ProviderTest {
 
     @Test
     void testErrorLogsProcessingFailure() throws IOException {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setThrowError(true);
         String logs = "All is good.";
 

@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
 import hudson.model.Result;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -21,7 +21,7 @@ class CustomContextTest {
     @Test
     void testGlobalCustomContext(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
         config.setCustomContext("Global custom instructions");
@@ -50,7 +50,7 @@ class CustomContextTest {
     @Test
     void testStepLevelCustomContextOverridesGlobal(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
         config.setCustomContext("Global custom instructions");
@@ -79,7 +79,7 @@ class CustomContextTest {
     @Test
     void testCustomContextWithOtherParameters(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
 
@@ -111,7 +111,7 @@ class CustomContextTest {
     @Test
     void testWorkspaceContextIsAddedToCustomContext(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
 
@@ -142,7 +142,7 @@ class CustomContextTest {
     @Test
     void testGlobalLanguageAndTemperature(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
         config.setLanguage("French");
@@ -160,7 +160,7 @@ class CustomContextTest {
     @Test
     void testFolderSettingsOverrideGlobalForPipelineStep(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
         config.setLanguage("English");
@@ -188,7 +188,7 @@ class CustomContextTest {
     @Test
     void testStepSettingsOverrideFolderAndGlobal(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
         config.setEnableExplanation(true);
         config.setLanguage("English");

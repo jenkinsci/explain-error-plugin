@@ -533,7 +533,7 @@ When using libraries like LangChain4j that bundle conflicting dependencies:
 
 ## Testing Requirements
 
-### Use TestProvider Instead of Mocking AI APIs
+### Use FakeAIProvider Instead of Mocking AI APIs
 
 #### ❌ DON'T: Mock LangChain4j or HTTP Clients Directly
 
@@ -549,16 +549,16 @@ void testExplain() {
 }
 ```
 
-#### ✅ DO: Use TestProvider to Control AI Behavior
+#### ✅ DO: Use FakeAIProvider to Control AI Behavior
 
 ```java
 // GOOD: Self-contained, no network, no mocking framework needed
-public class TestProvider extends OpenAIProvider {
+public class FakeAIProvider extends OpenAIProvider {
     private boolean throwError = false;
     private String lastCustomContext;
 
     @DataBoundConstructor
-    public TestProvider() {
+    public FakeAIProvider() {
         super("https://localhost:1234", "test-model", Secret.fromString("test-api-key"));
     }
 
@@ -579,7 +579,7 @@ public class TestProvider extends OpenAIProvider {
 // In test:
 @Test
 void testExplanationWithCustomContext(JenkinsRule jenkins) throws Exception {
-    TestProvider provider = new TestProvider();
+    FakeAIProvider provider = new FakeAIProvider();
     GlobalConfigurationImpl.get().setAiProvider(provider);
     // ... run build ...
     assertEquals("expected context", provider.getLastCustomContext());
@@ -858,7 +858,7 @@ Use this checklist when reviewing code:
 - [ ] Handles non-root context paths
 - [ ] Dependencies use BOM for version management
 - [ ] API plugins used for common libraries
-- [ ] Tests use `TestProvider` (never mock AI APIs directly)
+- [ ] Tests use `FakeAIProvider` (never mock AI APIs directly)
 - [ ] Tests cover success and failure scenarios
 - [ ] Migration tests for configuration changes
 - [ ] README documentation is complete and accurate

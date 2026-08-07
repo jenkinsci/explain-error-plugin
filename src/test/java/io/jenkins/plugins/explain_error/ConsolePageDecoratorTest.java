@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.util.Secret;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import org.htmlunit.HttpMethod;
 import org.htmlunit.Page;
 import org.htmlunit.WebRequest;
@@ -24,7 +24,7 @@ class ConsolePageDecoratorTest {
 
     private ConsolePageDecorator decorator;
     private GlobalConfigurationImpl config;
-    private TestProvider provider;
+    private FakeAIProvider provider;
     private JenkinsRule rule;
 
 
@@ -36,7 +36,7 @@ class ConsolePageDecoratorTest {
         config = GlobalConfigurationImpl.get();
 
         // Reset to default state
-        provider = new TestProvider();
+        provider = new FakeAIProvider();
         config.setEnableExplanation(true);
         config.setAiProvider(provider);
     }

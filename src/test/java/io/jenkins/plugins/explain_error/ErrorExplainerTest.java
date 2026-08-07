@@ -13,7 +13,7 @@ import hudson.model.FreeStyleProject;
 import hudson.model.TaskListener;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
@@ -127,7 +127,7 @@ class ErrorExplainerTest {
 
         // Setup valid configuration
         config.setEnableExplanation(true);
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
 
         FreeStyleProject project = jenkins.createFreeStyleProject();
@@ -183,7 +183,7 @@ class ErrorExplainerTest {
 
         // Setup global configuration with OpenAI
         config.setEnableExplanation(true);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
@@ -191,7 +191,7 @@ class ErrorExplainerTest {
         Folder folder = jenkins.jenkins.createProject(Folder.class, "team-folder");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(true);
-        TestProvider folderProvider = new TestProvider();
+        FakeAIProvider folderProvider = new FakeAIProvider();
         folderProvider.setProviderName("Folder Provider");
         folderProperty.setAiProvider(folderProvider);
         folder.addProperty(folderProperty);
@@ -214,7 +214,7 @@ class ErrorExplainerTest {
         config.setLanguage("English");
         config.setCustomContext("Global context");
         config.setTemperature(0.1);
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setAiProvider(provider);
 
         Folder folder = jenkins.jenkins.createProject(Folder.class, "manual-path-folder");
@@ -243,7 +243,7 @@ class ErrorExplainerTest {
 
         // Setup global configuration
         config.setEnableExplanation(true);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
@@ -265,7 +265,7 @@ class ErrorExplainerTest {
 
         // Setup global configuration as disabled
         config.setEnableExplanation(false);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
@@ -273,7 +273,7 @@ class ErrorExplainerTest {
         Folder folder = jenkins.jenkins.createProject(Folder.class, "disabled-folder");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(true);
-        TestProvider folderProvider = new TestProvider();
+        FakeAIProvider folderProvider = new FakeAIProvider();
         folderProvider.setProviderName("Folder Provider");
         folderProperty.setAiProvider(folderProvider);  // Provider configured and enabled at folder level
         folder.addProperty(folderProperty);
@@ -295,7 +295,7 @@ class ErrorExplainerTest {
 
         // Setup global configuration as enabled
         config.setEnableExplanation(true);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
@@ -323,14 +323,14 @@ class ErrorExplainerTest {
 
         // Setup global configuration as DISABLED
         config.setEnableExplanation(false);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         config.setAiProvider(globalProvider);
 
         // Create a folder with ENABLED explanation (should override global disabled)
         Folder folder = jenkins.jenkins.createProject(Folder.class, "enabled-folder-override");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(true);
-        TestProvider folderProvider = new TestProvider();
+        FakeAIProvider folderProvider = new FakeAIProvider();
         folderProvider.setProviderName("Folder Override Provider");
         folderProperty.setAiProvider(folderProvider);
         folder.addProperty(folderProperty);
@@ -352,7 +352,7 @@ class ErrorExplainerTest {
 
         // Setup global configuration
         config.setEnableExplanation(true);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
@@ -360,7 +360,7 @@ class ErrorExplainerTest {
         Folder parentFolder = jenkins.jenkins.createProject(Folder.class, "parent-folder");
         ExplainErrorFolderProperty parentProperty = new ExplainErrorFolderProperty();
         parentProperty.setEnableExplanation(true);
-        TestProvider parentProvider = new TestProvider();
+        FakeAIProvider parentProvider = new FakeAIProvider();
         parentProvider.setProviderName("Parent Provider");
         parentProperty.setAiProvider(parentProvider);
         parentFolder.addProperty(parentProperty);
@@ -383,7 +383,7 @@ class ErrorExplainerTest {
 
         // Setup global configuration
         config.setEnableExplanation(true);
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setProviderName("Global Provider");
         config.setAiProvider(globalProvider);
 
@@ -391,7 +391,7 @@ class ErrorExplainerTest {
         Folder parentFolder = jenkins.jenkins.createProject(Folder.class, "parent-folder-2");
         ExplainErrorFolderProperty parentProperty = new ExplainErrorFolderProperty();
         parentProperty.setEnableExplanation(true);
-        TestProvider parentProvider = new TestProvider();
+        FakeAIProvider parentProvider = new FakeAIProvider();
         parentProvider.setProviderName("Parent Provider");
         parentProperty.setAiProvider(parentProvider);
         parentFolder.addProperty(parentProperty);
@@ -400,7 +400,7 @@ class ErrorExplainerTest {
         Folder childFolder = parentFolder.createProject(Folder.class, "child-folder-2");
         ExplainErrorFolderProperty childProperty = new ExplainErrorFolderProperty();
         childProperty.setEnableExplanation(true);
-        TestProvider childProvider = new TestProvider();
+        FakeAIProvider childProvider = new FakeAIProvider();
         childProvider.setProviderName("Child Provider");
         childProperty.setAiProvider(childProvider);
         childFolder.addProperty(childProperty);

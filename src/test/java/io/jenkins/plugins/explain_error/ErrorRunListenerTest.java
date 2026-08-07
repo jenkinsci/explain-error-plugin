@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
@@ -35,7 +35,7 @@ class ErrorRunListenerTest {
     @Test
     void failedBuildAddsExplanationAction(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setProviderName("AutoExplain-Provider");
         config.setEnableExplanation(true);
         config.setAiProvider(provider);
@@ -53,7 +53,7 @@ class ErrorRunListenerTest {
     @Test
     void failedBuildThatAlreadyHasActionIsSkipped(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setProviderName("AutoExplain-Provider");
         config.setEnableExplanation(true);
         config.setAiProvider(provider);
@@ -75,7 +75,7 @@ class ErrorRunListenerTest {
     @Test
     void disabledAutoExplainDoesNotAddAction(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setEnableExplanation(true);
         config.setAiProvider(provider);
         config.setEnableAutoExplainOnFailure(false);
@@ -92,7 +92,7 @@ class ErrorRunListenerTest {
     @Test
     void unstableBuildIsNotAutoExplained(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         config.setEnableExplanation(true);
         config.setAiProvider(provider);
         config.setEnableAutoExplainOnFailure(true);
@@ -109,7 +109,7 @@ class ErrorRunListenerTest {
     @Test
     void exceptionInListenerDoesNotBreakBuild(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider failingProvider = new TestProvider();
+        FakeAIProvider failingProvider = new FakeAIProvider();
         failingProvider.setThrowError(true);
         config.setAiProvider(failingProvider);
         config.setEnableAutoExplainOnFailure(true);
@@ -129,7 +129,7 @@ class ErrorRunListenerTest {
     @Test
     void autoExplainUsesConfiguredProvider(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setProviderName("Custom-Provider");
         config.setEnableExplanation(true);
         config.setAiProvider(provider);
