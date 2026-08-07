@@ -77,12 +77,10 @@ public class AnthropicProvider extends ChatModelAIProvider {
         // Temperature is deprecated in Claude Opus 4.7+ per Anthropic migration guide:
         // setting it on 4.7+ returns a 400 error. Claude 4.6 and earlier still support it.
         if (isClaude47OrNewer(getModel())) {
-            if (temperature != null) {
-                LOGGER.info("Ignoring configured temperature for Claude 4.7+ model " + getModel()
-                        + ": the Anthropic API rejects the parameter.");
-            } else {
-                LOGGER.fine("Skipping temperature parameter for Claude 4.7+ model: " + getModel());
-            }
+            LOGGER.fine(() -> temperature != null
+                    ? "Ignoring configured temperature for Claude 4.7+ model " + getModel()
+                            + ": the Anthropic API rejects the parameter."
+                    : "Skipping temperature parameter for Claude 4.7+ model: " + getModel());
         } else {
             builder.temperature(temperature != null ? temperature : 0.3);
         }
