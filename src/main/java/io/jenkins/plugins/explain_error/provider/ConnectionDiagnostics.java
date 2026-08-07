@@ -16,6 +16,13 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLException;
 import jenkins.model.Jenkins;
@@ -40,6 +47,16 @@ final class ConnectionDiagnostics {
 
     private static final int TCP_TIMEOUT_MS = 5_000;
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(8);
+
+    /**
+     * Hard wall-clock bound for probes whose underlying JDK calls are not
+     * reliably interruptible or bounded: DNS resolution has no timeout
+     * parameter at all, and {@code HttpRequest.timeout()} only bounds the
+     * time until response headers arrive — a streaming body could otherwise
+     * block the form thread indefinitely. Package-visible so tests can
+     * shorten it.
+     */
+    static volatile Duration probeHardLimit = Duration.ofSeconds(10);
     private static final int BODY_EXCERPT_CHARS = 200;
     private static final int MAX_CAUSE_CHAIN = 6;
 
@@ -148,7 +165,7 @@ final class ConnectionDiagnostics {
     private static boolean appendDnsProbe(StringBuilder out, String host, Proxy proxy) {
         long start = System.nanoTime();
         try {
-            InetAddress[] addresses = InetAddress.getAllByName(host);
+            InetAddress[] addresses = callWithHardTimeout("dns", () -> InetAddress.getAllByName(host));
             String shown = java.util.Arrays.stream(addresses).limit(3)
                     .map(InetAddress::getHostAddress)
                     .collect(Collectors.joining(", "));
@@ -224,7 +241,9 @@ final class ConnectionDiagnostics {
                     request.header("Proxy-Authorization", proxyAuthorization);
                 }
             }
-            HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+            HttpRequest builtRequest = request.build();
+            HttpResponse<String> response = callWithHardTimeout("http",
+                    () -> client.send(builtRequest, HttpResponse.BodyHandlers.ofString()));
             out.append("HTTP probe: GET ").append(uri).append(" -> HTTP ").append(response.statusCode())
                     .append(" (").append(elapsedMs(start)).append(" ms)");
             if (response.statusCode() == HttpURLConnection.HTTP_UNAUTHORIZED
@@ -284,6 +303,36 @@ final class ConnectionDiagnostics {
     private static ProxyConfiguration jenkinsProxy() {
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         return jenkins != null ? jenkins.getProxy() : null;
+    }
+
+    /**
+     * Runs a probe on a daemon thread and gives up after
+     * {@link #probeHardLimit}, interrupting the probe. Unwraps the probe's
+     * own exception so callers keep their specific handling (TLS, timeouts).
+     */
+    private static <T> T callWithHardTimeout(String probeName, Callable<T> probe) throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "explain-error-diagnostics-" + probeName);
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            Future<T> future = executor.submit(probe);
+            try {
+                return future.get(probeHardLimit.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException e) {
+                future.cancel(true);
+                throw new TimeoutException("no complete result after " + probeHardLimit.getSeconds()
+                        + " s (the endpoint may be streaming or unresponsive)");
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof Exception cause) {
+                    throw cause;
+                }
+                throw e;
+            }
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private static String summarize(@CheckForNull String text) {

@@ -443,8 +443,9 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
          */
         protected final FormValidation testConfigurationFailed(BaseAIProvider provider, Exception failure) {
             String report = ConnectionDiagnostics.run(provider.getEffectiveEndpointForDiagnostics(), failure);
+            String message = Util.fixEmptyAndTrim(failure.getMessage());
             return FormValidation.errorWithMarkup("<b>Configuration test failed:</b> "
-                    + Util.escape(String.valueOf(failure.getMessage()))
+                    + Util.escape(message != null ? message : failure.getClass().getSimpleName())
                     + "<pre style=\"white-space:pre-wrap;margin-top:6px;user-select:all\">"
                     + Util.escape(report) + "</pre>");
         }

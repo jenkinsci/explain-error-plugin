@@ -75,6 +75,18 @@ class ProviderTest {
     }
 
     @Test
+    void anthropicClampsTemperatureToProviderRange() {
+        AnthropicProvider provider = new AnthropicProvider(
+                null, "claude-sonnet-4-6", Secret.fromString("test-key"), null, null);
+
+        // 1.5 is valid for OpenAI-style providers but Anthropic accepts 0..1;
+        // out-of-range values must be clamped instead of failing with HTTP 400.
+        assertEquals(1.0, provider.createChatModel(null, null, 1.5).defaultRequestParameters().temperature());
+        assertEquals(0.7, provider.createChatModel(null, null, 0.7).defaultRequestParameters().temperature());
+        assertEquals(0.3, provider.createChatModel(null, null, null).defaultRequestParameters().temperature());
+    }
+
+    @Test
     void testOpenAIWithNullApiKey() {
         BaseAIProvider provider = new OpenAIProvider(null, "test-model", null);
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));

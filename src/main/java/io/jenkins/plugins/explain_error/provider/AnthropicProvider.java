@@ -82,7 +82,16 @@ public class AnthropicProvider extends ChatModelAIProvider {
                             + ": the Anthropic API rejects the parameter."
                     : "Skipping temperature parameter for Claude 4.7+ model: " + getModel());
         } else {
-            builder.temperature(temperature != null ? temperature : 0.3);
+            double effective = temperature != null ? temperature : 0.3;
+            // Anthropic only accepts 0..1 while other providers allow up to 2.0.
+            // Clamp so a globally configured temperature that is valid elsewhere
+            // cannot make every Anthropic request fail with HTTP 400.
+            double clamped = Math.min(Math.max(effective, 0.0), 1.0);
+            if (clamped != effective) {
+                LOGGER.fine(() -> "Clamping configured temperature " + effective
+                        + " to " + clamped + " (Anthropic accepts 0..1).");
+            }
+            builder.temperature(clamped);
         }
 
         return builder.build();

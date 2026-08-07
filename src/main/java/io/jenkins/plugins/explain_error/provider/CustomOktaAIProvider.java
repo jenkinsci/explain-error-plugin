@@ -607,6 +607,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
  {
+            checkConfigurePermission(context);
+
             CustomOktaAIProvider provider = new CustomOktaAIProvider(url, tokenUrl, model, clientId, clientSecret);
             provider.setScope(scope);
             provider.setAccessTokenHeader(accessTokenHeader);
