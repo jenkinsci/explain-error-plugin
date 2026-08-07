@@ -598,6 +598,7 @@ Requests from the RunListener are tracked under the `run_listener` entry point i
 |API key not set	| Add your key in Jenkins global config |
 |Auth or rate limit error| Check key validity, quota, and provider plan. See [AI Provider Call Quotas](docs/usage-quota.md) |
 |Button not visible	| Ensure Jenkins version ≥ 2.528.3, restart Jenkins after installation |
+|Test Configuration fails| The error now includes a **connection diagnostics report** (proxy decision, DNS, TCP, HTTP probe). Read it bottom-up to find the failing layer, and paste it when reporting issues |
 
 Enable debug logs:
 

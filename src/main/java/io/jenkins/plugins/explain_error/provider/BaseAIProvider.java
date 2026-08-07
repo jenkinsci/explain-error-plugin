@@ -26,6 +26,7 @@ import dev.langchain4j.service.V;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.ProxyConfiguration;
 import hudson.ExtensionPoint;
+import hudson.Util;
 import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import hudson.model.Item;
@@ -324,6 +325,11 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      */
     @CheckForNull
     protected final String getProxyAuthorizationHeader() {
+        return proxyAuthorizationHeaderOrNull();
+    }
+
+    @CheckForNull
+    static String proxyAuthorizationHeaderOrNull() {
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         ProxyConfiguration proxyConfiguration = jenkins != null ? jenkins.getProxy() : null;
         // Require a proxy host as well as a user name: newJenkinsHttpClientBuilder()
@@ -338,6 +344,19 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         String password = secretPassword == null ? "" : Secret.toString(secretPassword);
         String credentials = proxyConfiguration.getUserName() + ":" + password;
         return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * The endpoint URL this provider would call, used only to run connection
+     * diagnostics when a configuration test fails. Providers with a fixed or
+     * derivable default endpoint should override this to return it when no
+     * explicit URL is configured.
+     *
+     * @return the effective endpoint URL, or {@code null} when unknown
+     */
+    @CheckForNull
+    public String getEffectiveEndpointForDiagnostics() {
+        return Util.fixEmptyAndTrim(url);
     }
 
     protected final HttpClientBuilder newLangChainHttpClientBuilder() {
@@ -366,6 +385,24 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
             } else {
                 Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             }
+        }
+
+        /**
+         * Builds the failure response for a "Test Configuration" call:
+         * the provider error plus a layer-by-layer connection diagnostics
+         * report (proxy decision, DNS, TCP, HTTP probe, error cause chain)
+         * so admins can see where the connection breaks.
+         *
+         * @param provider the provider instance the test was run against
+         * @param failure  the exception the test failed with
+         * @return a form validation error carrying the diagnostics report
+         */
+        protected final FormValidation testConfigurationFailed(BaseAIProvider provider, Exception failure) {
+            String report = ConnectionDiagnostics.run(provider.getEffectiveEndpointForDiagnostics(), failure);
+            return FormValidation.errorWithMarkup("<b>Configuration test failed:</b> "
+                    + Util.escape(String.valueOf(failure.getMessage()))
+                    + "<pre style=\"white-space:pre-wrap;margin-top:6px;user-select:all\">"
+                    + Util.escape(report) + "</pre>");
         }
 
         @POST

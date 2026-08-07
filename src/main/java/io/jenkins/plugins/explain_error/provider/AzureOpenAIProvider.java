@@ -716,7 +716,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 provider.testConfiguration();
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
     }
