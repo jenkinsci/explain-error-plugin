@@ -609,12 +609,15 @@ class ProviderTest {
         }
 
         @Override
-        public Assistant createAssistant() {
+        public Assistant createAssistant(hudson.model.Item item,
+                                         org.springframework.security.core.Authentication authentication,
+                                         Double temperature) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
+                hudson.model.Item item, org.springframework.security.core.Authentication authentication) {
             throw new UnsupportedOperationException();
         }
 

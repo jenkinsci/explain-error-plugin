@@ -118,9 +118,37 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         this.model = model;
     }
 
-    public abstract Assistant createAssistant();
+    /**
+     * The single assistant factory providers implement. It receives the full
+     * request context — credentials scope and temperature — so that a provider
+     * cannot accidentally drop a parameter by overriding the wrong overload
+     * (the narrower {@code createAssistant} variants are final and delegate
+     * here). Providers without item-scoped credentials simply ignore
+     * {@code item}/{@code authentication}.
+     *
+     * @param item           the item defining the credentials scope, or {@code null}
+     * @param authentication the authentication for credentials lookup, or {@code null}
+     * @param temperature    the temperature to use, or {@code null} for the provider default
+     * @return the assistant
+     */
+    public abstract Assistant createAssistant(@CheckForNull Item item,
+                                              @CheckForNull Authentication authentication,
+                                              @CheckForNull Double temperature);
 
-    public abstract io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant();
+    public final Assistant createAssistant() {
+        return createAssistant(null, null, null);
+    }
+
+    /**
+     * The single fix-assistant factory providers implement; the no-arg
+     * {@code createFixAssistant()} is final and delegates here.
+     *
+     * @param item           the item defining the credentials scope, or {@code null}
+     * @param authentication the authentication for credentials lookup, or {@code null}
+     * @return the fix assistant
+     */
+    public abstract io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
+            @CheckForNull Item item, @CheckForNull Authentication authentication);
 
     public abstract boolean isNotValid(@CheckForNull TaskListener listener);
 
@@ -242,8 +270,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
     }
 
-    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
-        return createAssistant();
+    public final Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
+        return createAssistant(item, authentication, null);
     }
 
     /**
@@ -251,18 +279,12 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
      * @param temperature the temperature value, or null to let provider defaults apply
      * @return the assistant
      */
-    public Assistant createAssistant(@CheckForNull Double temperature) {
-        return createAssistant();
+    public final Assistant createAssistant(@CheckForNull Double temperature) {
+        return createAssistant(null, null, temperature);
     }
 
-    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
-                                     @CheckForNull Double temperature) {
-        return createAssistant(temperature);
-    }
-
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(@CheckForNull Item item,
-                                                                                     @CheckForNull Authentication authentication) {
-        return createFixAssistant();
+    public final io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        return createFixAssistant(null, null);
     }
 
     public boolean isNotValid(@CheckForNull TaskListener listener, @CheckForNull Item item,
@@ -384,6 +406,28 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                 item.checkPermission(Item.CONFIGURE);
             } else {
                 Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            }
+        }
+
+        /**
+         * Template for the "Test Configuration" button: checks the caller's
+         * permission, sends a canned prompt through the fully-constructed
+         * provider, and renders either the standard success message or the
+         * failure response with connection diagnostics. Descriptors only
+         * construct the provider from their form fields and delegate here.
+         *
+         * @param context  the item context of the form, or {@code null} for global configuration
+         * @param provider the provider instance built from the submitted form values
+         * @return the outcome to render next to the button
+         */
+        protected final FormValidation runConfigurationTest(@CheckForNull AccessControlled context,
+                                                            BaseAIProvider provider) {
+            checkConfigurePermission(context);
+            try {
+                provider.explainError("Send 'Configuration test successful' to me.", null);
+                return FormValidation.ok("Configuration test successful! API connection is working properly.");
+            } catch (ExplanationException e) {
+                return testConfigurationFailed(provider, e);
             }
         }
 

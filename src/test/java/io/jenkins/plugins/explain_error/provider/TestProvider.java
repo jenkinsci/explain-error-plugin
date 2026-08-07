@@ -29,12 +29,9 @@ public class TestProvider extends OpenAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
+    public Assistant createAssistant(@CheckForNull hudson.model.Item item,
+                                     @CheckForNull org.springframework.security.core.Authentication authentication,
+                                     @CheckForNull Double temperature) {
         return new Assistant() {
             @Override
             public JenkinsLogAnalysis analyzeLogs(String errorLogs, String language, String customContext) {
