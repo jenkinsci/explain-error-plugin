@@ -367,8 +367,8 @@ public class PipelineLogExtractor {
         }
 
         FlowNode logNode = target;
-        if (target.getAction(LogAction.class) == null
-                || !hasLogContent(target.getAction(LogAction.class))) {
+        LogAction targetLogAction = target.getAction(LogAction.class);
+        if (targetLogAction == null || !hasLogContent(targetLogAction)) {
             // A block node's failure output lives in the nodes it encloses;
             // a step node's missing log may live in its immediate parent
             // (catchError + sh(returnStatus:true) + error() pattern).
@@ -413,7 +413,8 @@ public class PipelineLogExtractor {
             if (!isEnclosedBy(node, blockId) || !isFailedFlowNode(node)) {
                 continue;
             }
-            if (node.getAction(LogAction.class) != null && hasLogContent(node.getAction(LogAction.class))) {
+            LogAction nodeLogAction = node.getAction(LogAction.class);
+            if (nodeLogAction != null && hasLogContent(nodeLogAction)) {
                 return node;
             }
             FlowNode parent = findImmediateParentWithLog(node);
