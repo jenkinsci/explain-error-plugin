@@ -1,0 +1,20 @@
+src/main/java/io/jenkins/plugins/explain_error/PipelineLogExtractor.java
+  s_d68362d1070ba0::t_8447d33b1460a3 362-363
+  s_d68362d1070ba0::t_2e5ef557f0222b 408-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "fe560c676be23e6539c66eb7409f921d703f57d5",
+  "prompts": {},
+  "sessions": {
+    "s_d68362d1070ba0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a6845e9d-490b-4be2-9856-c089e1775587",
+        "model": "claude-opus-5"
+      },
+      "human_author": "shenxianpeng <xianpeng.shen@gmail.com>"
+    }
+  }
+}
