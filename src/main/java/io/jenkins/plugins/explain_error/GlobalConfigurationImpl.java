@@ -41,6 +41,14 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
     private boolean enableAutoExplainOnFailure = false;
     private int autoExplainMaxLogLines = 100;
+    private boolean enableEmailOnFailure = false;
+    private String emailRecipients;
+    private String smtpHost;
+    private int smtpPort = 587;
+    private String smtpUsername;
+    private Secret smtpPassword;
+    private boolean smtpUseSsl = false;
+    private String smtpFromAddress;
 
     private transient QuotaEnforcer quotaEnforcer;
 
@@ -159,6 +167,78 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setAutoExplainMaxLogLines(int autoExplainMaxLogLines) {
         this.autoExplainMaxLogLines = Math.max(1, autoExplainMaxLogLines);
+    }
+
+    public boolean isEnableEmailOnFailure() {
+        return enableEmailOnFailure;
+    }
+
+    @DataBoundSetter
+    public void setEnableEmailOnFailure(boolean enableEmailOnFailure) {
+        this.enableEmailOnFailure = enableEmailOnFailure;
+    }
+
+    public String getEmailRecipients() {
+        return emailRecipients;
+    }
+
+    @DataBoundSetter
+    public void setEmailRecipients(String emailRecipients) {
+        this.emailRecipients = emailRecipients;
+    }
+
+    public String getSmtpHost() {
+        return smtpHost;
+    }
+
+    @DataBoundSetter
+    public void setSmtpHost(String smtpHost) {
+        this.smtpHost = smtpHost;
+    }
+
+    public int getSmtpPort() {
+        return smtpPort;
+    }
+
+    @DataBoundSetter
+    public void setSmtpPort(int smtpPort) {
+        this.smtpPort = smtpPort;
+    }
+
+    public String getSmtpUsername() {
+        return smtpUsername;
+    }
+
+    @DataBoundSetter
+    public void setSmtpUsername(String smtpUsername) {
+        this.smtpUsername = smtpUsername;
+    }
+
+    public Secret getSmtpPassword() {
+        return smtpPassword;
+    }
+
+    @DataBoundSetter
+    public void setSmtpPassword(Secret smtpPassword) {
+        this.smtpPassword = smtpPassword;
+    }
+
+    public boolean isSmtpUseSsl() {
+        return smtpUseSsl;
+    }
+
+    @DataBoundSetter
+    public void setSmtpUseSsl(boolean smtpUseSsl) {
+        this.smtpUseSsl = smtpUseSsl;
+    }
+
+    public String getSmtpFromAddress() {
+        return smtpFromAddress;
+    }
+
+    @DataBoundSetter
+    public void setSmtpFromAddress(String smtpFromAddress) {
+        this.smtpFromAddress = smtpFromAddress;
     }
 
     public String getCustomContext() {

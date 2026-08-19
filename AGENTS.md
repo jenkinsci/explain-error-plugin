@@ -39,6 +39,8 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 - **ExplainErrorFolderProperty**: Folder-level AI provider override — walks up the folder hierarchy; step > folder > global resolution order
 - **ConsoleExplainErrorAction** / **ConsoleExplainErrorActionFactory** / **ConsolePageDecorator**: "Explain Error" button on console output — AJAX action, dynamic injection into runs, and visibility logic
 - **ErrorExplanationAction**: Build action for storing and displaying AI explanations
+- **ErrorRunListener**: Auto-explains failed builds off the build thread when `enableAutoExplainOnFailure` is set; optionally emails the result via `ExplanationEmailNotifier`
+- **ExplanationEmailNotifier**: Emails the generated explanation to the triggering user + fixed configured recipients using the plugin's own SMTP configuration when `enableEmailOnFailure` is set
 - **ErrorExplainer**: Core error analysis logic that coordinates AI providers and log parsing; resolves provider priority (step > folder > global)
 - **PipelineLogExtractor**: Extracts logs from the specific failing Pipeline step node (via `FlowGraphWalker`); integrates with optional `pipeline-graph-view` plugin for deep-linking
 - **AutoFixOrchestrator** / **AutoFixAction** / **FixAssistant** / **UnifiedDiffApplier**: AI auto-fix flow — structured fix suggestion → diff validation (±3-line fuzzy matching) → branch → commits → pull request, with rollback on failure
@@ -58,6 +60,8 @@ src/main/java/io/jenkins/plugins/explain_error/
 ├── PipelineLogExtractor.java               # Failing step log extraction + pipeline-graph-view URL
 ├── ConsoleExplainErrorAction*.java         # Console button: action, factory, page decorator
 ├── ErrorExplanationAction.java             # Build action for results storage/display
+├── ErrorRunListener.java                   # Auto-explain on build failure (background thread)
+├── ExplanationEmailNotifier.java           # Emails the explanation to triggering user + fixed recipients (own SMTP config)
 ├── QuotaEnforcer.java / Usage*.java        # Request quotas and usage metrics
 ├── JenkinsLogAnalysis.java                 # Structured AI response record
 ├── AIProvider.java                         # @Deprecated enum (backward compatibility)

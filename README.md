@@ -285,6 +285,14 @@ unclassified:
     enableExplanation: true
     # enableAutoExplainOnFailure: true # Optional, automatically explain failed builds without pipeline changes
     # autoExplainMaxLogLines: 100    # Optional, number of log lines read per build (increase for large-context models)
+    # enableEmailOnFailure: true # Optional, email the AI explanation to the triggering user + fixed recipients
+    # emailRecipients: "team@example.com, lead@example.com" # Optional, fixed recipients that always receive the explanation email
+    # smtpHost: "smtp.example.com" # Required for email: SMTP server host
+    # smtpPort: 587 # Optional, SMTP port (587 STARTTLS / 465 SSL)
+    # smtpUseSsl: false # Optional, true for implicit SSL (port 465)
+    # smtpUsername: "jenkins@example.com" # Optional, SMTP auth username
+    # smtpPassword: "${SMTP_PASSWORD}" # Optional, SMTP auth password
+    # smtpFromAddress: "jenkins@example.com" # Required for email: sender address
     # temperature: 0.7 # Optional, leave empty for provider default
     # language: "English" # Optional, defaults to English
     # customContext: "Additional context for the AI" # Optional

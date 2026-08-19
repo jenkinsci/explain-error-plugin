@@ -126,11 +126,30 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             // The build has already been finalized and saved by the time this
             // background task runs, so persist any freshly added action ourselves.
             run.save();
+            maybeSendExplanationEmail(run);
         } catch (Exception e) {
             // Safety net: never let a failure in the listener surface to the
             // build completion pipeline. Log and move on.
             LOGGER.log(Level.WARNING, "[" + fullName(run) + "] Auto-explain on failure failed unexpectedly.", e);
         }
+    }
+
+    /**
+     * Emails the freshly generated explanation to the build culprits when the
+     * "email on failure" toggle is enabled and an explanation was actually saved.
+     * Failures are caught inside {@link ExplanationEmailNotifier}, but the lookup
+     * itself is also guarded so it can never disrupt the listener.
+     */
+    private void maybeSendExplanationEmail(Run<?, ?> run) {
+        if (!GlobalConfigurationImpl.get().isEnableEmailOnFailure()) {
+            return;
+        }
+        ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
+        if (action == null) {
+            LOGGER.fine("[" + fullName(run) + "] No explanation was generated; skipping email.");
+            return;
+        }
+        new ExplanationEmailNotifier().sendExplanationEmail(run, action);
     }
 
     private static String fullName(Run<?, ?> run) {
