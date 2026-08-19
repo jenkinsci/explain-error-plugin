@@ -34,35 +34,11 @@
             <f:number clazz="setting-input" min="1" default="100" />
           </f:entry>
           <f:entry field="enableEmailOnFailure"
-                   description="When enabled, the generated AI explanation is emailed to the user who triggered the build and to the fixed recipients configured below. Uses the SMTP settings configured below.">
+                   description="When enabled, the generated AI explanation is emailed to the user who triggered the build and to the fixed recipients configured below. Uses Jenkins' own mail configuration (Manage Jenkins &gt; System: E-mail Notification / System Admin e-mail address).">
             <f:checkbox title="Email the explanation on failure" />
           </f:entry>
           <f:entry title="Fixed Email Recipients" field="emailRecipients"
                    description="Additional fixed recipients that always receive the explanation email, in addition to the user who triggered the build. Separate multiple addresses with commas, spaces or semicolons.">
-            <f:textbox />
-          </f:entry>
-          <f:entry title="SMTP Host" field="smtpHost"
-                   description="SMTP server host name used to send the explanation emails.">
-            <f:textbox />
-          </f:entry>
-          <f:entry title="SMTP Port" field="smtpPort"
-                   description="SMTP server port. Typically 587 for STARTTLS or 465 for implicit SSL.">
-            <f:number clazz="setting-input" min="1" max="65535" default="587" />
-          </f:entry>
-          <f:entry title="Use SSL" field="smtpUseSsl"
-                   description="Enable implicit SSL (e.g. port 465). Leave unchecked to use STARTTLS (e.g. port 587).">
-            <f:checkbox />
-          </f:entry>
-          <f:entry title="SMTP Username" field="smtpUsername"
-                   description="Username for SMTP authentication. Leave empty for an unauthenticated server.">
-            <f:textbox />
-          </f:entry>
-          <f:entry title="SMTP Password" field="smtpPassword"
-                   description="Password for SMTP authentication.">
-            <f:password />
-          </f:entry>
-          <f:entry title="From Address" field="smtpFromAddress"
-                   description="Sender address used in the 'From' header of the explanation emails.">
             <f:textbox />
           </f:entry>
         </f:optionalBlock>

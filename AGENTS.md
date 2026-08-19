@@ -40,7 +40,7 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 - **ConsoleExplainErrorAction** / **ConsoleExplainErrorActionFactory** / **ConsolePageDecorator**: "Explain Error" button on console output — AJAX action, dynamic injection into runs, and visibility logic
 - **ErrorExplanationAction**: Build action for storing and displaying AI explanations
 - **ErrorRunListener**: Auto-explains failed builds off the build thread when `enableAutoExplainOnFailure` is set; optionally emails the result via `ExplanationEmailNotifier`
-- **ExplanationEmailNotifier**: Emails the generated explanation to the triggering user + fixed configured recipients using the plugin's own SMTP configuration when `enableEmailOnFailure` is set
+- **ExplanationEmailNotifier**: Emails the generated explanation to the triggering user + fixed configured recipients using Jenkins' own mail infrastructure (the Mailer plugin's SMTP configuration and the global System Admin e-mail address) when `enableEmailOnFailure` is set
 - **ErrorExplainer**: Core error analysis logic that coordinates AI providers and log parsing; resolves provider priority (step > folder > global)
 - **PipelineLogExtractor**: Extracts logs from the specific failing Pipeline step node (via `FlowGraphWalker`); integrates with optional `pipeline-graph-view` plugin for deep-linking
 - **AutoFixOrchestrator** / **AutoFixAction** / **FixAssistant** / **UnifiedDiffApplier**: AI auto-fix flow — structured fix suggestion → diff validation (±3-line fuzzy matching) → branch → commits → pull request, with rollback on failure
@@ -61,7 +61,7 @@ src/main/java/io/jenkins/plugins/explain_error/
 ├── ConsoleExplainErrorAction*.java         # Console button: action, factory, page decorator
 ├── ErrorExplanationAction.java             # Build action for results storage/display
 ├── ErrorRunListener.java                   # Auto-explain on build failure (background thread)
-├── ExplanationEmailNotifier.java           # Emails the explanation to triggering user + fixed recipients (own SMTP config)
+├── ExplanationEmailNotifier.java           # Emails the explanation to triggering user + fixed recipients (Jenkins Mailer config)
 ├── QuotaEnforcer.java / Usage*.java        # Request quotas and usage metrics
 ├── JenkinsLogAnalysis.java                 # Structured AI response record
 ├── AIProvider.java                         # @Deprecated enum (backward compatibility)

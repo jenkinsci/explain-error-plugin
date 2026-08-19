@@ -7,11 +7,8 @@ import hudson.model.Run;
 import hudson.model.User;
 import hudson.tasks.MailAddressResolver;
 import hudson.tasks.Mailer;
-import hudson.util.Secret;
-import jakarta.mail.Authenticator;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
-import jakarta.mail.PasswordAuthentication;
 import jakarta.mail.Session;
 import jakarta.mail.Transport;
 import jakarta.mail.internet.AddressException;
@@ -20,10 +17,10 @@ import jakarta.mail.internet.MimeMessage;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.LinkedHashSet;
-import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import jenkins.model.JenkinsLocationConfiguration;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -31,8 +28,9 @@ import org.apache.commons.lang3.StringUtils;
  *
  * <p>Recipients are the user who triggered the build (if any) plus the fixed
  * recipients configured globally. Email addresses of Jenkins users are resolved
- * via {@link MailAddressResolver}. The SMTP server, credentials and sender
- * address are taken from this plugin's own global configuration.
+ * via {@link MailAddressResolver}. The SMTP server, credentials, charset and
+ * sender address are taken from Jenkins' own mail infrastructure (the Mailer
+ * plugin's global configuration), so no separate SMTP setup is required.
  *
  * <p>All failures are caught and logged; sending an email must never interfere
  * with the build lifecycle.
@@ -59,21 +57,24 @@ class ExplanationEmailNotifier {
             return;
         }
 
-        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        if (StringUtils.isBlank(config.getSmtpHost())) {
-            LOGGER.fine("[" + fullName(run) + "] No SMTP host configured; skipping email.");
+        Mailer.DescriptorImpl mailer = Mailer.descriptor();
+        if (mailer == null) {
+            LOGGER.fine("[" + fullName(run) + "] Mailer plugin is not available; skipping email.");
             return;
         }
-        if (StringUtils.isBlank(config.getSmtpFromAddress())) {
-            LOGGER.fine("[" + fullName(run) + "] No SMTP 'From' address configured; skipping email.");
+        String fromAddress = resolveFromAddress();
+        if (StringUtils.isBlank(fromAddress)) {
+            LOGGER.fine("[" + fullName(run)
+                    + "] No sender address configured in Jenkins (System Admin e-mail address / Mailer);"
+                    + " skipping email.");
             return;
         }
 
-        String charset = "UTF-8";
+        String charset = mailer.getCharset();
         try {
-            Session session = createSession(config);
+            Session session = mailer.createSession();
             MimeMessage message = new MimeMessage(session);
-            message.setFrom(Mailer.stringToAddress(config.getSmtpFromAddress(), charset));
+            message.setFrom(Mailer.stringToAddress(fromAddress, charset));
             message.setRecipients(Message.RecipientType.TO,
                     recipients.toArray(new InternetAddress[0]));
             message.setSubject(buildSubject(run), charset);
@@ -88,33 +89,17 @@ class ExplanationEmailNotifier {
     }
 
     /**
-     * Builds a JavaMail session from the plugin's own SMTP configuration.
+     * Resolves the sender address from Jenkins' own configuration, falling back
+     * to the Mailer reply-to address when the global admin address is unset.
      */
-    private Session createSession(GlobalConfigurationImpl config) {
-        Properties props = new Properties();
-        props.put("mail.smtp.host", config.getSmtpHost());
-        props.put("mail.smtp.port", String.valueOf(config.getSmtpPort()));
-        props.put("mail.smtp.timeout", "60000");
-        props.put("mail.smtp.connectiontimeout", "60000");
-        if (config.isSmtpUseSsl()) {
-            props.put("mail.smtp.ssl.enable", "true");
-        } else {
-            props.put("mail.smtp.starttls.enable", "true");
+    @CheckForNull
+    private String resolveFromAddress() {
+        JenkinsLocationConfiguration location = JenkinsLocationConfiguration.get();
+        if (location != null && StringUtils.isNotBlank(location.getAdminAddress())) {
+            return location.getAdminAddress();
         }
-
-        String username = config.getSmtpUsername();
-        Secret passwordSecret = config.getSmtpPassword();
-        String password = passwordSecret != null ? passwordSecret.getPlainText() : null;
-        if (StringUtils.isNotBlank(username)) {
-            props.put("mail.smtp.auth", "true");
-            return Session.getInstance(props, new Authenticator() {
-                @Override
-                protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(username, password);
-                }
-            });
-        }
-        return Session.getInstance(props);
+        Mailer.DescriptorImpl mailer = Mailer.descriptor();
+        return mailer != null ? mailer.getReplyToAddress() : null;
     }
 
     /**
