@@ -307,9 +307,59 @@
 
   // ---- Explanation panel ----
 
+  /**
+   * Clones an icon that was rendered server-side via the real Jenkins
+   * Symbols mechanism (<l:icon src="symbol-..."/> in footer.jelly — the
+   * same one behind ErrorExplanationAction#getIconFileName), rather than
+   * hard-coding SVG markup of our own. The source nodes are hidden markers
+   * with a known ID; this just clones whatever Jenkins actually rendered
+   * into them, so upgrades to Jenkins core / ionicons-api are picked up
+   * for free and there is no risk of hand-drawn markup drifting from the
+   * real icon.
+   */
+  function cloneServerRenderedIcon(sourceId) {
+    var source = document.getElementById(sourceId);
+    if (!source || !source.firstElementChild) {
+      return null;
+    }
+    var icon = source.firstElementChild.cloneNode(true);
+    icon.classList.remove('jenkins-hidden');
+    return icon;
+  }
+
+  /**
+   * Aligns the explanation panel's left/right edges with the graph view's
+   * stage/step detail column (#stage-view-pane), which is offset to the
+   * right of the stage tree sidebar. The panel is appended to #main-panel
+   * (spans the full content width, tree included) rather than into the
+   * pipeline-graph-view React tree, so it survives node-selection re-renders
+   * — but that means its horizontal position has to be computed to match,
+   * not inherited via normal document flow.
+   */
+  function alignPanelToStageColumn(panel) {
+    var mainPanel = document.querySelector('#main-panel') || document.body;
+    var stagePane = document.getElementById('stage-view-pane')
+      || document.querySelector('.pgv-stage-steps');
+    if (stagePane) {
+      var mainRect = mainPanel.getBoundingClientRect();
+      var paneRect = stagePane.getBoundingClientRect();
+      // margin is applied inside #main-panel's own padding box, so that
+      // padding has to be subtracted out or it stacks on top of it.
+      var mainStyle = window.getComputedStyle(mainPanel);
+      var mainPaddingLeft = parseFloat(mainStyle.paddingLeft) || 0;
+      var mainPaddingRight = parseFloat(mainStyle.paddingRight) || 0;
+      panel.style.marginLeft = Math.max(0, paneRect.left - mainRect.left - mainPaddingLeft) + 'px';
+      panel.style.marginRight = Math.max(0, mainRect.right - paneRect.right - mainPaddingRight) + 'px';
+    } else {
+      panel.style.marginLeft = '20px';
+      panel.style.marginRight = '20px';
+    }
+  }
+
   function ensureExplanationPanel() {
     var panel = document.getElementById('explain-error-graph-panel');
     if (panel) {
+      alignPanelToStageColumn(panel);
       return panel;
     }
 
@@ -318,21 +368,16 @@
     panel = document.createElement('div');
     panel.id = 'explain-error-graph-panel';
     panel.className = 'jenkins-hidden';
-    panel.style.margin = '20px';
-
-    var rootURL = document.head.getAttribute('data-rooturl') || '';
+    panel.style.marginTop = '20px';
+    panel.style.marginBottom = '20px';
 
     panel.innerHTML =
       '<div class="jenkins-card">' +
       '  <div class="jenkins-card__title">' +
       '    <span id="explain-error-graph-provider">AI Error Explanation</span>' +
       '    <div class="jenkins-card__controls">' +
-      '      <a href="#" class="jenkins-card__reveal eep-graph-generate-new" tooltip="Generate new explanation">' +
-      '        <img src="' + rootURL + '/plugin/ionicons-api/images/symbol-reload.svg" alt="" style="width:16px;height:16px">' +
-      '      </a>' +
-      '      <a href="#" class="jenkins-card__reveal eep-graph-close" tooltip="Close">' +
-      '        <img src="' + rootURL + '/plugin/ionicons-api/images/symbol-close.svg" alt="" style="width:16px;height:16px">' +
-      '      </a>' +
+      '      <a href="#" class="jenkins-card__reveal eep-graph-generate-new" tooltip="Generate new explanation"></a>' +
+      '      <a href="#" class="jenkins-card__reveal eep-graph-close" tooltip="Close"></a>' +
       '    </div>' +
       '  </div>' +
       '  <div class="jenkins-card__content">' +
@@ -349,6 +394,16 @@
       '</div>';
 
     mainPanel.appendChild(panel);
+    alignPanelToStageColumn(panel);
+
+    var reloadIcon = cloneServerRenderedIcon('explain-error-graph-icon-reload');
+    if (reloadIcon) {
+      panel.querySelector('.eep-graph-generate-new').appendChild(reloadIcon);
+    }
+    var closeIcon = cloneServerRenderedIcon('explain-error-graph-icon-close');
+    if (closeIcon) {
+      panel.querySelector('.eep-graph-close').appendChild(closeIcon);
+    }
 
     // Wire up controls
     panel.querySelector('.eep-graph-generate-new').addEventListener('click', function (e) {
@@ -359,6 +414,10 @@
     panel.querySelector('.eep-graph-close').addEventListener('click', function (e) {
       e.preventDefault();
       hideExplanationPanel();
+    });
+
+    window.addEventListener('resize', function () {
+      alignPanelToStageColumn(panel);
     });
 
     return panel;
