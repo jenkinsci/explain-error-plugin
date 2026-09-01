@@ -279,27 +279,55 @@ public class GraphViewExplainErrorAction implements RunAction2 {
     }
 
     /**
-     * Checks whether a cached {@link ErrorExplanationAction} was generated for the given node.
+     * Checks whether a cached {@link ErrorExplanationAction} covers the given node.
      * <p>
      * The explanation's URL encodes the node it was generated from as a
      * {@code selected-node} query parameter (see {@link PipelineLogExtractor#getUrl()}). This is
      * used instead of storing the node ID separately so that existing serialized actions (from
-     * before this check was added, or generated via the console/pipeline-step entry points)
-     * degrade safely: a URL without a matching {@code selected-node} simply misses the cache and
-     * a fresh explanation is generated.
+     * before this check was added) degrade safely: a URL without a matching
+     * {@code selected-node} simply misses the cache and a fresh explanation is generated.
+     * <p>
+     * An exact ID match is not the only case that counts as a hit. Explanations generated
+     * elsewhere — the console output link, or the {@code explainError()} pipeline step run from
+     * {@code post { failure { ... } } }} — resolve to a specific node: the individual failing
+     * step for a single failure, or the nearest common ancestor block when there were several.
+     * The graph view lets the user select at a different granularity, most commonly the
+     * enclosing stage rather than the step that actually failed inside it. Reusing the cache
+     * only on an exact match would silently ignore a perfectly good, already-generated
+     * explanation and trigger a redundant AI call the moment the user clicks the stage instead
+     * of the step — so a cache hit here also covers either node enclosing the other.
      *
      * @param action the cached explanation to check
      * @param nodeId the currently selected node ID
-     * @return {@code true} if the cached explanation was generated for {@code nodeId}
+     * @return {@code true} if the cached explanation covers {@code nodeId}
      */
     @VisibleForTesting
-    static boolean cachedExplanationMatchesNode(ErrorExplanationAction action, String nodeId) {
+    boolean cachedExplanationMatchesNode(ErrorExplanationAction action, String nodeId) {
         String cachedUrl = action.getUrlString();
         if (cachedUrl == null || nodeId == null) {
             return false;
         }
         Matcher matcher = SELECTED_NODE_PATTERN.matcher(cachedUrl);
-        return matcher.find() && matcher.group(1).equals(nodeId);
+        if (!matcher.find()) {
+            return false;
+        }
+        String cachedNodeId = matcher.group(1);
+        if (cachedNodeId.equals(nodeId)) {
+            return true;
+        }
+        if (!(run instanceof WorkflowRun)) {
+            return false;
+        }
+        FlowExecution execution = ((WorkflowRun) run).getExecution();
+        if (execution == null) {
+            return false;
+        }
+        FlowNode cachedNode = findNode(execution, cachedNodeId);
+        FlowNode requestedNode = findNode(execution, nodeId);
+        if (cachedNode == null || requestedNode == null) {
+            return false;
+        }
+        return isEnclosedBy(cachedNode, nodeId) || isEnclosedBy(requestedNode, cachedNodeId);
     }
 
     private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName,

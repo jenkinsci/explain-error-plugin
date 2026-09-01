@@ -407,6 +407,65 @@ class GraphViewExplainErrorActionTest {
         }
     }
 
+    @Test
+    void testExplainNodeErrorReusesAutoTriggeredExplanationForEnclosingStage() throws Exception {
+        // Mirrors the real-world setup: a declarative pipeline whose post{failure{}} block
+        // calls explainError() directly, generating an ErrorExplanationAction tied to the
+        // specific failing `sh` step — not the stage that encloses it.
+        WorkflowJob job = rule.jenkins.createProject(WorkflowJob.class, "auto-trigger-stage-cache");
+        job.setDefinition(new CpsFlowDefinition(
+                "pipeline {\n"
+                + "  agent any\n"
+                + "  stages {\n"
+                + "    stage('Run') {\n"
+                + "      steps {\n"
+                + "        sh 'nonexistent-command-xyz'\n"
+                + "      }\n"
+                + "    }\n"
+                + "  }\n"
+                + "  post {\n"
+                + "    failure {\n"
+                + "      explainError()\n"
+                + "    }\n"
+                + "  }\n"
+                + "}", true));
+        WorkflowRun pipelineRun = job.scheduleBuild2(0).get();
+        rule.assertBuildStatus(Result.FAILURE, pipelineRun);
+
+        ErrorExplanationAction autoAction = pipelineRun.getAction(ErrorExplanationAction.class);
+        assertNotNull(autoAction, "explainError() in post{failure{}} must have auto-generated an explanation");
+        assertEquals(1, provider.getCallCount(), "only the automatic post{failure{}} call should have run so far");
+
+        // The graph view lets the user select the enclosing "Run" stage, not the individual
+        // failing step the auto-generated explanation is keyed to.
+        String stageNodeId = findStageNode(pipelineRun, "Run").getId();
+        assertNotEquals(stageNodeId, extractSelectedNodeIdFromUrl(autoAction.getUrlString()),
+                "test setup must reproduce the stage-vs-step ID mismatch — otherwise this isn't testing anything");
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl()
+                    + pipelineRun.getUrl() + "graph-explain-error/explainNodeError");
+            WebRequest request = new WebRequest(url, HttpMethod.POST);
+            request.setRequestParameters(java.util.Collections.singletonList(
+                new org.htmlunit.util.NameValuePair("nodeId", stageNodeId)
+            ));
+            Page page = client.getPage(request);
+            JSONObject responseJson = JSONObject.fromObject(page.getWebResponse().getContentAsString());
+            assertEquals("success", responseJson.getString("status"));
+            assertTrue(responseJson.getString("message").contains("previously generated"),
+                    "selecting the enclosing stage must reuse the explanation explainError() already "
+                    + "generated, not report a fresh one, got: " + responseJson.getString("message"));
+        }
+        assertEquals(1, provider.getCallCount(),
+                "selecting the enclosing stage must not trigger a second, redundant AI call");
+    }
+
+    private static String extractSelectedNodeIdFromUrl(String url) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[?&]selected-node=([^&]+)").matcher(url);
+        assertTrue(m.find(), "URL must carry a selected-node parameter: " + url);
+        return m.group(1);
+    }
+
     /**
      * Two-stage pipeline where the second stage fails. Stage B contains an
      * {@code echo} before the {@code error} step so that log extraction has
