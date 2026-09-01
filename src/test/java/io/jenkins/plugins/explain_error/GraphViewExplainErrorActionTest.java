@@ -350,6 +350,63 @@ class GraphViewExplainErrorActionTest {
         }
     }
 
+    @Test
+    void testExplainNodeErrorCacheIsScopedToSelectedNode() throws Exception {
+        // Two parallel branches, each independently failing with distinct log content.
+        WorkflowRun pipelineRun = buildPipeline("multi-failed-node",
+                "node {\n"
+                + "  parallel(\n"
+                + "    a: { echo 'log from branch A'; error 'boom A' },\n"
+                + "    b: { echo 'log from branch B'; error 'boom B' }\n"
+                + "  )\n"
+                + "}");
+
+        String nodeAId = null;
+        String nodeBId = null;
+        for (FlowNode node : new FlowGraphWalker(pipelineRun.getExecution())) {
+            if (node.getError() == null) {
+                continue;
+            }
+            List<String> parentLog = new PipelineLogExtractor(pipelineRun, 200)
+                    .extractNodeLog(node.getId());
+            String joined = String.join("\n", parentLog);
+            if (joined.contains("branch A")) {
+                nodeAId = node.getId();
+            } else if (joined.contains("branch B")) {
+                nodeBId = node.getId();
+            }
+        }
+        assertNotNull(nodeAId, "expected to find branch A's failing node");
+        assertNotNull(nodeBId, "expected to find branch B's failing node");
+
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl()
+                    + pipelineRun.getUrl() + "graph-explain-error/explainNodeError");
+
+            // Explain branch A first.
+            provider.setAnswerMessage("Explanation for branch A");
+            WebRequest requestA = new WebRequest(url, HttpMethod.POST);
+            requestA.setRequestParameters(java.util.Collections.singletonList(
+                    new org.htmlunit.util.NameValuePair("nodeId", nodeAId)));
+            Page pageA = client.getPage(requestA);
+            JSONObject jsonA = JSONObject.fromObject(pageA.getWebResponse().getContentAsString());
+            assertTrue(jsonA.getString("message").contains("Explanation for branch A"));
+
+            // Now select branch B's failing node and ask for an explanation (no forceNew,
+            // simulating the user simply clicking "Explain Error" on the newly selected node).
+            provider.setAnswerMessage("Explanation for branch B");
+            WebRequest requestB = new WebRequest(url, HttpMethod.POST);
+            requestB.setRequestParameters(java.util.Collections.singletonList(
+                    new org.htmlunit.util.NameValuePair("nodeId", nodeBId)));
+            Page pageB = client.getPage(requestB);
+            JSONObject jsonB = JSONObject.fromObject(pageB.getWebResponse().getContentAsString());
+
+            assertTrue(jsonB.getString("message").contains("Explanation for branch B"),
+                    "explaining a different failed node must not return the previous node's "
+                    + "cached explanation, got: " + jsonB.getString("message"));
+        }
+    }
+
     /**
      * Two-stage pipeline where the second stage fails. Stage B contains an
      * {@code echo} before the {@code error} step so that log extraction has

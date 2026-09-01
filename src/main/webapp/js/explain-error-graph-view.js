@@ -184,7 +184,19 @@
       return;
     }
     currentSelectedNode = nodeId;
+    // A previously rendered explanation belongs to the node that was selected before —
+    // discard it so a stale explanation is never shown for the newly selected node.
+    resetExplanationPanel();
     checkNodeFailedStatus(nodeId);
+  }
+
+  function resetExplanationPanel() {
+    clearExplanationContent();
+    hideExplanationPanel();
+    var urlLink = document.getElementById('explain-error-graph-url');
+    if (urlLink) {
+      urlLink.classList.add('jenkins-hidden');
+    }
   }
 
   function checkNodeFailedStatus(nodeId) {
