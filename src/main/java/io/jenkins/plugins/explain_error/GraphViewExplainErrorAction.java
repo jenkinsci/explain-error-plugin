@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import jenkins.model.Jenkins;
 import jenkins.model.RunAction2;
 import net.sf.json.JSONObject;
@@ -29,6 +31,9 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public class GraphViewExplainErrorAction implements RunAction2 {
 
     private static final Logger LOGGER = Logger.getLogger(GraphViewExplainErrorAction.class.getName());
+
+    /** Matches the {@code selected-node} query parameter recorded in an explanation's URL. */
+    private static final Pattern SELECTED_NODE_PATTERN = Pattern.compile("[?&]selected-node=([^&]+)");
 
     private transient Run<?, ?> run;
     private String urlString;
@@ -154,9 +159,13 @@ public class GraphViewExplainErrorAction implements RunAction2 {
             // Check if user wants to force a new explanation
             boolean forceNew = "true".equals(req.getParameter("forceNew"));
 
-            // Check if an explanation already exists
+            // Check if an explanation already exists for THIS node. ErrorExplanationAction is a
+            // single action per run (shared with the Console integration), so a pipeline with
+            // multiple independently-failed nodes (e.g. parallel branches) must not reuse an
+            // explanation that was generated for a different node than the one currently selected.
             ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
-            if (!forceNew && existingAction != null && existingAction.hasValidExplanation()) {
+            if (!forceNew && existingAction != null && existingAction.hasValidExplanation()
+                    && cachedExplanationMatchesNode(existingAction, nodeId)) {
                 this.urlString = existingAction.getUrlString();
                 recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
                         existingAction.getProviderModel(), startTimeNanos,
@@ -267,6 +276,30 @@ public class GraphViewExplainErrorAction implements RunAction2 {
             }
         }
         return false;
+    }
+
+    /**
+     * Checks whether a cached {@link ErrorExplanationAction} was generated for the given node.
+     * <p>
+     * The explanation's URL encodes the node it was generated from as a
+     * {@code selected-node} query parameter (see {@link PipelineLogExtractor#getUrl()}). This is
+     * used instead of storing the node ID separately so that existing serialized actions (from
+     * before this check was added, or generated via the console/pipeline-step entry points)
+     * degrade safely: a URL without a matching {@code selected-node} simply misses the cache and
+     * a fresh explanation is generated.
+     *
+     * @param action the cached explanation to check
+     * @param nodeId the currently selected node ID
+     * @return {@code true} if the cached explanation was generated for {@code nodeId}
+     */
+    @VisibleForTesting
+    static boolean cachedExplanationMatchesNode(ErrorExplanationAction action, String nodeId) {
+        String cachedUrl = action.getUrlString();
+        if (cachedUrl == null || nodeId == null) {
+            return false;
+        }
+        Matcher matcher = SELECTED_NODE_PATTERN.matcher(cachedUrl);
+        return matcher.find() && matcher.group(1).equals(nodeId);
     }
 
     private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName,
