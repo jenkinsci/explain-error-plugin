@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import hudson.model.Api;
 import hudson.model.Run;
+import java.util.List;
 import jenkins.model.RunAction2;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
@@ -20,6 +21,12 @@ public class ErrorExplanationAction implements RunAction2 {
     private String providerName = "Unknown";
     private String providerModel = "Unknown";
     private transient Run<?, ?> run;
+
+    // Structured fields — populated after AI response is parsed
+    private String errorSummary;
+    private List<String> resolutionSteps;
+    private List<String> bestPractices;
+    private String errorSignature;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this(explanation, urlString, originalErrorLogs, providerName, null,
@@ -73,6 +80,39 @@ public class ErrorExplanationAction implements RunAction2 {
 
     public String getOriginalErrorLogs() {
         return originalErrorLogs;
+    }
+
+    @Exported(visibility = 1)
+    public String getErrorSummary() {
+        return errorSummary;
+    }
+
+    @Exported(visibility = 1)
+    public List<String> getResolutionSteps() {
+        return resolutionSteps;
+    }
+
+    @Exported(visibility = 1)
+    public List<String> getBestPractices() {
+        return bestPractices;
+    }
+
+    @Exported(visibility = 1)
+    public String getErrorSignature() {
+        return errorSignature;
+    }
+
+    /**
+     * Stores the structured AI analysis on this action.
+     * Called by {@link ExplainErrorStep} after the explanation has been generated.
+     */
+    void setStructuredData(JenkinsLogAnalysis analysis) {
+        if (analysis != null) {
+            this.errorSummary = analysis.errorSummary();
+            this.resolutionSteps = analysis.resolutionSteps();
+            this.bestPractices = analysis.bestPractices();
+            this.errorSignature = analysis.errorSignature();
+        }
     }
 
     @Exported(visibility = 1)
