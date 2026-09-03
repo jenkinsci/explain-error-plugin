@@ -28,7 +28,6 @@ class BitbucketServerApiClientTest {
     void setUp() {
         server = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         server.start();
-        configureFor("localhost", server.port());
 
         ScmRepo repo = new ScmRepo(
                 ScmType.BITBUCKET_SERVER,
@@ -50,7 +49,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void getDefaultBranch_returnsDisplayId() throws Exception {
-        stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
                 .willReturn(okJson("{\"displayId\":\"main\",\"id\":\"refs/heads/main\"}")));
 
         assertEquals("main", client.getDefaultBranch());
@@ -58,7 +57,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void getDefaultBranch_notFound_throwsIOException() {
-        stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
                 .willReturn(aResponse().withStatus(404).withBody("{\"errors\":[]}")));
 
         assertThrows(Exception.class, () -> client.getDefaultBranch());
@@ -70,9 +69,9 @@ class BitbucketServerApiClientTest {
 
     @Test
     void validateWriteAccess_returns200_succeeds() {
-        stubFor(get(urlEqualTo(REPO_PATH))
+        server.stubFor(get(urlEqualTo(REPO_PATH))
                 .willReturn(okJson("{\"slug\":\"my-repo\",\"project\":{\"key\":\"PROJ\"}}")));
-        stubFor(get(urlEqualTo(REPO_PATH + "/permissions/users?limit=1"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/permissions/users?limit=1"))
                 .willReturn(okJson("{\"values\":[]}")));
 
         assertDoesNotThrow(() -> client.validateWriteAccess());
@@ -80,7 +79,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void validateWriteAccess_repoGet401_throwsIOException() {
-        stubFor(get(urlEqualTo(REPO_PATH))
+        server.stubFor(get(urlEqualTo(REPO_PATH))
                 .willReturn(aResponse().withStatus(401).withBody("{\"errors\":[]}")));
 
         assertThrows(Exception.class, () -> client.validateWriteAccess());
@@ -88,7 +87,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void validateWriteAccess_repoGet403_throwsIOException() {
-        stubFor(get(urlEqualTo(REPO_PATH))
+        server.stubFor(get(urlEqualTo(REPO_PATH))
                 .willReturn(aResponse().withStatus(403).withBody("{\"errors\":[]}")));
 
         assertThrows(Exception.class, () -> client.validateWriteAccess());
@@ -100,7 +99,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void createBranch_success() {
-        stubFor(post(urlEqualTo(REPO_PATH + "/branches"))
+        server.stubFor(post(urlEqualTo(REPO_PATH + "/branches"))
                 .willReturn(aResponse().withStatus(200)
                         .withBody("{\"displayId\":\"fix/test\",\"id\":\"refs/heads/fix/test\"}")));
 
@@ -109,7 +108,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void createBranch_conflict_throwsIOException() {
-        stubFor(post(urlEqualTo(REPO_PATH + "/branches"))
+        server.stubFor(post(urlEqualTo(REPO_PATH + "/branches"))
                 .willReturn(aResponse().withStatus(409).withBody("{\"errors\":[{\"message\":\"Branch already exists\"}]}")));
 
         assertThrows(Exception.class, () -> client.createBranch("fix/test", "main"));
@@ -121,7 +120,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void getFileContent_found_returnsContent() throws Exception {
-        stubFor(get(urlPathEqualTo(REPO_PATH + "/raw/pom.xml"))
+        server.stubFor(get(urlPathEqualTo(REPO_PATH + "/raw/pom.xml"))
                 .willReturn(aResponse().withStatus(200).withBody("<project/>")));
 
         assertEquals("<project/>", client.getFileContent("pom.xml", "main"));
@@ -129,7 +128,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void getFileContent_notFound_returnsNull() throws Exception {
-        stubFor(get(urlPathEqualTo(REPO_PATH + "/raw/missing.txt"))
+        server.stubFor(get(urlPathEqualTo(REPO_PATH + "/raw/missing.txt"))
                 .willReturn(aResponse().withStatus(404).withBody("{\"errors\":[]}")));
 
         assertNull(client.getFileContent("missing.txt", "main"));
@@ -142,10 +141,10 @@ class BitbucketServerApiClientTest {
     @Test
     void commitFiles_singleFile_success() throws Exception {
         // First: get branch HEAD commit
-        stubFor(get(urlPathEqualTo(REPO_PATH + "/commits"))
+        server.stubFor(get(urlPathEqualTo(REPO_PATH + "/commits"))
                 .willReturn(okJson("{\"values\":[{\"id\":\"abc123\"}]}")));
         // Then: PUT the file
-        stubFor(put(urlEqualTo(REPO_PATH + "/browse/pom.xml"))
+        server.stubFor(put(urlEqualTo(REPO_PATH + "/browse/pom.xml"))
                 .willReturn(aResponse().withStatus(200).withBody("{\"id\":\"def456\"}")));
 
         assertDoesNotThrow(() ->
@@ -154,11 +153,11 @@ class BitbucketServerApiClientTest {
 
     @Test
     void commitFiles_multipleFiles_chainsCommitIds() throws Exception {
-        stubFor(get(urlPathEqualTo(REPO_PATH + "/commits"))
+        server.stubFor(get(urlPathEqualTo(REPO_PATH + "/commits"))
                 .willReturn(okJson("{\"values\":[{\"id\":\"sha0\"}]}")));
-        stubFor(put(urlEqualTo(REPO_PATH + "/browse/file1.txt"))
+        server.stubFor(put(urlEqualTo(REPO_PATH + "/browse/file1.txt"))
                 .willReturn(aResponse().withStatus(200).withBody("{\"id\":\"sha1\"}")));
-        stubFor(put(urlEqualTo(REPO_PATH + "/browse/file2.txt"))
+        server.stubFor(put(urlEqualTo(REPO_PATH + "/browse/file2.txt"))
                 .willReturn(aResponse().withStatus(200).withBody("{\"id\":\"sha2\"}")));
 
         // Use LinkedHashMap to control iteration order
@@ -169,15 +168,15 @@ class BitbucketServerApiClientTest {
         assertDoesNotThrow(() -> client.commitFiles("fix-branch", "fix: apply patch", files));
 
         // Both files must have been committed
-        verify(putRequestedFor(urlEqualTo(REPO_PATH + "/browse/file1.txt")));
-        verify(putRequestedFor(urlEqualTo(REPO_PATH + "/browse/file2.txt")));
+        server.verify(putRequestedFor(urlEqualTo(REPO_PATH + "/browse/file1.txt")));
+        server.verify(putRequestedFor(urlEqualTo(REPO_PATH + "/browse/file2.txt")));
     }
 
     @Test
     void commitFiles_putFails_throwsIOException() {
-        stubFor(get(urlPathEqualTo(REPO_PATH + "/commits"))
+        server.stubFor(get(urlPathEqualTo(REPO_PATH + "/commits"))
                 .willReturn(okJson("{\"values\":[{\"id\":\"abc123\"}]}")));
-        stubFor(put(urlEqualTo(REPO_PATH + "/browse/pom.xml"))
+        server.stubFor(put(urlEqualTo(REPO_PATH + "/browse/pom.xml"))
                 .willReturn(aResponse().withStatus(400).withBody("{\"errors\":[{\"message\":\"Bad request\"}]}")));
 
         assertThrows(Exception.class, () ->
@@ -192,7 +191,7 @@ class BitbucketServerApiClientTest {
     void createPullRequest_success_returnsPullRequest() throws Exception {
         String responseBody = "{\"id\":42,\"links\":{\"self\":[{\"href\":"
                 + "\"https://bitbucket.company.com/projects/PROJ/repos/my-repo/pull-requests/42\"}]}}";
-        stubFor(post(urlEqualTo(REPO_PATH + "/pull-requests"))
+        server.stubFor(post(urlEqualTo(REPO_PATH + "/pull-requests"))
                 .willReturn(aResponse().withStatus(201).withBody(responseBody)));
 
         PullRequest pr = client.createPullRequest("fix: auto-fix", "description", "fix-branch", "main", false);
@@ -206,7 +205,7 @@ class BitbucketServerApiClientTest {
     void createPullRequest_draftFlagIgnored_stillCreatesRegularPr() throws Exception {
         String responseBody = "{\"id\":5,\"links\":{\"self\":[{\"href\":"
                 + "\"https://bitbucket.company.com/projects/PROJ/repos/my-repo/pull-requests/5\"}]}}";
-        stubFor(post(urlEqualTo(REPO_PATH + "/pull-requests"))
+        server.stubFor(post(urlEqualTo(REPO_PATH + "/pull-requests"))
                 .willReturn(aResponse().withStatus(201).withBody(responseBody)));
 
         // draft=true should be ignored (Bitbucket Server has no draft PR support)
@@ -216,7 +215,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void createPullRequest_returns409_throwsIOException() {
-        stubFor(post(urlEqualTo(REPO_PATH + "/pull-requests"))
+        server.stubFor(post(urlEqualTo(REPO_PATH + "/pull-requests"))
                 .willReturn(aResponse().withStatus(409)
                         .withBody("{\"errors\":[{\"message\":\"PR already exists\"}]}")));
 
@@ -230,7 +229,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void deleteBranch_success() {
-        stubFor(delete(urlEqualTo(REPO_PATH + "/branches"))
+        server.stubFor(delete(urlEqualTo(REPO_PATH + "/branches"))
                 .willReturn(aResponse().withStatus(204)));
 
         assertDoesNotThrow(() -> client.deleteBranch("fix-branch"));
@@ -238,7 +237,7 @@ class BitbucketServerApiClientTest {
 
     @Test
     void deleteBranch_returns404_throwsIOException() {
-        stubFor(delete(urlEqualTo(REPO_PATH + "/branches"))
+        server.stubFor(delete(urlEqualTo(REPO_PATH + "/branches"))
                 .willReturn(aResponse().withStatus(404).withBody("{\"errors\":[]}")));
 
         assertThrows(Exception.class, () -> client.deleteBranch("fix-branch"));
@@ -250,12 +249,12 @@ class BitbucketServerApiClientTest {
 
     @Test
     void getDefaultBranch_retryOn429_succeeds() throws Exception {
-        stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
                 .inScenario("Retry")
                 .whenScenarioStateIs("Started")
                 .willReturn(aResponse().withStatus(429))
                 .willSetStateTo("Retry1"));
-        stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
                 .inScenario("Retry")
                 .whenScenarioStateIs("Retry1")
                 .willReturn(okJson("{\"displayId\":\"main\"}")));
@@ -265,12 +264,12 @@ class BitbucketServerApiClientTest {
 
     @Test
     void getDefaultBranch_retryOn503_succeeds() throws Exception {
-        stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
                 .inScenario("Retry503")
                 .whenScenarioStateIs("Started")
                 .willReturn(aResponse().withStatus(503).withBody("Service Unavailable"))
                 .willSetStateTo("Ok"));
-        stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
+        server.stubFor(get(urlEqualTo(REPO_PATH + "/branches/default"))
                 .inScenario("Retry503")
                 .whenScenarioStateIs("Ok")
                 .willReturn(okJson("{\"displayId\":\"develop\"}")));
