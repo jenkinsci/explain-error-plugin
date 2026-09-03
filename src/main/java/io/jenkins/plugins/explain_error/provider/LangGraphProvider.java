@@ -113,7 +113,7 @@ public class LangGraphProvider extends BaseAIProvider {
         return urlValue == null || keyValue == null;
     }
 
-    private JenkinsLogAnalysis analyzeWithLangGraph(String errorLogs, String language, String customContext)
+    private String analyzeWithLangGraph(String errorLogs, String language, String customContext)
             throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
             .connectTimeout(Duration.ofSeconds(resolveTimeout()))
@@ -121,8 +121,7 @@ public class LangGraphProvider extends BaseAIProvider {
 
         try {
             String body = buildRunRequestBody(errorLogs, language, customContext);
-            String content = sendRequest(client, body);
-            return parseAnalysis(content);
+            return sendRequest(client, body);
         } catch (IOException e) {
             LOGGER.warning("LangGraph Platform communication failed: " + e);
             throw new ExplanationException("error", "Failed to communicate with LangGraph Platform: " + e.getMessage(), e);

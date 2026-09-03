@@ -198,8 +198,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                 || clientIdValue == null || clientSecretValue == null;
     }
 
-    private JenkinsLogAnalysis analyzeWithOkta(String errorLogs, String language, String customContext,
-                                               @CheckForNull Double temperature)
+    private String analyzeWithOkta(String errorLogs, String language, String customContext,
+                                    @CheckForNull Double temperature)
             throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(resolveTimeoutSeconds()))
@@ -266,12 +266,11 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         return accessToken;
     }
 
-    private JenkinsLogAnalysis requestAnalysis(HttpClient client, String accessToken, String errorLogs,
-                                               String language, String customContext,
-                                               @CheckForNull Double temperature)
+    private String requestAnalysis(HttpClient client, String accessToken, String errorLogs,
+                                    String language, String customContext,
+                                    @CheckForNull Double temperature)
             throws IOException, InterruptedException, ExplanationException {
-        String content = requestRawContent(client, accessToken, buildChatRequestBody(errorLogs, language, customContext, temperature));
-        return parseAnalysis(content);
+        return requestRawContent(client, accessToken, buildChatRequestBody(errorLogs, language, customContext, temperature));
     }
 
     private String requestRawContent(HttpClient client, String accessToken, String requestBody)
