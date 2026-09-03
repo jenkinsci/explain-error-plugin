@@ -31,6 +31,7 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.springframework.security.core.Authentication;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -146,12 +147,10 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
+    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                     @CheckForNull Double temperature) {
+        // Authentication against the gateway uses the configured OAuth client
+        // credentials; item-scoped credentials do not apply to this provider.
         return (errorLogs, language, customContext) -> {
             try {
                 return analyzeWithOkta(errorLogs, language, customContext, temperature);
@@ -162,7 +161,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
+            @CheckForNull Item item, @CheckForNull Authentication authentication) {
         return errorLogs -> {
             try {
                 return requestFixSuggestion(errorLogs);
@@ -243,13 +243,14 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         String credentials = getClientId() + ':' + Secret.toString(getClientSecret());
         String basicAuth = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
 
-        HttpRequest request = HttpRequest.newBuilder(URI.create(getTokenUrl()))
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(getTokenUrl()))
                 .timeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("Authorization", "Basic " + basicAuth)
-                .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString()));
+        withProxyAuthorization(builder);
+        HttpRequest request = builder.build();
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() >= 400) {
@@ -275,13 +276,14 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
     private String requestRawContent(HttpClient client, String accessToken, String requestBody)
             throws IOException, InterruptedException, ExplanationException {
-        HttpRequest request = HttpRequest.newBuilder(buildChatUri())
+        HttpRequest.Builder builder = HttpRequest.newBuilder(buildChatUri())
                 .timeout(Duration.ofSeconds(resolveTimeoutSeconds()))
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .header(resolveAccessTokenHeader(), buildAccessTokenHeaderValue(accessToken))
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .build();
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody));
+        withProxyAuthorization(builder);
+        HttpRequest request = builder.build();
 
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.fine("Sending Custom Okta AI request to " + request.uri());
@@ -295,6 +297,13 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
         JsonNode json = OBJECT_MAPPER.readTree(response.body());
         return extractAssistantContent(json);
+    }
+
+    private void withProxyAuthorization(HttpRequest.Builder builder) {
+        String proxyAuthorization = getProxyAuthorizationHeader();
+        if (proxyAuthorization != null) {
+            builder.header("Proxy-Authorization", proxyAuthorization);
+        }
     }
 
     private URI buildChatUri() {
@@ -596,7 +605,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                                                   @QueryParameter("appKey") Secret appKey,
                                                   @QueryParameter("userId") String userId,
                                                   @QueryParameter("timeoutSeconds") Integer timeoutSeconds)
-                throws ExplanationException {
+ {
             checkConfigurePermission(context);
 
             CustomOktaAIProvider provider = new CustomOktaAIProvider(url, tokenUrl, model, clientId, clientSecret);
@@ -608,12 +617,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
             provider.setUserId(userId);
             provider.setTimeoutSeconds(timeoutSeconds);
 
-            try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
-            }
+            return runConfigurationTest(context, provider);
         }
     }
 }

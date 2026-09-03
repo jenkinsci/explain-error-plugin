@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -26,7 +26,7 @@ class ConsoleExplainErrorActionTest {
     private ConsoleExplainErrorAction action;
     private FreeStyleBuild build;
     private JenkinsRule rule;
-    private final TestProvider provider = new TestProvider();
+    private final FakeAIProvider provider = new FakeAIProvider();
     FreeStyleProject project;
 
     @BeforeEach

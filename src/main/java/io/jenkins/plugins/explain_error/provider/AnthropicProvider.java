@@ -3,7 +3,6 @@ package io.jenkins.plugins.explain_error.provider;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -14,7 +13,6 @@ import hudson.model.TaskListener;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
-import io.jenkins.plugins.explain_error.ExplanationException;
 import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -28,7 +26,7 @@ import org.kohsuke.stapler.verb.GET;
 import org.kohsuke.stapler.verb.POST;
 import org.springframework.security.core.Authentication;
 
-public class AnthropicProvider extends BaseAIProvider {
+public class AnthropicProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(AnthropicProvider.class.getName());
     // Using Claude Sonnet 4.6 as default - supports temperature and is stable
@@ -60,31 +58,8 @@ public class AnthropicProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        ChatModel model = buildChatModel(null, null);
-        return AiServices.create(Assistant.class, model);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
-        ChatModel model = buildChatModel(item, authentication);
-        return AiServices.create(Assistant.class, model);
-    }
-
-    @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
-        ChatModel model = buildChatModel(null, null);
-        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
-    }
-
-    @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(@CheckForNull Item item,
-                                                                                     @CheckForNull Authentication authentication) {
-        ChatModel model = buildChatModel(item, authentication);
-        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
-    }
-
-    private ChatModel buildChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication) {
+    protected ChatModel createChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                        @CheckForNull Double temperature) {
         String resolvedApiKey = resolveApiKey(item, authentication);
         if (resolvedApiKey == null) {
             throw new IllegalStateException("No API key configured for Anthropic");
@@ -99,14 +74,24 @@ public class AnthropicProvider extends BaseAIProvider {
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE));
 
-        // Temperature is deprecated in Claude Opus 4.7+ per Anthropic migration guide
-        // Setting temperature on 4.7+ returns 400 error
-        // Claude 4.6 and earlier still support temperature
-        boolean skipTemperature = isClaude47OrNewer(getModel());
-        if (skipTemperature) {
-            LOGGER.fine("Skipping temperature parameter for Claude 4.7+ model: " + getModel());
+        // Temperature is deprecated in Claude Opus 4.7+ per Anthropic migration guide:
+        // setting it on 4.7+ returns a 400 error. Claude 4.6 and earlier still support it.
+        if (isClaude47OrNewer(getModel())) {
+            LOGGER.fine(() -> temperature != null
+                    ? "Ignoring configured temperature for Claude 4.7+ model " + getModel()
+                            + ": the Anthropic API rejects the parameter."
+                    : "Skipping temperature parameter for Claude 4.7+ model: " + getModel());
         } else {
-            builder.temperature(0.3);
+            double effective = temperature != null ? temperature : 0.3;
+            // Anthropic only accepts 0..1 while other providers allow up to 2.0.
+            // Clamp so a globally configured temperature that is valid elsewhere
+            // cannot make every Anthropic request fail with HTTP 400.
+            double clamped = Math.min(Math.max(effective, 0.0), 1.0);
+            if (clamped != effective) {
+                LOGGER.fine(() -> "Clamping configured temperature " + effective
+                        + " to " + clamped + " (Anthropic accepts 0..1).");
+            }
+            builder.temperature(clamped);
         }
 
         return builder.build();
@@ -210,6 +195,13 @@ public class AnthropicProvider extends BaseAIProvider {
         return !hasAnyAuth || modelName == null;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        String configured = Util.fixEmptyAndTrim(getUrl());
+        // langchain4j's Anthropic default base URL when none is configured.
+        return configured != null ? configured : "https://api.anthropic.com/v1/";
+    }
+
     @Extension
     @Symbol("anthropic")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -265,16 +257,8 @@ public class AnthropicProvider extends BaseAIProvider {
                                                   @QueryParameter("credentialsId") String credentialsId,
                                                   @QueryParameter("url") String url,
                                                   @QueryParameter("model") String model,
-                                                  @QueryParameter("maxTokens") Integer maxTokens) throws ExplanationException {
-            checkConfigurePermission(context);
-
-            AnthropicProvider provider = new AnthropicProvider(url, model, apiKey, credentialsId, maxTokens);
-            try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
-            }
+                                                  @QueryParameter("maxTokens") Integer maxTokens) {
+            return runConfigurationTest(context, new AnthropicProvider(url, model, apiKey, credentialsId, maxTokens));
         }
     }
 }

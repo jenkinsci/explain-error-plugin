@@ -4,7 +4,6 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -15,7 +14,6 @@ import hudson.model.TaskListener;
 import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
-import io.jenkins.plugins.explain_error.ExplanationException;
 import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,7 +27,7 @@ import org.kohsuke.stapler.verb.GET;
 import org.kohsuke.stapler.verb.POST;
 import org.springframework.security.core.Authentication;
 
-public class QwenProvider extends BaseAIProvider {
+public class QwenProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(QwenProvider.class.getName());
     public static final String DEFAULT_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -54,42 +52,8 @@ public class QwenProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null, null, null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
-        return createAssistant(item, authentication, null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
-        return createAssistant(null, null, temperature);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
-                                     @CheckForNull Double temperature) {
-        ChatModel model = buildChatModel(item, authentication, temperature);
-        return AiServices.create(Assistant.class, model);
-    }
-
-    @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
-        ChatModel model = buildChatModel(null, null, null);
-        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
-    }
-
-    @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(@CheckForNull Item item,
-                                                                                     @CheckForNull Authentication authentication) {
-        ChatModel model = buildChatModel(item, authentication, null);
-        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
-    }
-
-    private ChatModel buildChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication,
-                                     @CheckForNull Double temperature) {
+    protected ChatModel createChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                        @CheckForNull Double temperature) {
         String resolvedApiKey = resolveApiKey(item, authentication);
         if (resolvedApiKey == null) {
             throw new IllegalStateException("No API key configured for Qwen");
@@ -178,6 +142,11 @@ public class QwenProvider extends BaseAIProvider {
         return trimmedUrl != null ? trimmedUrl : DEFAULT_URL;
     }
 
+    @Override
+    public String getEffectiveEndpointForDiagnostics() {
+        return resolveUrl(getUrl());
+    }
+
     @Extension
     @Symbol("qwen")
     public static class DescriptorImpl extends BaseProviderDescriptor {
@@ -229,16 +198,8 @@ public class QwenProvider extends BaseAIProvider {
                                                   @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("credentialsId") String credentialsId,
                                                   @QueryParameter("url") String url,
-                                                  @QueryParameter("model") String model) throws ExplanationException {
-            checkConfigurePermission(context);
-
-            QwenProvider provider = new QwenProvider(url, model, apiKey, credentialsId);
-            try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
-            }
+                                                  @QueryParameter("model") String model) {
+            return runConfigurationTest(context, new QwenProvider(url, model, apiKey, credentialsId));
         }
     }
 }

@@ -22,7 +22,7 @@ import hudson.model.Run;
 import hudson.model.User;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -246,12 +246,12 @@ class PipelineLogExtractorTest {
     /**
      * End-to-end test: verify that with a catchError pipeline, the AI provider receives
      * the error content from inside the catchError block (not just archiving warnings).
-     * Uses TestProvider to capture what gets sent to the AI model.
+     * Uses FakeAIProvider to capture what gets sent to the AI model.
      */
     @Test
     @DisabledOnOs(OS.WINDOWS)
     void endToEnd_catchErrorWithExplainError_aiReceivesInnerError(JenkinsRule jenkins) throws Exception {
-        TestProvider testProvider = new TestProvider();
+        FakeAIProvider testProvider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(testProvider);
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-e2e-catcherror");

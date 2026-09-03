@@ -3,7 +3,6 @@ package io.jenkins.plugins.explain_error.provider;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaChatModel;
-import dev.langchain4j.service.AiServices;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -12,7 +11,6 @@ import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
-import io.jenkins.plugins.explain_error.ExplanationException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.logging.Level;
@@ -21,10 +19,11 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.springframework.security.core.Authentication;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
-public class OllamaProvider extends BaseAIProvider {
+public class OllamaProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(OllamaProvider.class.getName());
 
@@ -41,23 +40,8 @@ public class OllamaProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
-        ChatModel model = buildChatModel(temperature);
-        return AiServices.create(Assistant.class, model);
-    }
-
-    @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
-        ChatModel model = buildChatModel(null);
-        return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class, model);
-    }
-
-    private ChatModel buildChatModel(@CheckForNull Double temperature) {
+    protected ChatModel createChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication,
+                                        @CheckForNull Double temperature) {
         var builder = OllamaChatModel.builder()
                 .baseUrl(getUrl())
                 .modelName(getModel())
@@ -120,16 +104,8 @@ public class OllamaProvider extends BaseAIProvider {
         public FormValidation doTestConfiguration(@AncestorInPath Item context,
                                                   @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
-                                                  @QueryParameter("model") String model) throws ExplanationException {
-            checkConfigurePermission(context);
-
-            OllamaProvider provider = new OllamaProvider(url, model, apiKey);
-            try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
-                return FormValidation.ok("Configuration test successful! API connection is working properly.");
-            } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
-            }
+                                                  @QueryParameter("model") String model) {
+            return runConfigurationTest(context, new OllamaProvider(url, model, apiKey));
         }
     }
 }

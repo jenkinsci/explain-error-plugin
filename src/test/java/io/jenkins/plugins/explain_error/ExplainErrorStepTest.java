@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.cloudbees.hudson.plugins.folder.Folder;
 import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -47,7 +47,7 @@ class ExplainErrorStepTest {
     @Test
     void testExplainErrorStep(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
 
         // Create a test pipeline job
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-explain-error");
@@ -73,7 +73,7 @@ class ExplainErrorStepTest {
     @Test
     void testExplainErrorStepReturnValue(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
 
         // Create a test pipeline job
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-explain-error-return");
@@ -98,7 +98,7 @@ class ExplainErrorStepTest {
     void testExplainErrorStepDisabled(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         config.setEnableExplanation(false);
-        config.setAiProvider(new TestProvider());
+        config.setAiProvider(new FakeAIProvider());
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-explain-error-disabled");
         job.setDefinition(new CpsFlowDefinition("node {\n"
@@ -113,7 +113,7 @@ class ExplainErrorStepTest {
 
     @Test
     void testExplainErrorStepPassesLanguageToAI(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-language");
@@ -134,7 +134,7 @@ class ExplainErrorStepTest {
     void testAutoFix_disabledByDefault_noAutoFixSideEffects(JenkinsRule jenkins) throws Exception {
         // When autoFix is not set (default false), the auto-fix block is never entered
         // and no credentialsId is required
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-autofix-disabled");
@@ -148,7 +148,7 @@ class ExplainErrorStepTest {
     @Test
     void testAutoFix_blankCredentials_logsSkipAndContinues(JenkinsRule jenkins) throws Exception {
         // autoFix=true but no credentialsId → auto-fix fails early, step still returns explanation
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-autofix-no-creds");

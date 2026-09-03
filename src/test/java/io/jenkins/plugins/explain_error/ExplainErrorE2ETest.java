@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
 import hudson.model.Result;
-import io.jenkins.plugins.explain_error.provider.TestProvider;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -18,7 +18,7 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 /**
  * End-to-end integration tests that cover all supported plugin features.
  *
- * <p>These tests use {@link TestProvider} (no real AI API calls) and exercise
+ * <p>These tests use {@link FakeAIProvider} (no real AI API calls) and exercise
  * the full stack: pipeline execution → log extraction → provider selection →
  * AI input/output → build action storage.
  *
@@ -54,7 +54,7 @@ class ExplainErrorE2ETest {
      */
     @Test
     void declarativePipeline_postFailure_explainErrorGeneratesExplanation(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setAnswerMessage("Declarative pipeline failure detected");
         GlobalConfigurationImpl.get().setAiProvider(provider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
@@ -104,7 +104,7 @@ class ExplainErrorE2ETest {
      */
     @Test
     void logPattern_filtersLogsBeforePassingToAI(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
 
@@ -140,7 +140,7 @@ class ExplainErrorE2ETest {
      */
     @Test
     void maxLines_capsLogPayloadSentToAI(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
 
@@ -180,14 +180,14 @@ class ExplainErrorE2ETest {
     @Test
     void folderProvider_overridesGlobalProvider_inRealPipelineRun(JenkinsRule jenkins) throws Exception {
         // Global provider — should NOT be called
-        TestProvider globalProvider = new TestProvider();
+        FakeAIProvider globalProvider = new FakeAIProvider();
         globalProvider.setAnswerMessage("GLOBAL_ANSWER");
         GlobalConfigurationImpl.get().setAiProvider(globalProvider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
 
         // Create folder with its own provider
         Folder folder = jenkins.jenkins.createProject(Folder.class, "team-folder");
-        TestProvider folderProvider = new TestProvider();
+        FakeAIProvider folderProvider = new FakeAIProvider();
         folderProvider.setAnswerMessage("FOLDER_ANSWER");
         ExplainErrorFolderProperty folderProperty = new ExplainErrorFolderProperty();
         folderProperty.setEnableExplanation(true);
@@ -234,7 +234,7 @@ class ExplainErrorE2ETest {
      */
     @Test
     void consoleButton_onFailedBuild_generatesExplanation(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setAnswerMessage("Console button explanation for failure");
         GlobalConfigurationImpl.get().setAiProvider(provider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
@@ -281,7 +281,7 @@ class ExplainErrorE2ETest {
      */
     @Test
     void aiProviderFailure_buildContinues_errorMessageLogged(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setThrowError(true);
         GlobalConfigurationImpl.get().setAiProvider(provider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
@@ -314,7 +314,7 @@ class ExplainErrorE2ETest {
      */
     @Test
     void collectDownstreamLogs_downstreamJobLogsIncludedInAIInput(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
         GlobalConfigurationImpl.get().setEnableExplanation(true);
 

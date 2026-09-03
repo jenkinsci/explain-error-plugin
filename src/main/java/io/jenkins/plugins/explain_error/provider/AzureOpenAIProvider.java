@@ -106,38 +106,6 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     }
 
     @Override
-    public Assistant createAssistant() {
-        return createAssistant(null);
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Double temperature) {
-        return (errorLogs, language, customContext) -> {
-            try {
-                return requestAnalysis(errorLogs, language, customContext, temperature, null, null);
-            } catch (ExplanationException e) {
-                throw new RuntimeException(e.getMessage(), e);
-            }
-        };
-    }
-
-    @Override
-    public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
-        return errorLogs -> {
-            try {
-                return requestFixSuggestion(errorLogs, null, null);
-            } catch (ExplanationException e) {
-                throw new RuntimeException(e.getMessage(), e);
-            }
-        };
-    }
-
-    @Override
-    public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {
-        return createAssistant(item, authentication, null);
-    }
-
-    @Override
     public Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication,
                                      @CheckForNull Double temperature) {
         return (errorLogs, language, customContext) -> {
@@ -715,7 +683,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 provider.testConfiguration();
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
-                return FormValidation.error("Configuration test failed: " + e.getMessage(), e);
+                return testConfigurationFailed(provider, e);
             }
         }
     }

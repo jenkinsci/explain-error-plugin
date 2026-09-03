@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error.provider;
 
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,7 +48,7 @@ class ProviderTest {
 
     @Test
     void testErrorLogsProcessing() throws IOException, ExplanationException {
-        BaseAIProvider provider = new TestProvider();
+        BaseAIProvider provider = new FakeAIProvider();
         String complexErrorLogs = "Started by user admin\n" +
                                  "Building in workspace /var/jenkins_home/workspace/test\n" +
                                  "ERROR: Could not find or load main class Application\n" +
@@ -65,12 +66,24 @@ class ProviderTest {
 
     @Test
     void testErrorLogsProcessingFailure() throws IOException {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setThrowError(true);
         String logs = "All is good.";
 
         ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError(logs, null));
         assertEquals("API request failed: Request failed.", result.getMessage());
+    }
+
+    @Test
+    void anthropicClampsTemperatureToProviderRange() {
+        AnthropicProvider provider = new AnthropicProvider(
+                null, "claude-sonnet-4-6", Secret.fromString("test-key"), null, null);
+
+        // 1.5 is valid for OpenAI-style providers but Anthropic accepts 0..1;
+        // out-of-range values must be clamped instead of failing with HTTP 400.
+        assertEquals(1.0, provider.createChatModel(null, null, 1.5).defaultRequestParameters().temperature());
+        assertEquals(0.7, provider.createChatModel(null, null, 0.7).defaultRequestParameters().temperature());
+        assertEquals(0.3, provider.createChatModel(null, null, null).defaultRequestParameters().temperature());
     }
 
     @Test
@@ -274,6 +287,66 @@ class ProviderTest {
         BaseAIProvider provider = new OllamaProvider("http://localhost:1234", "test-model", Secret.fromString("test-key"));
         assertTrue(provider instanceof OllamaProvider);
         assertEquals("test-key", Secret.toString(((OllamaProvider) provider).getApiKey()));
+    }
+
+    @Test
+    void testOpenAICompatibleNullUrl() {
+        BaseAIProvider provider = new OpenAICompatibleProvider(null, "test-model", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleEmptyUrl() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("", "test-model", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleNullModel() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", null, Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleEmptyModel() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "", Secret.fromString("test-key"));
+        ExplanationException result = assertThrows(ExplanationException.class,
+                () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
+    }
+
+    @Test
+    void testOpenAICompatibleNullApiKey() {
+        // apiKey is optional for OpenAI-compatible gateways (e.g. unauthenticated local proxies)
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "test-model", null);
+        assertFalse(provider.isNotValid(null),
+                "provider with url and model set must be valid even when apiKey is null");
+    }
+
+    @Test
+    void testOpenAICompatibleEmptyApiKey() {
+        BaseAIProvider provider = new OpenAICompatibleProvider("http://localhost:1234", "test-model", Secret.fromString(""));
+        assertFalse(provider.isNotValid(null),
+                "provider with url and model set must be valid even when apiKey is empty");
+    }
+
+    @Test
+    void testOpenAICompatibleValidConfig() {
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                "http://localhost:1234", "gateway-model", Secret.fromString("test-key"));
+        assertEquals("http://localhost:1234", provider.getUrl());
+        assertEquals("gateway-model", provider.getModel());
+        assertEquals("test-key", Secret.toString(provider.getApiKey()));
     }
 
     @Test
@@ -548,12 +621,15 @@ class ProviderTest {
         }
 
         @Override
-        public Assistant createAssistant() {
+        public Assistant createAssistant(hudson.model.Item item,
+                                         org.springframework.security.core.Authentication authentication,
+                                         Double temperature) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant() {
+        public io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
+                hudson.model.Item item, org.springframework.security.core.Authentication authentication) {
             throw new UnsupportedOperationException();
         }
 
