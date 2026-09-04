@@ -8,11 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import hudson.model.Item;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.springframework.security.core.Authentication;
 
 /**
  * Tests for {@link BaseAIProvider} parsing logic:
@@ -107,7 +109,7 @@ class BaseAIProviderParsingTest {
 
     @Test
     void getJenkinsLogAnalysisIsPopulatedAfterSuccessfulExplainError(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setAnswerMessage("Deployment failed");
 
         assertNull(provider.getJenkinsLogAnalysis(), "must be null before any call");
@@ -121,7 +123,7 @@ class BaseAIProviderParsingTest {
 
     @Test
     void getJenkinsLogAnalysisIsNullAfterProviderThrows(JenkinsRule jenkins) {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setThrowError(true);
 
         assertThrows(ExplanationException.class, () -> provider.explainError("some logs", null));
@@ -171,12 +173,12 @@ class BaseAIProviderParsingTest {
     // -------------------------------------------------------------------------
 
     /**
-     * A {@link TestProvider} variant whose assistant always returns the given
+     * A {@link FakeAIProvider} variant whose assistant always returns the given
      * raw string verbatim, bypassing the normal JSON serialization in
-     * {@link TestProvider#createAssistant()}. Used to inject arbitrary AI
-     * responses (including markdown-fenced JSON) without a real HTTP call.
+     * {@link FakeAIProvider}. Used to inject arbitrary AI responses (including
+     * markdown-fenced JSON) without a real HTTP call.
      */
-    private static class FencedResponseProvider extends TestProvider {
+    private static class FencedResponseProvider extends FakeAIProvider {
 
         private final String rawResponse;
 
@@ -185,12 +187,9 @@ class BaseAIProviderParsingTest {
         }
 
         @Override
-        public Assistant createAssistant() {
-            return createAssistant(null);
-        }
-
-        @Override
-        public Assistant createAssistant(@CheckForNull Double temperature) {
+        public Assistant createAssistant(@CheckForNull Item item,
+                                         @CheckForNull Authentication authentication,
+                                         @CheckForNull Double temperature) {
             return (errorLogs, language, customContext) -> rawResponse;
         }
     }

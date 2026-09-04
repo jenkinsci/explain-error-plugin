@@ -13,7 +13,6 @@ import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
-import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import dev.langchain4j.service.SystemMessage;
 import io.jenkins.plugins.explain_error.autofix.FixAssistant;
 import java.io.IOException;
@@ -23,8 +22,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
@@ -126,8 +123,7 @@ public class LangGraphProvider extends BaseAIProvider {
 
         try {
             String body = buildRunRequestBody(errorLogs, language, customContext, temperature);
-            String content = sendRequest(client, body);
-            return parseAnalysis(content);
+            return sendRequest(client, body);
         } catch (IOException e) {
             LOGGER.warning("LangGraph Platform communication failed: " + e);
             throw new ExplanationException("error", "Failed to communicate with LangGraph Platform: " + e.getMessage(), e);
@@ -263,61 +259,6 @@ public class LangGraphProvider extends BaseAIProvider {
             }
         }
         throw new ExplanationException("error", "LangGraph Platform response did not contain an AI message.");
-    }
-
-    private JenkinsLogAnalysis parseAnalysis(String content) throws IOException {
-        JsonNode json = tryParseJson(content);
-        if (json == null || !json.isObject()) {
-            return new JenkinsLogAnalysis(content.trim(), null, null, null);
-        }
-
-        String errorSummary = Util.fixEmptyAndTrim(json.path("errorSummary").asText(null));
-        if (errorSummary == null) {
-            errorSummary = content.trim();
-        }
-
-        return new JenkinsLogAnalysis(
-                errorSummary,
-                toStringList(json.path("resolutionSteps")),
-                toStringList(json.path("bestPractices")),
-                Util.fixEmptyAndTrim(json.path("errorSignature").asText(null)));
-    }
-
-    private JsonNode tryParseJson(String content) throws IOException {
-        try {
-            return OBJECT_MAPPER.readTree(content);
-        } catch (IOException firstFailure) {
-            String trimmed = content == null ? null : content.trim();
-            if (trimmed == null) {
-                return null;
-            }
-            if (trimmed.startsWith("```") && trimmed.endsWith("```")) {
-                int firstLineBreak = trimmed.indexOf('\n');
-                if (firstLineBreak > 0) {
-                    trimmed = trimmed.substring(firstLineBreak + 1, trimmed.length() - 3).trim();
-                }
-            }
-            int jsonStart = trimmed.indexOf('{');
-            int jsonEnd = trimmed.lastIndexOf('}');
-            if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                return OBJECT_MAPPER.readTree(trimmed.substring(jsonStart, jsonEnd + 1));
-            }
-            return null;
-        }
-    }
-
-    private List<String> toStringList(JsonNode node) {
-        if (!node.isArray() || node.isEmpty()) {
-            return null;
-        }
-        List<String> values = new ArrayList<>();
-        for (JsonNode item : node) {
-            String value = Util.fixEmptyAndTrim(item.asText(null));
-            if (value != null) {
-                values.add(value);
-            }
-        }
-        return values.isEmpty() ? null : values;
     }
 
     private static String getFixSystemPrompt() {

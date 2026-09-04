@@ -90,7 +90,6 @@ Support for folder-level overrides allows different teams to use their own AI pr
    - **Temperature** — overrides the global temperature
    - **Language** — overrides the global language
    - **Custom Context** — overrides the global custom context
-   - **Report Format** — overrides the global report format for all jobs in this folder
 
 *All folder settings inherit from parent folders and override global defaults. Step-level settings take precedence over both.*
 

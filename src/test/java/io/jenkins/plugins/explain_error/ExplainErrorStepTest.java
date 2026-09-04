@@ -167,7 +167,7 @@ class ExplainErrorStepTest {
 
     @Test
     void testReturnStructuredReturnsMappingWithErrorSummary(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setAnswerMessage("Disk is full");
         GlobalConfigurationImpl.get().setAiProvider(provider);
 
@@ -184,7 +184,7 @@ class ExplainErrorStepTest {
 
     @Test
     void testReturnStructuredMapContainsAllExpectedKeys(JenkinsRule jenkins) throws Exception {
-        GlobalConfigurationImpl.get().setAiProvider(new TestProvider());
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-keys");
         job.setDefinition(new CpsFlowDefinition(
@@ -203,7 +203,7 @@ class ExplainErrorStepTest {
 
     @Test
     void testReturnStructuredFalseReturnsString(JenkinsRule jenkins) throws Exception {
-        GlobalConfigurationImpl.get().setAiProvider(new TestProvider());
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-false");
         job.setDefinition(new CpsFlowDefinition(
@@ -219,7 +219,7 @@ class ExplainErrorStepTest {
 
     @Test
     void testReturnStructuredDefaultIsFalse(JenkinsRule jenkins) throws Exception {
-        GlobalConfigurationImpl.get().setAiProvider(new TestProvider());
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
 
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-default");
         job.setDefinition(new CpsFlowDefinition(
@@ -235,7 +235,7 @@ class ExplainErrorStepTest {
 
     @Test
     void testActionStructuredDataPopulatedWhenAnalysisAvailable(JenkinsRule jenkins) throws Exception {
-        TestProvider provider = new TestProvider();
+        FakeAIProvider provider = new FakeAIProvider();
         provider.setAnswerMessage("Compilation error in Foo.java");
         GlobalConfigurationImpl.get().setAiProvider(provider);
 
