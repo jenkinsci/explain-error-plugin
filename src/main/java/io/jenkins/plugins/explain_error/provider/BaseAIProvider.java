@@ -1,5 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.http.client.HttpClientBuilder;
 import dev.langchain4j.http.client.jdk.JdkHttpClientBuilder;
 import java.io.IOException;
@@ -12,6 +14,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.logging.Logger;
@@ -252,8 +255,12 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                 + ", temperature: " + (temperature != null ? temperature : "unset (provider default)"));
 
         try {
-            return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
+            String rawContent = assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext);
+            JenkinsLogAnalysis analysis = parseAnalysis(rawContent);
+            jenkinsLogAnalysis.set(analysis);
+            return analysis.toString();
         } catch (Exception e) {
+            jenkinsLogAnalysis.remove();
             LOGGER.severe("AI API request failed: " + e.getMessage());
             throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);
         }
@@ -267,7 +274,84 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public interface Assistant {
         @SystemMessage(SYSTEM_PROMPT)
         @UserMessage(USER_PROMPT_TEMPLATE)
-        JenkinsLogAnalysis analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
+        String analyzeLogs(@V("errorLogs") String errorLogs, @V("language") String language, @V("customContext") String customContext);
+    }
+
+    private static final ObjectMapper BASE_OBJECT_MAPPER = new ObjectMapper();
+    @com.thoughtworks.xstream.annotations.XStreamOmitField
+    private transient final ThreadLocal<JenkinsLogAnalysis> jenkinsLogAnalysis = new ThreadLocal<>();
+
+    /**
+     * Returns the {@link JenkinsLogAnalysis} produced by the most recent
+     * {@link #explainError} call on this thread, or {@code null} if no
+     * analysis has been performed or the call did not succeed.
+     */
+    public JenkinsLogAnalysis getJenkinsLogAnalysis() {
+        return jenkinsLogAnalysis.get();
+    }
+
+    /**
+     * Parses the raw AI response into a {@link JenkinsLogAnalysis}.
+     * Handles responses that are either plain JSON or JSON wrapped in markdown
+     * code fences (e.g. {@code ```json ... ```}), which some models return even
+     * when instructed to respond with raw JSON.
+     */
+    private JenkinsLogAnalysis parseAnalysis(String content) throws IOException {
+        JsonNode json = tryParseJson(content);
+        if (json == null || !json.isObject()) {
+            return new JenkinsLogAnalysis(content == null ? "" : content.trim(), null, null, null);
+        }
+        String errorSummary = Util.fixEmptyAndTrim(json.path("errorSummary").asText(null));
+        if (errorSummary == null) {
+            errorSummary = content.trim();
+        }
+        return new JenkinsLogAnalysis(
+                errorSummary,
+                toStringList(json.path("resolutionSteps")),
+                toStringList(json.path("bestPractices")),
+                Util.fixEmptyAndTrim(json.path("errorSignature").asText(null)));
+    }
+
+    /**
+     * Attempts to parse {@code content} as JSON, stripping markdown code fences
+     * if the initial parse fails. Returns {@code null} if the content cannot be
+     * parsed as a JSON object.
+     */
+    private static JsonNode tryParseJson(String content) throws IOException {
+        try {
+            return BASE_OBJECT_MAPPER.readTree(content);
+        } catch (IOException firstFailure) {
+            String trimmed = content == null ? null : content.trim();
+            if (trimmed == null) {
+                return null;
+            }
+            if (trimmed.startsWith("```") && trimmed.endsWith("```")) {
+                int firstLineBreak = trimmed.indexOf('\n');
+                if (firstLineBreak > 0) {
+                    trimmed = trimmed.substring(firstLineBreak + 1, trimmed.length() - 3).trim();
+                }
+            }
+            int jsonStart = trimmed.indexOf('{');
+            int jsonEnd = trimmed.lastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                return BASE_OBJECT_MAPPER.readTree(trimmed.substring(jsonStart, jsonEnd + 1));
+            }
+            return null;
+        }
+    }
+
+    private static List<String> toStringList(JsonNode node) {
+        if (!node.isArray() || node.isEmpty()) {
+            return null;
+        }
+        List<String> values = new ArrayList<>();
+        for (JsonNode item : node) {
+            String value = Util.fixEmptyAndTrim(item.asText(null));
+            if (value != null) {
+                values.add(value);
+            }
+        }
+        return values.isEmpty() ? null : values;
     }
 
     public final Assistant createAssistant(@CheckForNull Item item, @CheckForNull Authentication authentication) {

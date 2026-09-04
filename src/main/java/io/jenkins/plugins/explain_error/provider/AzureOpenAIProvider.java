@@ -164,17 +164,16 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                 || configuredCredentialsId == null || credentials == null;
     }
 
-    private JenkinsLogAnalysis requestAnalysis(String errorLogs, String language, String customContext,
-                                               @CheckForNull Double temperature,
-                                               @CheckForNull Item item, @CheckForNull Authentication authentication)
+    private String requestAnalysis(String errorLogs, String language, String customContext,
+                                    @CheckForNull Double temperature,
+                                    @CheckForNull Item item, @CheckForNull Authentication authentication)
             throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
                 .build();
         try {
-            String content = requestRawContent(client,
+            return requestRawContent(client,
                     buildAnalysisRequestBody(errorLogs, language, customContext, temperature), item, authentication);
-            return parseAnalysis(content);
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
         } catch (InterruptedException e) {

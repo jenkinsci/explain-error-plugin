@@ -140,7 +140,7 @@ class AutoFixOrchestratorTest {
     void buildPrBody_substitutesAllPlaceholders() {
         Job<?, ?> job = mock(Job.class);
         when(job.getFullName()).thenReturn("my-org/my-repo");
-        when(run.getParent()).thenReturn((Job) job);
+        doReturn(job).when(run).getParent();
         when(run.getNumber()).thenReturn(42);
 
         FixSuggestion suggestion = new FixSuggestion(
@@ -168,7 +168,7 @@ class AutoFixOrchestratorTest {
         // if the explanation itself contained a {placeholder} token.
         Job<?, ?> job = mock(Job.class);
         when(job.getFullName()).thenReturn("proj");
-        when(run.getParent()).thenReturn((Job) job);
+        doReturn(job).when(run).getParent();
         when(run.getNumber()).thenReturn(7);
 
         // explanation contains "{fixType}" — should appear literally in the output
@@ -189,7 +189,7 @@ class AutoFixOrchestratorTest {
     void buildPrBody_noChanges_showsFallback() {
         Job<?, ?> job = mock(Job.class);
         when(job.getFullName()).thenReturn("proj");
-        when(run.getParent()).thenReturn((Job) job);
+        doReturn(job).when(run).getParent();
         when(run.getNumber()).thenReturn(1);
 
         FixSuggestion suggestion = new FixSuggestion(false, null, null, null, null);
@@ -315,7 +315,7 @@ class AutoFixOrchestratorTest {
         when(fixAssistant.suggestFix(anyString())).thenReturn(aiJson);
 
         Job<?, ?> job = mock(Job.class);
-        when(run.getParent()).thenReturn((Job) job);
+        doReturn(job).when(run).getParent();
 
         AutoFixResult result = orchestrator.attemptAutoFix(
                 run, "error logs", aiProvider,
@@ -389,7 +389,7 @@ class AutoFixOrchestratorTest {
     @SuppressWarnings("unchecked")
     void extractRemoteUrl_workflowJobWithScms_returnsFirstGitRemote() {
         WorkflowJob job = mock(WorkflowJob.class);
-        when(run.getParent()).thenReturn((Job) job);
+        doReturn(job).when(run).getParent();
         Collection<? extends SCM> scms = List.of(new FakeGitScm("https://github.com/acme/pipeline-repo.git"));
         doReturn(scms).when(job).getSCMs();
 

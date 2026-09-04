@@ -9,7 +9,10 @@ import io.jenkins.plugins.explain_error.autofix.AutoFixResult;
 import io.jenkins.plugins.explain_error.autofix.AutoFixStatus;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
@@ -27,10 +30,28 @@ import org.kohsuke.stapler.DataBoundSetter;
 public class ExplainErrorStep extends Step {
 
     private String logPattern;
+    /**
+     * Maximum number of log lines to collect in total.
+     * <p>
+     * When {@link #collectDownstreamLogs} is enabled, this value acts as a <em>global budget</em>
+     * shared between the main job log and all downstream job logs (recursively). Lines consumed
+     * by the main job reduce the capacity available for downstream sections, and each downstream
+     * sub-extractor receives only the remaining capacity as its own limit. Downstream log sections
+     * are always truncated to fit within the remaining budget, with one line reserved for the
+     * {@code ### END OF DOWNSTREAM JOB ###} footer marker.
+     */
     private int maxLines;
     private String language;
     private String customContext;
     private Double temperature;
+    /**
+     * Whether to collect and append logs from failed downstream (triggered) jobs.
+     * <p>
+     * When {@code true}, logs from downstream builds are appended after the main job log, all
+     * sharing the same {@link #maxLines} budget. If a downstream job already has a stored AI
+     * explanation (because it called {@code explainError()} itself), that explanation is reused
+     * directly instead of re-extracting the raw logs.
+     */
     private boolean collectDownstreamLogs;
     private String downstreamJobPattern;
     private boolean includeWorkspaceContext = false;
@@ -40,6 +61,10 @@ public class ExplainErrorStep extends Step {
     // Auto-fix fields
     private boolean autoFix = false;
     private String autoFixCredentialsId = "";
+
+    // Output format fields
+    /** When {@code true} the step returns a {@link Map} instead of a plain-text {@link String}. */
+    private boolean returnStructured = false;
     private String autoFixRemoteUrl = "";
     private String autoFixScmType = "";
     private String autoFixGithubEnterpriseUrl = "";
@@ -252,6 +277,15 @@ public class ExplainErrorStep extends Step {
         this.autoFixPrTemplate = autoFixPrTemplate != null ? autoFixPrTemplate : "";
     }
 
+    public boolean isReturnStructured() {
+        return returnStructured;
+    }
+
+    @DataBoundSetter
+    public void setReturnStructured(boolean returnStructured) {
+        this.returnStructured = returnStructured;
+    }
+
     @Override
     public StepExecution start(StepContext context) throws Exception {
         return new ExplainErrorStepExecution(context, this);
@@ -276,7 +310,7 @@ public class ExplainErrorStep extends Step {
         }
     }
 
-    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<String> {
+    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<Object> {
 
         private static final long serialVersionUID = 1L;
         private final transient ExplainErrorStep step;
@@ -287,7 +321,7 @@ public class ExplainErrorStep extends Step {
         }
 
         @Override
-        protected String run() throws Exception {
+        protected Object run() throws Exception {
             Run<?, ?> run = getContext().get(Run.class);
             TaskListener listener = getContext().get(TaskListener.class);
 
@@ -298,6 +332,14 @@ public class ExplainErrorStep extends Step {
             String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
                     step.getLanguage(), effectiveCustomContext, step.isCollectDownstreamLogs(),
                     step.getDownstreamJobPattern(), Jenkins.getAuthentication2(), step.getTemperature());
+
+            // Enrich the stored action with structured data
+            if (run != null && explanation != null) {
+                ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
+                if (action != null) {
+                    action.setStructuredData(explainer.getJenkinsLogAnalysis());
+                }
+            }
 
             if (step.isAutoFix()) {
                 String errorLogs = explainer.getLastErrorLogs();
@@ -340,6 +382,20 @@ public class ExplainErrorStep extends Step {
                 }
             }
 
+            // Return structured Map or plain-text String
+            if (step.isReturnStructured()) {
+                JenkinsLogAnalysis analysis = explainer.getJenkinsLogAnalysis();
+                if (analysis != null) {
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    result.put("errorSummary", analysis.errorSummary());
+                    result.put("resolutionSteps",
+                            analysis.resolutionSteps() != null ? analysis.resolutionSteps() : Collections.emptyList());
+                    result.put("bestPractices",
+                            analysis.bestPractices() != null ? analysis.bestPractices() : Collections.emptyList());
+                    result.put("errorSignature", analysis.errorSignature());
+                    return result;
+                }
+            }
             return explanation;
         }
 

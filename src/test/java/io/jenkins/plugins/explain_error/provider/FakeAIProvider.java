@@ -1,5 +1,7 @@
 package io.jenkins.plugins.explain_error.provider;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -10,6 +12,8 @@ import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public class FakeAIProvider extends OpenAIProvider {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private boolean throwError = false;
     private JenkinsLogAnalysis answerMessage = new JenkinsLogAnalysis(
@@ -34,7 +38,7 @@ public class FakeAIProvider extends OpenAIProvider {
                                      @CheckForNull Double temperature) {
         return new Assistant() {
             @Override
-            public JenkinsLogAnalysis analyzeLogs(String errorLogs, String language, String customContext) {
+            public String analyzeLogs(String errorLogs, String language, String customContext) {
                 if (throwError) {
                     throw new RuntimeException("Request failed.");
                 }
@@ -44,7 +48,20 @@ public class FakeAIProvider extends OpenAIProvider {
                 lastCustomContext = customContext;
                 lastTemperature = temperature;
                 callCount++;
-                return answerMessage;
+                ObjectNode node = MAPPER.createObjectNode();
+                node.put("errorSummary", answerMessage.errorSummary() != null ? answerMessage.errorSummary() : "");
+                if (answerMessage.resolutionSteps() != null) {
+                    var steps = node.putArray("resolutionSteps");
+                    answerMessage.resolutionSteps().forEach(steps::add);
+                }
+                if (answerMessage.bestPractices() != null) {
+                    var practices = node.putArray("bestPractices");
+                    answerMessage.bestPractices().forEach(practices::add);
+                }
+                if (answerMessage.errorSignature() != null) {
+                    node.put("errorSignature", answerMessage.errorSignature());
+                }
+                return node.toString();
             }
         };
     }

@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
 import java.io.StringWriter;
+import java.util.List;
 import net.sf.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -208,5 +210,51 @@ class ErrorExplanationActionTest {
         // Test with valid explanation containing whitespace
         ErrorExplanationAction validWithWhitespaceAction = new ErrorExplanationAction("  Valid explanation  ", "", "Error logs", "Ollama");
         assertTrue(validWithWhitespaceAction.hasValidExplanation());
+    }
+
+    // -------------------------------------------------------------------------
+    // setStructuredData
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testSetStructuredDataPopulatesAllFields() {
+        JenkinsLogAnalysis analysis = new JenkinsLogAnalysis(
+                "Disk is full",
+                List.of("Free disk space", "Rotate logs"),
+                List.of("Monitor disk usage"),
+                "java.io.IOException: No space left");
+
+        action.setStructuredData(analysis);
+
+        assertEquals("Disk is full", action.getErrorSummary());
+        assertEquals(List.of("Free disk space", "Rotate logs"), action.getResolutionSteps());
+        assertEquals(List.of("Monitor disk usage"), action.getBestPractices());
+        assertEquals("java.io.IOException: No space left", action.getErrorSignature());
+    }
+
+    @Test
+    void testSetStructuredDataWithNullAnalysisDoesNotCrash() {
+        action.setStructuredData(null);
+
+        assertNull(action.getErrorSummary());
+        assertNull(action.getResolutionSteps());
+        assertNull(action.getBestPractices());
+        assertNull(action.getErrorSignature());
+    }
+
+    @Test
+    void testStructuredFieldsExposedViaRestApi() throws Exception {
+        ErrorExplanationAction apiAction = new ErrorExplanationAction(
+                testExplanation, "https://example.com", testErrorLogs, "Ollama", "llama3.2", 5);
+        apiAction.setStructuredData(
+                new JenkinsLogAnalysis("NPE in Foo", List.of("Fix null"), null, "NullPointerException"));
+
+        StringWriter writer = new StringWriter();
+        Model<ErrorExplanationAction> model = new ModelBuilder().get(ErrorExplanationAction.class);
+        model.writeTo(apiAction, Flavor.JSON.createDataWriter(apiAction, writer));
+        JSONObject json = JSONObject.fromObject(writer.toString());
+
+        assertEquals("NPE in Foo", json.getString("errorSummary"));
+        assertEquals("NullPointerException", json.getString("errorSignature"));
     }
 }

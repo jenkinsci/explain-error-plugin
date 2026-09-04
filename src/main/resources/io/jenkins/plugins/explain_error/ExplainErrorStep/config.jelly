@@ -103,4 +103,10 @@
             </f:entry>
         </f:advanced>
     </f:optionalBlock>
+
+    <f:entry title="Return Structured" field="returnStructured"
+             description="Return a Map with errorSummary, resolutionSteps, bestPractices and errorSignature keys instead of a plain String. Falls back to String if the AI response cannot be parsed.">
+        <f:checkbox />
+    </f:entry>
+
 </j:jelly>

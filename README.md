@@ -24,6 +24,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
+* **Structured output** *(opt-in)* — `returnStructured: true` returns a `Map` with `errorSummary`, `resolutionSteps`, `bestPractices`, and `errorSignature` keys for use in notifications and ticketing integrations
 * **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
@@ -406,7 +407,7 @@ pipeline {
 }
 ```
 
-**✨ NEW: Return Value Support** - The step now returns the AI explanation as a string, enabling integration with notifications and alerting:
+**Return Value Support** — The step returns the AI explanation as a string, enabling integration with notifications and alerting:
 
 ```groovy
 post {
@@ -427,6 +428,45 @@ post {
     }
 }
 ```
+
+**Structured Output** — Use `returnStructured: true` to get a `Map` with individual fields instead of a single string. Useful when you need to route the error signature to a ticketing system or display resolution steps separately:
+
+```groovy
+post {
+    failure {
+        script {
+            def result = explainError(returnStructured: true)
+
+            // result is a Map<String, Object>
+            echo "Root cause: ${result.errorSummary}"
+            echo "Error class: ${result.errorSignature}"
+            result.resolutionSteps.eachWithIndex { step, i ->
+                echo "  ${i + 1}. ${step}"
+            }
+
+            // Forward to a ticketing webhook
+            httpRequest(
+                url: 'https://tickets.example.com/api/incidents',
+                httpMode: 'POST',
+                requestBody: groovy.json.JsonOutput.toJson([
+                    summary  : result.errorSummary,
+                    signature: result.errorSignature,
+                    steps    : result.resolutionSteps
+                ])
+            )
+        }
+    }
+}
+```
+
+Map keys returned when `returnStructured: true`:
+
+| Key | Type | Description |
+|---|---|---|
+| `errorSummary` | `String` | One-sentence root cause |
+| `resolutionSteps` | `List<String>` | Ordered steps to resolve the error |
+| `bestPractices` | `List<String>` | Recommendations to avoid recurrence |
+| `errorSignature` | `String` | Short identifier for this class of error |
 
 #### Optional parameters:
 
@@ -452,6 +492,7 @@ post {
 | **autoFixDraftPr** | Open the pull request as a draft (GitHub only) | `false` |
 | **autoFixTimeoutSeconds** | Maximum seconds to wait for the auto-fix to complete | `60` |
 | **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}` placeholders | Built-in template |
+| **returnStructured** | Return a `Map<String, Object>` instead of a plain `String`. Keys: `errorSummary`, `resolutionSteps`, `bestPractices`, `errorSignature`. Falls back to `String` if parsing fails. | `false` |
 
 ```groovy
 explainError(
