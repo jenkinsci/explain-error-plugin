@@ -1,0 +1,21 @@
+CONTRIBUTING.md
+  s_ee5460f899a738::t_df7154862a3f85 253
+README.md
+  s_ee5460f899a738::t_df7154862a3f85 619
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2ef41df7fb67d953cd3cd97bfea2c82c36b86a82",
+  "prompts": {},
+  "sessions": {
+    "s_ee5460f899a738": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc2db429-cbfb-4a27-8154-5418204fb51c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
