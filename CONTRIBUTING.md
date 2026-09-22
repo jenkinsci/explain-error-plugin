@@ -250,6 +250,6 @@ Use our [feature request template](.github/ISSUE_TEMPLATE/feature_request.md):
 
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/jenkinsci/explain-error-plugin/discussions)
 - 🐛 **Issues**: [GitHub Issues](https://github.com/jenkinsci/explain-error-plugin/issues)
-- 📧 **Security**: security@jenkins.io
+- 🔒 **Security**: report vulnerabilities via the [Jenkins vulnerability reporting process](https://www.jenkins.io/security/#reporting-vulnerabilities), not through public issues
 
 Thank you for contributing to the Explain Error Plugin! 🎉

@@ -616,7 +616,7 @@ Enable debug logs:
 
 - [GitHub Issues](https://github.com/jenkinsci/explain-error-plugin/issues) for bug reports and feature requests
 - [Contributing Guide](CONTRIBUTING.md) if you'd like to help
-- Security concerns? Email security@jenkins.io
+- Found a security vulnerability? Please report it following the [Jenkins vulnerability reporting process](https://www.jenkins.io/security/#reporting-vulnerabilities) — do not open a public GitHub issue
 
 ## License
 
