@@ -81,6 +81,50 @@ class ProviderSmokeTest {
         }
     }
 
+    @Test
+    void openAiProviderParsesJsonWrappedInMarkdownCodeFence() throws Exception {
+        try (StubAiServer server = StubAiServer.openAiContent(fenced(analysisJson("Fenced OpenAI answer")))) {
+            OpenAIProvider provider = new OpenAIProvider(
+                    server.baseUrl(), "test-model", Secret.fromString("test-key"));
+
+            String explanation = provider.explainError(ERROR_LOGS, null);
+
+            assertTrue(explanation.startsWith("Summary: Fenced OpenAI answer"), explanation);
+            assertTrue(explanation.contains("- Check the failing command"), explanation);
+            assertFalse(explanation.contains("```"), explanation);
+        }
+    }
+
+    @Test
+    void anthropicProviderParsesJsonWrappedInMarkdownCodeFence() throws Exception {
+        try (StubAiServer server = StubAiServer.anthropicContent(fenced(analysisJson("Fenced Claude answer")))) {
+            AnthropicProvider provider = new AnthropicProvider(
+                    server.baseUrl(), "test-model", Secret.fromString("test-key"), null, null);
+
+            String explanation = provider.explainError(ERROR_LOGS, null);
+
+            assertTrue(explanation.startsWith("Summary: Fenced Claude answer"), explanation);
+            assertTrue(explanation.contains("- Check the failing command"), explanation);
+            assertFalse(explanation.contains("```"), explanation);
+        }
+    }
+
+    @Test
+    void chatModelProvidersAskForTheStructuredAnalysisFields() throws Exception {
+        // LangChain4j only adds the JSON output instructions when the Assistant returns
+        // JenkinsLogAnalysis; a String return type would silently drop them.
+        try (StubAiServer server = StubAiServer.anthropicContent(analysisJson("Structured request"))) {
+            AnthropicProvider provider = new AnthropicProvider(
+                    server.baseUrl(), "test-model", Secret.fromString("test-key"), null, null);
+
+            provider.explainError(ERROR_LOGS, null);
+
+            String requestBody = server.requestBodies().get(0);
+            assertTrue(requestBody.contains("resolutionSteps") && requestBody.contains("errorSignature"),
+                    "request should describe the JenkinsLogAnalysis fields: " + requestBody);
+        }
+    }
+
     private static String analysisJson(String summary) {
         return """
                 {
@@ -90,6 +134,11 @@ class ProviderSmokeTest {
                   "errorSignature": "FAILURE: Build failed with an exception."
                 }
                 """.formatted(summary).replace("\n", "").replace("\"", "\\\"");
+    }
+
+    /** Wraps escaped JSON content in a markdown code fence, as some models do despite instructions. */
+    private static String fenced(String escapedJson) {
+        return "```json\\n" + escapedJson + "\\n```";
     }
 
     private static final class StubAiServer implements AutoCloseable {
@@ -106,6 +155,10 @@ class ProviderSmokeTest {
         }
 
         private static StubAiServer openAi(String summary) throws IOException {
+            return openAiContent(analysisJson(summary));
+        }
+
+        private static StubAiServer openAiContent(String content) throws IOException {
             return new StubAiServer("""
                     {
                       "id": "chatcmpl-smoke",
@@ -122,7 +175,22 @@ class ProviderSmokeTest {
                       }],
                       "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
                     }
-                    """.formatted(analysisJson(summary)));
+                    """.formatted(content));
+        }
+
+        private static StubAiServer anthropicContent(String content) throws IOException {
+            return new StubAiServer("""
+                    {
+                      "id": "msg_smoke",
+                      "type": "message",
+                      "role": "assistant",
+                      "model": "test-model",
+                      "content": [{"type": "text", "text": "%s"}],
+                      "stop_reason": "end_turn",
+                      "stop_sequence": null,
+                      "usage": {"input_tokens": 1, "output_tokens": 1}
+                    }
+                    """.formatted(content));
         }
 
         private static StubAiServer ollama(String summary) throws IOException {
