@@ -24,6 +24,8 @@ import org.kohsuke.stapler.verb.POST;
 @Symbol("explainError")
 public class GlobalConfigurationImpl extends GlobalConfiguration {
 
+    static final int DEFAULT_AUTO_EXPLAIN_MAX_PER_HOUR = 30;
+
     private transient Secret apiKey;
     private transient AIProvider provider;
     private transient String apiUrl;
@@ -41,8 +43,10 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
     private boolean enableAutoExplainOnFailure = false;
     private int autoExplainMaxLogLines = 100;
+    private int autoExplainMaxPerHour = DEFAULT_AUTO_EXPLAIN_MAX_PER_HOUR;
 
     private transient QuotaEnforcer quotaEnforcer;
+    private transient QuotaEnforcer autoExplainQuotaEnforcer;
 
     public GlobalConfigurationImpl() {
         load();
@@ -161,6 +165,19 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         this.autoExplainMaxLogLines = Math.max(1, autoExplainMaxLogLines);
     }
 
+    /**
+     * Maximum number of AI provider calls made for automatic explanations per hour. Explanations
+     * reused from an earlier build that failed the same way do not count.
+     */
+    public int getAutoExplainMaxPerHour() {
+        return autoExplainMaxPerHour > 0 ? autoExplainMaxPerHour : DEFAULT_AUTO_EXPLAIN_MAX_PER_HOUR;
+    }
+
+    @DataBoundSetter
+    public void setAutoExplainMaxPerHour(int autoExplainMaxPerHour) {
+        this.autoExplainMaxPerHour = Math.max(1, autoExplainMaxPerHour);
+    }
+
     public String getCustomContext() {
         return customContext;
     }
@@ -226,6 +243,23 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         return quotaEnforcer;
     }
 
+    synchronized QuotaEnforcer getAutoExplainQuotaEnforcer() {
+        if (autoExplainQuotaEnforcer == null) {
+            autoExplainQuotaEnforcer = new QuotaEnforcer();
+        }
+        return autoExplainQuotaEnforcer;
+    }
+
+    /**
+     * Attempts to acquire a slot of the hourly limit for automatic explanations. This limit always
+     * applies to automatic explanations, in addition to the optional request quota.
+     *
+     * @return {@code true} if the call is within the limit, {@code false} otherwise
+     */
+    boolean tryAcquireAutoExplainQuota() {
+        return getAutoExplainQuotaEnforcer().tryAcquire(QuotaWindow.HOURLY, getAutoExplainMaxPerHour());
+    }
+
     /**
      * Attempts to acquire a quota slot for a real AI provider call.
      *
@@ -254,6 +288,15 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         if (value < 0) {
             return FormValidation.error("Max provider calls per window must be 0 or greater.");
+        }
+        return FormValidation.ok();
+    }
+
+    @POST
+    public FormValidation doCheckAutoExplainMaxPerHour(@QueryParameter int value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        if (value < 1) {
+            return FormValidation.error("Max automatic explanations per hour must be 1 or greater.");
         }
         return FormValidation.ok();
     }

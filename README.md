@@ -25,7 +25,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **Structured output** *(opt-in)* — `returnStructured: true` returns a `Map` of the analysis fields for notifications and routing
-* **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled
+* **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled, with per-job opt-out, reuse of explanations for repeated failures, and an hourly limit
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
 * **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI GPT models, OpenAI-compatible gateways (LiteLLM, OpenWebUI, self-hosted proxies), Qwen, or generic Okta-authenticated company AI gateways
@@ -70,8 +70,9 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
 | **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at folder and step level. |
-| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
+| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. Jobs can override it. See [Automatic Explanation](docs/auto-explain.md). | Disabled |
 | **Max Log Lines** *(auto-explain)* | Number of console log lines read per build for automatic explanation. Increase this for models with large context windows (e.g. DeepSeek, Kimi). Only visible when **Automatically explain failed builds** is enabled. | `100` |
+| **Max Automatic Explanations per Hour** *(auto-explain)* | Maximum number of AI provider calls for automatic explanations per hour, in addition to the request quota. Explanations reused from an identical earlier failure do not count. | `30` |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
@@ -287,6 +288,7 @@ unclassified:
     enableExplanation: true
     # enableAutoExplainOnFailure: true # Optional, automatically explain failed builds without pipeline changes
     # autoExplainMaxLogLines: 100    # Optional, number of log lines read per build (increase for large-context models)
+    # autoExplainMaxPerHour: 30      # Optional, provider calls per hour for automatic explanations
     # temperature: 0.7 # Optional, leave empty for provider default
     # language: "English" # Optional, defaults to English
     # customContext: "Additional context for the AI" # Optional
@@ -622,9 +624,23 @@ To enable:
 4. Optionally adjust **"Max Log Lines"** — default is `100`. If your model supports a large context window (e.g. DeepSeek, Kimi), increase this to capture more of the build log for a more accurate explanation.
 5. Save
 
+Safeguards keep a burst of failures from turning into a burst of provider calls:
+
+* **Reuse of identical failures** — a build that fails the same way as the last explained build of the job reuses that explanation instead of calling the provider
+* **Hourly limit** — at most 30 provider calls per hour for automatic explanations by default (**"Max Automatic Explanations per Hour"**)
+* **Bounded background work** — at most 2 explanations run at the same time and 50 wait; further failures are skipped with a console message
+
+A job can opt out, for example a flaky test job, or opt in while the global toggle is off, with
+**"Override automatic AI error explanation"** in its configuration or in a Pipeline:
+
+```groovy
+properties([explainErrorJob(autoExplainOnFailure: false)])
+```
+
 All existing configuration (provider, model, language, custom context, quota limits) applies
 to auto-explained builds in the same way as pipeline-step and console-action requests.
 Requests from the RunListener are tracked under the `run_listener` entry point in usage metrics.
+See [Automatic Explanation of Failed Builds](docs/auto-explain.md) for details and tuning.
 
 ## Troubleshooting
 

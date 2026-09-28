@@ -1,0 +1,9 @@
+<div>
+  Overrides the global <strong>Automatically explain failed builds</strong> setting for this job.
+  Use it to exclude a job that fails often, such as a flaky test job, while automatic explanation
+  is enabled globally, or to explain the failures of this job only while it is disabled globally.
+  <br/><br/>
+  Leave this unchecked to follow the global setting. Builds that already call the
+  <code>explainError()</code> step are not explained a second time. In a Pipeline, the same setting
+  is available as <code>properties([explainErrorJob(autoExplainOnFailure: false)])</code>.
+</div>

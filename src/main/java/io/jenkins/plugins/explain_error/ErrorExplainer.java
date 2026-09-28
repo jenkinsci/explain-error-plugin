@@ -26,6 +26,8 @@ public class ErrorExplainer {
     static final String DOWNSTREAM_SECTION_START = "### Downstream Job: ";
     static final String DOWNSTREAM_SECTION_END = "### END OF DOWNSTREAM JOB: ";
     private static final String CONSOLE_PREFIX = "[explain-error] ";
+    // How many earlier builds are searched for an explanation that can be reused
+    static final int REUSE_LOOKBACK_BUILDS = 10;
 
     private String providerName;
     private String urlString;
@@ -147,22 +149,11 @@ public class ErrorExplainer {
                 return null;
             }
 
-            // Check quota before making a real provider call (folder-level overrides global)
-            QuotaCheckResult quotaCheck = tryAcquireQuota(run);
-            if (!quotaCheck.allowed()) {
-                logToConsole(listener, quotaCheck.rejectionMessage());
-                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos, 0,
-                        collectDownstreamLogs);
-                return null;
-            }
-
             // Extract error logs
             logToConsole(listener, "Extracting failure logs.");
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
                     collectDownstreamLogs, downstreamJobPattern, authentication);
             String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
-            this.lastErrorLogs = errorLogs;
-            inputLogLineCount = countLines(errorLogs);
             logExtractionSummary(listener, extractionResult, maxLines);
 
             // Resolve language: step → folder → global → null (provider defaults to "English")
@@ -176,6 +167,33 @@ public class ErrorExplainer {
             // Resolve temperature: step → folder → global → null (provider defaults apply)
             Double effectiveTemperature = resolveEffectiveTemperature(run, stepTemperature);
             logToConsole(listener, "Temperature: " + (effectiveTemperature != null ? effectiveTemperature : "unset (provider default)") + ".");
+
+            String fingerprint = FailureFingerprint.of(errorLogs, effectiveLanguage, effectiveCustomContext,
+                    provider.getProviderName(), provider.getModel());
+
+            // An automatic explanation reuses the explanation of an earlier build that failed the same way
+            if (entryPoint == UsageEvent.EntryPoint.RUN_LISTENER && run != null) {
+                ErrorExplanationAction reused = reuseMatchingExplanation(run, fingerprint, errorLogs);
+                if (reused != null) {
+                    run.addOrReplaceAction(reused);
+                    logToConsole(listener, "Build #" + reused.getReusedFromBuild()
+                            + " failed the same way; reusing its explanation.");
+                    recordUsage(entryPoint, UsageEvent.Result.CACHE_HIT, provider, startTimeNanos,
+                            reused.getInputLogLineCount(), collectDownstreamLogs);
+                    return reused.getExplanation();
+                }
+            }
+
+            // Check quota before making a real provider call (folder-level overrides global)
+            QuotaCheckResult quotaCheck = tryAcquireQuota(run, entryPoint);
+            if (!quotaCheck.allowed()) {
+                logToConsole(listener, quotaCheck.rejectionMessage());
+                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos, 0,
+                        collectDownstreamLogs);
+                return null;
+            }
+            this.lastErrorLogs = errorLogs;
+            inputLogLineCount = countLines(errorLogs);
 
             // Get AI explanation
             try {
@@ -198,6 +216,7 @@ public class ErrorExplainer {
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
                         provider.getProviderName(), provider.getModel(), inputLogLineCount);
                 action.setStructuredData(analysis);
+                action.setFailureFingerprint(fingerprint);
                 run.addOrReplaceAction(action);
                 logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
@@ -230,6 +249,29 @@ public class ErrorExplainer {
         PipelineLogExtractor.ExtractionResult result = logExtractor.extractFailedStepLog();
         this.urlString = result.url();
         return result;
+    }
+
+    /**
+     * Looks for the most recent earlier build of the same job that has an explanation and, if it
+     * failed the same way, returns a copy of that explanation for {@code run}.
+     *
+     * @return the reused explanation, or {@code null} if the most recent explained build failed
+     *         differently or none of the last {@value #REUSE_LOOKBACK_BUILDS} builds was explained
+     */
+    @CheckForNull
+    private ErrorExplanationAction reuseMatchingExplanation(Run<?, ?> run, String fingerprint, String errorLogs) {
+        Run<?, ?> previous = run.getPreviousBuild();
+        for (int i = 0; previous != null && i < REUSE_LOOKBACK_BUILDS; i++, previous = previous.getPreviousBuild()) {
+            ErrorExplanationAction action = previous.getAction(ErrorExplanationAction.class);
+            if (action == null) {
+                continue;
+            }
+            if (action.hasValidExplanation() && fingerprint.equals(action.getFailureFingerprint())) {
+                return action.reuseFor(previous.getNumber(), urlString, errorLogs);
+            }
+            return null;
+        }
+        return null;
     }
 
     String filterErrorLogs(List<String> logLines, String logPattern) {
@@ -303,7 +345,7 @@ public class ErrorExplainer {
         }
 
         // Check quota before making a real provider call (folder-level overrides global)
-        QuotaCheckResult quotaCheck = tryAcquireQuota(run);
+        QuotaCheckResult quotaCheck = tryAcquireQuota(run, entryPoint);
         if (!quotaCheck.allowed()) {
             recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos,
                     inputLogLineCount, false);
@@ -376,7 +418,7 @@ public class ErrorExplainer {
      * @param run the build run to check
      * @return true if explanation is enabled, false otherwise
      */
-    private boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
+    boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
         if (run != null) {
             // Check if there's an explicit folder-level property with configured provider
             ExplainErrorFolderProperty folderProperty = findFolderPropertyWithProvider(run.getParent().getParent());
@@ -456,7 +498,17 @@ public class ErrorExplainer {
      * @param run the current build run (may be null)
      * @return a {@link QuotaCheckResult} indicating whether the call is allowed
      */
-    private QuotaCheckResult tryAcquireQuota(@CheckForNull Run<?, ?> run) {
+    private QuotaCheckResult tryAcquireQuota(@CheckForNull Run<?, ?> run, UsageEvent.EntryPoint entryPoint) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+
+        // Automatic explanations always have an hourly limit, independent of the optional quota
+        if (entryPoint == UsageEvent.EntryPoint.RUN_LISTENER && !config.tryAcquireAutoExplainQuota()) {
+            String msg = "Automatic explanation limit reached. Limit: " + config.getAutoExplainMaxPerHour()
+                    + " calls per hour.";
+            LOGGER.info((run != null ? run.getParent().getFullName() + " #" + run.getNumber() + ": " : "") + msg);
+            return new QuotaCheckResult(false, msg);
+        }
+
         // Walk up the folder hierarchy to find the nearest folder-level quota
         if (run != null) {
             ExplainErrorFolderProperty folderQuota =
@@ -475,7 +527,6 @@ public class ErrorExplainer {
         }
 
         // Fall back to global quota
-        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         if (!config.tryAcquireQuota()) {
             String msg = "Provider call quota exceeded. Limit: " + config.getMaxProviderCallsPerWindow()
                     + " calls per " + config.getQuotaWindow().getDisplayName().toLowerCase() + " window.";

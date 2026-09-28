@@ -250,6 +250,21 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    void testStepDoesNotReuseEarlierExplanations(JenkinsRule jenkins) throws Exception {
+        // Only automatic explanations reuse the explanation of an identical earlier failure
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-step-no-reuse");
+        job.setDefinition(new CpsFlowDefinition("node { explainError() }", true));
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        WorkflowRun second = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertEquals(2, provider.getCallCount());
+        assertEquals(0, second.getAction(ErrorExplanationAction.class).getReusedFromBuild());
+    }
+
+    @Test
     void testReturnStructuredExposesListsAndRenderedExplanation(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
         provider.setAnswer(new JenkinsLogAnalysis("Disk is full",

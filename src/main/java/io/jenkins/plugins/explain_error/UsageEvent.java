@@ -46,7 +46,8 @@ public record UsageEvent(
         DISABLED("disabled"),
         MISCONFIGURED("misconfigured"),
         PROVIDER_ERROR("provider_error"),
-        QUOTA_REJECTED("quota_rejected");
+        QUOTA_REJECTED("quota_rejected"),
+        THROTTLED("throttled");
 
         private final String value;
 

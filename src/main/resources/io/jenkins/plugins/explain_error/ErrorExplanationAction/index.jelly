@@ -6,6 +6,13 @@
             <h1>${%aiError(it.providerName)}</h1>
             
             <l:card title="Generated on: ${it.formattedTimestamp}">
+                <j:if test="${it.reusedFromBuild gt 0}">
+                    <p id="explain-error-reused">
+                        This build failed the same way as
+                        <a href="${rootURL}/${it.run.parent.url}${it.reusedFromBuild}/error-explanation/">build #${it.reusedFromBuild}</a>,
+                        so its explanation was reused instead of calling the AI provider again.
+                    </p>
+                </j:if>
                 <pre style="white-space: pre-wrap; word-wrap: break-word;" class="jenkins-!-margin-bottom-0">${it.explanation}</pre>
                 <div class="jenkins-!-margin-top-3">
                     <a id="explain-error-url" href="${it.urlString}" class="jenkins-button jenkins-!-destructive-color" target="_self" >
