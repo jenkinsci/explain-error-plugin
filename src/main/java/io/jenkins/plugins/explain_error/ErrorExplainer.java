@@ -30,6 +30,7 @@ public class ErrorExplainer {
     private String providerName;
     private String urlString;
     private String lastErrorLogs;
+    private JenkinsLogAnalysis lastAnalysis;
     private final UsageRecorder usageRecorder;
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
@@ -52,6 +53,15 @@ public class ErrorExplainer {
      */
     public String getLastErrorLogs() {
         return lastErrorLogs;
+    }
+
+    /**
+     * Returns the structured analysis produced by the last successful call to {@link #explainError},
+     * or {@code null} if no explanation has been generated.
+     */
+    @CheckForNull
+    public JenkinsLogAnalysis getLastAnalysis() {
+        return lastAnalysis;
     }
 
     /**
@@ -170,8 +180,10 @@ public class ErrorExplainer {
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
-                String explanation = provider.explainError(errorLogs, listener, effectiveLanguage, effectiveCustomContext,
-                        run != null ? run.getParent() : null, null, effectiveTemperature);
+                JenkinsLogAnalysis analysis = provider.analyzeError(errorLogs, listener, effectiveLanguage,
+                        effectiveCustomContext, run != null ? run.getParent() : null, null, effectiveTemperature);
+                this.lastAnalysis = analysis;
+                String explanation = analysis.toString();
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
                 logToConsole(listener, "AI request completed successfully.");
 
@@ -185,6 +197,7 @@ public class ErrorExplainer {
                 // Store explanation in build action
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
                         provider.getProviderName(), provider.getModel(), inputLogLineCount);
+                action.setStructuredData(analysis);
                 run.addOrReplaceAction(action);
                 logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
@@ -304,12 +317,15 @@ public class ErrorExplainer {
             Double effectiveTemperature = resolveEffectiveTemperature(run, null);
 
             // Get AI explanation with resolved settings
-            String explanation = provider.explainError(errorText, new LogTaskListener(LOGGER, Level.FINE), effectiveLanguage,
-                    effectiveCustomContext, run.getParent(), null, effectiveTemperature);
+            JenkinsLogAnalysis analysis = provider.analyzeError(errorText, new LogTaskListener(LOGGER, Level.FINE),
+                    effectiveLanguage, effectiveCustomContext, run.getParent(), null, effectiveTemperature);
+            this.lastAnalysis = analysis;
+            String explanation = analysis.toString();
             LOGGER.fine(jobInfo + " AI error explanation succeeded.");
             LOGGER.fine("Explanation length: " + explanation.length());
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
                     provider.getProviderName(), provider.getModel(), inputLogLineCount);
+            action.setStructuredData(analysis);
             run.addOrReplaceAction(action);
             run.save();
             recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount, false);

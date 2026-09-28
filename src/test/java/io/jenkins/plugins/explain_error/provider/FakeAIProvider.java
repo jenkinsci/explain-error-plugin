@@ -65,6 +65,10 @@ public class FakeAIProvider extends OpenAIProvider {
         this.answerMessage = new JenkinsLogAnalysis(answerMessage, null, null, null);
     }
 
+    public void setAnswer(JenkinsLogAnalysis answer) {
+        this.answerMessage = answer;
+    }
+
     public int getCallCount() {
         return callCount;
     }
