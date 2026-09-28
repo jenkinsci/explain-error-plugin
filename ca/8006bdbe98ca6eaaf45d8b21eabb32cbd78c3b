@@ -1,0 +1,48 @@
+src/main/java/io/jenkins/plugins/explain_error/ExplainErrorStep.java
+  s_f7c30290f03ed3::t_9726f6aca59abe 11,13,15,56-58,261-269,294,305,316,325,329,359-381
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplanationAction.java
+  s_f7c30290f03ed3::t_3e61f62a6e3948 87-125
+  s_f7c30290f03ed3::t_a4bbb20befb29d 3,6-7
+  s_f7c30290f03ed3::t_dba786cfb6c314 27-32
+src/main/java/io/jenkins/plugins/explain_error/provider/BaseAIProvider.java
+  s_f7c30290f03ed3::t_d4c3c09f8b4f74 279-283
+  s_f7c30290f03ed3::t_905b5dc94bfc48 27
+  s_f7c30290f03ed3::t_55f56b799727ca 231-253
+README.md
+  s_f7c30290f03ed3::t_50689c41499f18 27,432,439-444,455-461,487
+  s_f7c30290f03ed3::t_18ea4ecdc843c9 410,433-438,445-454,462
+src/test/java/io/jenkins/plugins/explain_error/ErrorExplanationActionTest.java
+  s_f7c30290f03ed3::t_891b80b1fd31e1 9,214-258
+  s_f7c30290f03ed3::t_84d7a015fb535e 7,259-274
+src/test/java/io/jenkins/plugins/explain_error/ExplainErrorStepTest.java
+  s_f7c30290f03ed3::t_891b80b1fd31e1 164-249
+  s_f7c30290f03ed3::t_84d7a015fb535e 5,10-11,250-292
+  s_f7c30290f03ed3::t_96aa38aed470a8 293
+src/test/java/io/jenkins/plugins/explain_error/provider/FakeAIProvider.java
+  s_f7c30290f03ed3::t_84d7a015fb535e 68-71
+src/main/resources/io/jenkins/plugins/explain_error/ExplainErrorStep/config.jelly
+  s_f7c30290f03ed3::t_0c13db5a7c718a 38-42
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplainer.java
+  s_f7c30290f03ed3::t_1d62505552f5dc 320-323,328
+  s_f7c30290f03ed3::t_fee3b632b451a0 59-66
+  s_f7c30290f03ed3::t_6bd14a08aa84a6 183-186
+  s_f7c30290f03ed3::t_00e2e85290f0d4 33
+  s_f7c30290f03ed3::t_4ba8b47655dd12 200
+  s_f7c30290f03ed3::t_1ea5e0d94ed0e8 58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ca8006bdbe98ca6eaaf45d8b21eabb32cbd78c3b",
+  "prompts": {},
+  "sessions": {
+    "s_f7c30290f03ed3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01d2a78d-b416-4738-815d-2805e9921eb0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
