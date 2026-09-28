@@ -35,6 +35,11 @@
         <f:textbox />
     </f:entry>
 
+    <f:entry title="Return Structured Result" field="returnStructured"
+             description="Return a map with errorSummary, resolutionSteps, bestPractices, errorSignature and explanation instead of the explanation text.">
+        <f:checkbox />
+    </f:entry>
+
     <f:optionalBlock field="includeWorkspaceContext" title="Include Workspace Context" inline="true">
         <f:entry title="Workspace Context Paths" field="workspaceContextPaths"
                  description="Comma-separated file paths or glob patterns to include as supporting context. Sensitive and build-output paths are skipped.">

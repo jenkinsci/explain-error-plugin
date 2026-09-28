@@ -8,8 +8,11 @@ import io.jenkins.plugins.explain_error.autofix.AutoFixOrchestrator;
 import io.jenkins.plugins.explain_error.autofix.AutoFixResult;
 import io.jenkins.plugins.explain_error.autofix.AutoFixStatus;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import jenkins.model.Jenkins;
@@ -49,6 +52,9 @@ public class ExplainErrorStep extends Step {
     private boolean autoFixDraftPr = false;
     private int autoFixTimeoutSeconds = 120;
     private String autoFixPrTemplate = "";
+
+    // Output format: return a Map of the structured analysis instead of the rendered text
+    private boolean returnStructured = false;
 
     @DataBoundConstructor
     public ExplainErrorStep() {
@@ -252,6 +258,15 @@ public class ExplainErrorStep extends Step {
         this.autoFixPrTemplate = autoFixPrTemplate != null ? autoFixPrTemplate : "";
     }
 
+    public boolean isReturnStructured() {
+        return returnStructured;
+    }
+
+    @DataBoundSetter
+    public void setReturnStructured(boolean returnStructured) {
+        this.returnStructured = returnStructured;
+    }
+
     @Override
     public StepExecution start(StepContext context) throws Exception {
         return new ExplainErrorStepExecution(context, this);
@@ -276,7 +291,7 @@ public class ExplainErrorStep extends Step {
         }
     }
 
-    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<String> {
+    private static class ExplainErrorStepExecution extends SynchronousNonBlockingStepExecution<Object> {
 
         private static final long serialVersionUID = 1L;
         private final transient ExplainErrorStep step;
@@ -287,7 +302,7 @@ public class ExplainErrorStep extends Step {
         }
 
         @Override
-        protected String run() throws Exception {
+        protected Object run() throws Exception {
             Run<?, ?> run = getContext().get(Run.class);
             TaskListener listener = getContext().get(TaskListener.class);
 
@@ -298,6 +313,7 @@ public class ExplainErrorStep extends Step {
             String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
                     step.getLanguage(), effectiveCustomContext, step.isCollectDownstreamLogs(),
                     step.getDownstreamJobPattern(), Jenkins.getAuthentication2(), step.getTemperature());
+            Object result = toStepResult(explanation, explainer.getLastAnalysis());
 
             if (step.isAutoFix()) {
                 String errorLogs = explainer.getLastErrorLogs();
@@ -306,11 +322,11 @@ public class ExplainErrorStep extends Step {
 
                 if (errorLogs == null) {
                     listener.getLogger().println("[AutoFix] Skipped: no error logs available (explanation may have been disabled or skipped).");
-                    return explanation;
+                    return result;
                 }
                 if (provider == null) {
                     listener.getLogger().println("[AutoFix] Skipped: no AI provider configured.");
-                    return explanation;
+                    return result;
                 }
 
                 AutoFixOrchestrator orchestrator = new AutoFixOrchestrator();
@@ -340,7 +356,29 @@ public class ExplainErrorStep extends Step {
                 }
             }
 
-            return explanation;
+            return result;
+        }
+
+        /**
+         * Returns the rendered explanation, or a {@link Map} of the structured analysis when
+         * {@code returnStructured} is set. Collections are copied into serializable types because
+         * the value is stored in the CPS program state.
+         */
+        private Object toStepResult(String explanation, JenkinsLogAnalysis analysis) {
+            if (!step.isReturnStructured() || explanation == null || analysis == null) {
+                return explanation;
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("errorSummary", analysis.errorSummary());
+            result.put("resolutionSteps", listOrEmpty(analysis.resolutionSteps()));
+            result.put("bestPractices", listOrEmpty(analysis.bestPractices()));
+            result.put("errorSignature", analysis.errorSignature());
+            result.put("explanation", explanation);
+            return result;
+        }
+
+        private static List<String> listOrEmpty(List<String> values) {
+            return values == null ? new ArrayList<>() : new ArrayList<>(values);
         }
 
         private String collectWorkspaceContext(TaskListener listener)

@@ -2,10 +2,13 @@ package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
+import java.util.ArrayList;
+import java.util.List;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -156,6 +159,136 @@ class ExplainErrorStepTest {
         // The step must still return an explanation despite auto-fix failing
         jenkins.assertLogContains("[AutoFix]", run);
         jenkins.assertLogContains("autoFixCredentialsId", run);
+    }
+
+    // -------------------------------------------------------------------------
+    // returnStructured parameter
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testReturnStructuredReturnsMappingWithErrorSummary(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setAnswerMessage("Disk is full");
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-summary");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError(returnStructured: true)\n"
+                + "  echo \"errorSummary: ${r.errorSummary}\"\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("errorSummary: Disk is full", run);
+    }
+
+    @Test
+    void testReturnStructuredMapContainsAllExpectedKeys(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-keys");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError(returnStructured: true)\n"
+                + "  assert r.containsKey('errorSummary') : 'missing errorSummary'\n"
+                + "  assert r.containsKey('resolutionSteps') : 'missing resolutionSteps'\n"
+                + "  assert r.containsKey('bestPractices') : 'missing bestPractices'\n"
+                + "  assert r.containsKey('errorSignature') : 'missing errorSignature'\n"
+                + "  echo 'all keys present'\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("all keys present", run);
+    }
+
+    @Test
+    void testReturnStructuredFalseReturnsString(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-false");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError(returnStructured: false)\n"
+                + "  assert r instanceof String : 'expected String when returnStructured=false'\n"
+                + "  echo 'is string'\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("is string", run);
+    }
+
+    @Test
+    void testReturnStructuredDefaultIsFalse(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-default");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError()\n"
+                + "  assert r instanceof String : 'default must be String'\n"
+                + "  echo 'default is string'\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("default is string", run);
+    }
+
+    @Test
+    void testActionStructuredDataPopulatedWhenAnalysisAvailable(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setAnswerMessage("Compilation error in Foo.java");
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-action-structured");
+        job.setDefinition(new CpsFlowDefinition("node { explainError() }", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
+        assertNotNull(action);
+        assertNotNull(action.getErrorSummary(), "errorSummary must be set on the action");
+        assertEquals("Compilation error in Foo.java", action.getErrorSummary());
+    }
+
+    @Test
+    void testReturnStructuredExposesListsAndRenderedExplanation(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setAnswer(new JenkinsLogAnalysis("Disk is full",
+                new ArrayList<>(List.of("Free disk space", "Rotate logs")), null, "No space left on device"));
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-lists");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError(returnStructured: true)\n"
+                + "  echo \"steps: ${r.resolutionSteps.join(' | ')}\"\n"
+                + "  echo \"practices: ${r.bestPractices.size()}\"\n"
+                + "  echo \"signature: ${r.errorSignature}\"\n"
+                + "  echo \"rendered: ${r.explanation.startsWith('Summary: Disk is full')}\"\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("steps: Free disk space | Rotate logs", run);
+        jenkins.assertLogContains("practices: 0", run);
+        jenkins.assertLogContains("signature: No space left on device", run);
+        jenkins.assertLogContains("rendered: true", run);
+    }
+
+    @Test
+    void testReturnStructuredReturnsNullWhenExplanationFails(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setThrowError(true);
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-failure");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError(returnStructured: true)\n"
+                + "  echo \"result is null: ${r == null}\"\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("result is null: true", run);
+        assertNull(run.getAction(ErrorExplanationAction.class));
     }
 
 }

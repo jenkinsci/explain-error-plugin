@@ -24,6 +24,7 @@ import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
 import hudson.ExtensionPoint;
 import hudson.Util;
@@ -227,6 +228,29 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                                      @CheckForNull Item item, @CheckForNull Authentication authentication,
                                      @CheckForNull Double temperature)
             throws ExplanationException {
+        return analyzeError(errorLogs, listener, language, customContext, item, authentication, temperature)
+                .toString();
+    }
+
+    /**
+     * Analyze error logs using the configured AI provider and return the structured result.
+     * {@link #explainError} renders the same analysis as plain text.
+     * @param errorLogs the error logs to explain
+     * @param listener the task listener for logging
+     * @param language the preferred response language
+     * @param customContext additional custom context/instructions for the AI
+     * @param item the item defining credentials scope
+     * @param authentication the authentication used for credentials lookup
+     * @param temperature the temperature to use, or null to let provider defaults apply
+     * @return the structured AI analysis
+     * @throws ExplanationException if there's a communication error
+     */
+    @NonNull
+    public final JenkinsLogAnalysis analyzeError(String errorLogs, TaskListener listener, String language,
+                                                 String customContext, @CheckForNull Item item,
+                                                 @CheckForNull Authentication authentication,
+                                                 @CheckForNull Double temperature)
+            throws ExplanationException {
         Assistant assistant;
 
         if (StringUtils.isBlank(errorLogs)) {
@@ -252,7 +276,11 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                 + ", temperature: " + (temperature != null ? temperature : "unset (provider default)"));
 
         try {
-            return assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext).toString();
+            JenkinsLogAnalysis analysis = assistant.analyzeLogs(errorLogs, responseLanguage, additionalContext);
+            if (analysis == null) {
+                throw new IllegalStateException("the provider returned no analysis");
+            }
+            return analysis;
         } catch (Exception e) {
             LOGGER.severe("AI API request failed: " + e.getMessage());
             throw new ExplanationException("error", "API request failed: " + e.getMessage(), e);

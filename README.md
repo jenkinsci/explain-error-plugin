@@ -24,6 +24,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
+* **Structured output** *(opt-in)* — `returnStructured: true` returns a `Map` of the analysis fields for notifications and routing
 * **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
@@ -406,7 +407,7 @@ pipeline {
 }
 ```
 
-**✨ NEW: Return Value Support** - The step now returns the AI explanation as a string, enabling integration with notifications and alerting:
+**Return Value Support** — The step returns the AI explanation as a string, enabling integration with notifications and alerting:
 
 ```groovy
 post {
@@ -427,6 +428,37 @@ post {
     }
 }
 ```
+
+**Structured Output** — Use `returnStructured: true` to get a `Map` with the individual analysis fields instead of a single string. Useful when a notification should show only the root cause, or when the error signature drives routing:
+
+```groovy
+post {
+    failure {
+        script {
+            def result = explainError(returnStructured: true)
+            if (result) {
+                slackSend(
+                    color: 'danger',
+                    message: "Build failed: ${result.errorSummary}\n" +
+                             result.resolutionSteps.collect { "- ${it}" }.join('\n')
+                )
+            }
+        }
+    }
+}
+```
+
+Map keys returned when `returnStructured: true`:
+
+| Key | Type | Description |
+|---|---|---|
+| `errorSummary` | `String` | Root cause summary |
+| `resolutionSteps` | `List<String>` | Ordered steps to resolve the error (empty if none) |
+| `bestPractices` | `List<String>` | Recommendations to avoid recurrence (empty if none) |
+| `errorSignature` | `String` | The log snippet that identifies the failure |
+| `explanation` | `String` | The full rendered explanation, identical to the default return value |
+
+The step returns `null` when no explanation could be generated (explanation disabled, provider misconfigured, quota exceeded, or provider error), with or without `returnStructured`. The same fields are also stored on the build and exposed through the REST API (`<build-url>/error-explanation/api/json`).
 
 #### Optional parameters:
 
@@ -452,6 +484,7 @@ post {
 | **autoFixDraftPr** | Open the pull request as a draft (GitHub only) | `false` |
 | **autoFixTimeoutSeconds** | Maximum seconds to wait for the auto-fix to complete | `60` |
 | **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}` placeholders | Built-in template |
+| **returnStructured** | Return a `Map` with `errorSummary`, `resolutionSteps`, `bestPractices`, `errorSignature`, and `explanation` instead of the explanation text | `false` |
 
 ```groovy
 explainError(
