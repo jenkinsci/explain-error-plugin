@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import io.jenkins.plugins.explain_error.autofix.FixAssistant;
@@ -16,10 +18,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.structs.describable.DescribableModel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
@@ -162,6 +168,138 @@ class OpenAICompatibleProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gateway-fix-model", payload.path("model").asText());
         assertTrue(result.contains("\"fixable\":true"));
+    }
+
+    @Test
+    void responsesApiPostsToResponsesEndpoint() throws Exception {
+        AtomicReference<String> requestPath = new AtomicReference<>();
+        AtomicReference<String> authorizationHeader = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        server.createContext("/v1/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            authorizationHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return responsesApiResponse("{\"errorSummary\":\"Responses API worked\","
+                    + "\"resolutionSteps\":[\"Check the gateway config\"]}");
+        }));
+
+        // A trailing slash must not produce "//responses"
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1/";
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                endpoint, "gateway-model", Secret.fromString("test-gateway-key"));
+        provider.setApiType(OpenAICompatibleProvider.ApiType.RESPONSES);
+
+        String explanation = provider.explainError("FAILURE: sample error", null, "English", null);
+
+        assertEquals("/v1/responses", requestPath.get());
+        assertEquals("Bearer test-gateway-key", authorizationHeader.get());
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals("gateway-model", payload.path("model").asText());
+        assertEquals(false, payload.path("store").asBoolean(true), "build logs must not be stored by the provider");
+        assertTrue(payload.path("input").isArray() && !payload.path("input").isEmpty(), requestBody.get());
+        assertTrue(payload.path("input").toString().contains("FAILURE: sample error"), requestBody.get());
+        assertTrue(payload.path("text").path("format").path("type").asText().startsWith("json"), requestBody.get());
+        assertTrue(explanation.contains("Responses API worked"), explanation);
+        assertTrue(explanation.contains("Check the gateway config"), explanation);
+    }
+
+    @Test
+    void responsesApiWith401ReturnsClearAuthenticationMessage() throws Exception {
+        server.createContext("/responses", exchange -> {
+            sendResponse(exchange, 401, "{\"error\":{\"message\":\"Invalid API key\"}}");
+        });
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                endpoint, "gateway-model", Secret.fromString("wrong-key"));
+        provider.setApiType(OpenAICompatibleProvider.ApiType.RESPONSES);
+
+        ExplanationException result = org.junit.jupiter.api.Assertions.assertThrows(
+                ExplanationException.class, () -> provider.explainError("FAILURE: sample error", null));
+
+        assertTrue(result.getMessage().contains("Authentication failed (HTTP 401)"),
+                "Expected authentication hint in: " + result.getMessage());
+    }
+
+    @Test
+    void fixAssistantUsesResponsesEndpoint() throws Exception {
+        AtomicReference<String> requestPath = new AtomicReference<>();
+
+        server.createContext("/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return responsesApiResponse("{\"fixable\":true,\"explanation\":\"Update the Jenkinsfile\","
+                    + "\"confidence\":\"high\",\"fixType\":\"config\",\"changes\":[]}");
+        }));
+
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                endpoint, "gateway-fix-model", Secret.fromString("fix-key"));
+        provider.setApiType(OpenAICompatibleProvider.ApiType.RESPONSES);
+
+        String result = provider.createFixAssistant().suggestFix("FAILURE: job failed");
+
+        assertEquals("/responses", requestPath.get());
+        assertTrue(result.contains("\"fixable\":true"), result);
+    }
+
+    @Test
+    void apiTypeCanBeSetFromConfigurationAsCode() throws Exception {
+        OpenAICompatibleProvider provider = DescribableModel.of(OpenAICompatibleProvider.class).instantiate(Map.of(
+                "url", "https://gateway.example.com/v1",
+                "model", "gateway-model",
+                "apiType", "RESPONSES"));
+
+        assertEquals(OpenAICompatibleProvider.ApiType.RESPONSES, provider.getApiType());
+    }
+
+    @Test
+    void testConfigurationUsesTheSelectedApiType(JenkinsRule jenkins) throws Exception {
+        AtomicReference<String> requestPath = new AtomicReference<>();
+        server.createContext("/responses", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return responsesApiResponse("{\"errorSummary\":\"ok\"}");
+        }));
+        OpenAICompatibleProvider.DescriptorImpl descriptor =
+                Jenkins.get().getDescriptorByType(OpenAICompatibleProvider.DescriptorImpl.class);
+
+        ListBoxModel apiTypes = descriptor.doFillApiTypeItems();
+        FormValidation result = descriptor.doTestConfiguration(null, Secret.fromString("key"),
+                "http://127.0.0.1:" + server.getAddress().getPort(), "gateway-model", "RESPONSES");
+
+        assertEquals(2, apiTypes.size());
+        assertEquals("CHAT_COMPLETIONS", apiTypes.get(0).value);
+        assertEquals("RESPONSES", apiTypes.get(1).value);
+        assertEquals(FormValidation.Kind.OK, result.kind, result.getMessage());
+        assertEquals("/responses", requestPath.get());
+    }
+
+    private static String responsesApiResponse(String text) {
+        return """
+                {
+                  "id": "resp_test",
+                  "object": "response",
+                  "created_at": 0,
+                  "status": "completed",
+                  "model": "gateway-model",
+                  "output": [
+                    {
+                      "type": "message",
+                      "id": "msg_test",
+                      "status": "completed",
+                      "role": "assistant",
+                      "content": [
+                        {
+                          "type": "output_text",
+                          "text": "%s",
+                          "annotations": []
+                        }
+                      ]
+                    }
+                  ],
+                  "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+                }
+                """.formatted(text.replace("\"", "\\\"").replace("\n", "\\n"));
     }
 
     private static void sendResponse(HttpExchange exchange, int statusCode, String body) throws IOException {

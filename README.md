@@ -254,6 +254,7 @@ unclassified:
         url: "https://litellm.example.com" # Required: base URL of your gateway
         model: "azure/gpt-4o" # Any model name exposed by the gateway
         # apiKey: "${GATEWAY_API_KEY}" # Optional, sent as Bearer token
+        # apiType: RESPONSES # Optional: CHAT_COMPLETIONS (default) or RESPONSES for gateways that only support /responses
     enableExplanation: true
 ```
 
@@ -361,7 +362,8 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 ### OpenAI Compatible
 - **Models**: Any model exposed by your gateway, e.g. `gpt-4o`, `azure/gpt-4o`, `claude-3-5-sonnet`, `llama-3.1-70b`
 - **API Key**: Optional. Sent as a standard `Authorization: Bearer` header; leave empty for unauthenticated gateways
-- **Endpoint**: Base URL of any OpenAI-compatible gateway, e.g. `https://litellm.example.com` (LiteLLM), `https://openwebui.example.com/api/v1` (OpenWebUI), or a self-hosted proxy. `/chat/completions` is appended automatically
+- **Endpoint**: Base URL of any OpenAI-compatible gateway, e.g. `https://litellm.example.com` (LiteLLM), `https://openwebui.example.com/api/v1` (OpenWebUI), or a self-hosted proxy. `/chat/completions` is appended automatically, so include the gateway's API path prefix, such as `/v1`, if it has one
+- **API Type**: `Chat Completions API` (default) or `Responses API`. Choose `Responses API` for gateways and models that only support the Responses API; requests then go to `<url>/responses` and are sent with `store: false`, so the provider does not keep the build logs
 - **Redirects**: HTTP redirects (e.g. `http` to `https` upgrades behind load balancers) are followed automatically
 - **Best for**: Enterprises standardizing on AI gateways, proxies, or self-hosted LLM platforms; works with LiteLLM, OpenWebUI, Azure OpenAI gateways, and other OpenAI-compatible backends
 

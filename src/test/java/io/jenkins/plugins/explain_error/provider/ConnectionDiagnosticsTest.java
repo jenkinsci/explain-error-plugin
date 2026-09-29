@@ -245,7 +245,7 @@ class ConnectionDiagnosticsTest {
                 jenkins.jenkins.getDescriptorByType(OpenAICompatibleProvider.DescriptorImpl.class);
 
         FormValidation validation = descriptor.doTestConfiguration(null,
-                Secret.fromString("test-key"), "http://127.0.0.1:" + closedPort, "gateway-model");
+                Secret.fromString("test-key"), "http://127.0.0.1:" + closedPort, "gateway-model", null);
 
         assertEquals(FormValidation.Kind.ERROR, validation.kind);
         String html = validation.renderHtml();
