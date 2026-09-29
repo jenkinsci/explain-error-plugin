@@ -1,0 +1,38 @@
+src/main/resources/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider/config.jelly
+  s_f7c30290f03ed3::t_6bb6a5e377bfd1 3-4,16-20,22
+src/test/resources/io/jenkins/plugins/explain_error/casc_openai_compatible_responses.yaml
+  s_f7c30290f03ed3::t_e466df5b0d952d 1-9
+src/main/java/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProvider.java
+  s_f7c30290f03ed3::t_6bb6a5e377bfd1 11,19,28,41-42,48-65,67,79-88,92-94,112-135,249-281
+src/test/java/io/jenkins/plugins/explain_error/provider/ProviderTest.java
+  s_f7c30290f03ed3::t_223957f9171de6 350-367
+README.md
+  s_f7c30290f03ed3::t_f2ff615bfbf2e1 257,365-366
+src/test/java/io/jenkins/plugins/explain_error/provider/ConnectionDiagnosticsTest.java
+  s_f7c30290f03ed3::t_a46e5b34d4f796 248
+pom.xml
+  s_f7c30290f03ed3::t_47b8954b1d5ef9 28
+  s_f7c30290f03ed3::t_721e8d0b8d020b 25
+src/test/java/io/jenkins/plugins/explain_error/provider/OpenAICompatibleProviderTest.java
+  s_f7c30290f03ed3::t_223957f9171de6 12-13,21,23-24,28,173-303
+  s_f7c30290f03ed3::t_5f0b6b6020c25f 304
+src/test/java/io/jenkins/plugins/explain_error/CasCTest.java
+  s_f7c30290f03ed3::t_e466df5b0d952d 17,135-146
+  s_f7c30290f03ed3::t_527338ffdbc7ad 147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b0f19f36c9a3e981b4168c5a91d97cdca371d5a6",
+  "prompts": {},
+  "sessions": {
+    "s_f7c30290f03ed3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01d2a78d-b416-4738-815d-2805e9921eb0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
