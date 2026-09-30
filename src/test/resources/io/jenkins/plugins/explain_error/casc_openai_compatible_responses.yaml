@@ -1,0 +1,9 @@
+unclassified:
+  explainError:
+    aiProvider:
+      openaiCompatible:
+        url: "https://gateway.example.com/v1"
+        model: "gpt-5.4"
+        apiKey: "test-gateway-key"
+        apiType: RESPONSES
+    enableExplanation: true

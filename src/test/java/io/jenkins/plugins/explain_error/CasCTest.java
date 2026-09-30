@@ -14,6 +14,7 @@ import io.jenkins.plugins.explain_error.provider.CustomOktaAIProvider;
 import io.jenkins.plugins.explain_error.provider.DeepSeekProvider;
 import io.jenkins.plugins.explain_error.provider.MicrosoftFoundryProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
+import io.jenkins.plugins.explain_error.provider.OpenAICompatibleProvider;
 import io.jenkins.plugins.explain_error.provider.QwenProvider;
 import org.junit.jupiter.api.Test;
 
@@ -130,5 +131,18 @@ public class CasCTest {
         assertEquals("https://dashscope.aliyuncs.com/compatible-mode/v1", qwen.getUrl());
         assertEquals("qwen-plus", qwen.getModel());
         assertEquals("test-qwen-key", qwen.getApiKey().getPlainText());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_openai_compatible_responses.yaml")
+    void loadOpenAiCompatibleResponsesApiConfig(JenkinsConfiguredWithCodeRule jcwcRule) {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        BaseAIProvider provider = config.getAiProvider();
+
+        OpenAICompatibleProvider gateway = assertInstanceOf(OpenAICompatibleProvider.class, provider);
+        assertEquals("https://gateway.example.com/v1", gateway.getUrl());
+        assertEquals("gpt-5.4", gateway.getModel());
+        assertEquals("test-gateway-key", gateway.getApiKey().getPlainText());
+        assertEquals(OpenAICompatibleProvider.ApiType.RESPONSES, gateway.getApiType());
     }
 }

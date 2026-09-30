@@ -1,6 +1,7 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core"  xmlns:f="/lib/form">
-  <f:entry title="URL" field="url">
+  <f:entry title="URL" field="url"
+           description="Base URL of the gateway, including its API path prefix such as /v1 if it has one.">
     <f:textbox clazz="required"/>
   </f:entry>
 
@@ -12,7 +13,12 @@
     <f:textbox clazz="required"/>
   </f:entry>
 
+  <f:entry title="API Type" field="apiType"
+           description="Chat Completions API sends requests to URL/chat/completions. Choose Responses API (URL/responses) for gateways and models that only support the Responses API.">
+    <f:select />
+  </f:entry>
+
   <f:validateButton title="Test Configuration" progress="Testing..."
-                    method="testConfiguration" with="apiKey,url,model" />
+                    method="testConfiguration" with="apiKey,url,model,apiType" />
 
 </j:jelly>

@@ -8,6 +8,7 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiResponsesChatModel;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -15,6 +16,7 @@ import hudson.Util;
 import hudson.model.Item;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import java.util.Set;
 import java.util.logging.Level;
@@ -23,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.springframework.security.core.Authentication;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
@@ -35,12 +38,33 @@ import org.kohsuke.stapler.verb.POST;
  * unauthenticated local gateways and proxies can be used without one.
  * The model name is free text because gateway model names are defined by the
  * gateway (e.g. {@code gpt-4o}, {@code azure/gpt-4o}, {@code claude-3-5-sonnet}).
+ * Requests use the Chat Completions API by default, or the Responses API for
+ * gateways and models that only support that one.
  */
 public class OpenAICompatibleProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(OpenAICompatibleProvider.class.getName());
 
+    /**
+     * The OpenAI API the gateway is called with.
+     */
+    public enum ApiType {
+        CHAT_COMPLETIONS("Chat Completions API"),
+        RESPONSES("Responses API");
+
+        private final String displayName;
+
+        ApiType(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
+
     private Secret apiKey;
+    private ApiType apiType;
 
     @DataBoundConstructor
     public OpenAICompatibleProvider(String url, String model, Secret apiKey) {
@@ -52,14 +76,51 @@ public class OpenAICompatibleProvider extends ChatModelAIProvider {
         return apiKey;
     }
 
+    @NonNull
+    public ApiType getApiType() {
+        return apiType != null ? apiType : ApiType.CHAT_COMPLETIONS;
+    }
+
+    @DataBoundSetter
+    public void setApiType(@CheckForNull ApiType apiType) {
+        this.apiType = apiType;
+    }
+
     @Override
     protected ChatModel createChatModel(@CheckForNull Item item, @CheckForNull Authentication authentication,
                                         @CheckForNull Double temperature) {
+        if (getApiType() == ApiType.RESPONSES) {
+            return createResponsesChatModel(temperature);
+        }
         var builder = OpenAiChatModel.builder()
                 .httpClientBuilder(newLangChainHttpClientBuilder())
                 .baseUrl(getUrl())
                 .modelName(getModel())
                 .responseFormat(ResponseFormat.JSON)
+                .logRequests(LOGGER.isLoggable(Level.FINE))
+                .logResponses(LOGGER.isLoggable(Level.FINE));
+        String resolvedApiKey = Util.fixEmptyAndTrim(Secret.toString(apiKey));
+        if (resolvedApiKey != null) {
+            builder.apiKey(resolvedApiKey);
+        }
+        if (temperature != null) {
+            builder.temperature(temperature);
+        }
+        return new ErrorMappingChatModel(builder.build());
+    }
+
+    /**
+     * Creates a model that calls {@code <url>/responses}. {@code store} is disabled so the
+     * provider does not keep the build logs sent for analysis.
+     */
+    private ChatModel createResponsesChatModel(@CheckForNull Double temperature) {
+        var builder = OpenAiResponsesChatModel.builder()
+                .httpClientBuilder(newLangChainHttpClientBuilder())
+                // The Responses client appends "/responses" without normalizing slashes
+                .baseUrl(StringUtils.removeEnd(getUrl(), "/"))
+                .modelName(getModel())
+                .responseFormat(ResponseFormat.JSON)
+                .store(false)
                 .logRequests(LOGGER.isLoggable(Level.FINE))
                 .logResponses(LOGGER.isLoggable(Level.FINE));
         String resolvedApiKey = Util.fixEmptyAndTrim(Secret.toString(apiKey));
@@ -185,8 +246,39 @@ public class OpenAICompatibleProvider extends ChatModelAIProvider {
         public FormValidation doTestConfiguration(@AncestorInPath Item context,
                                                   @QueryParameter("apiKey") Secret apiKey,
                                                   @QueryParameter("url") String url,
-                                                  @QueryParameter("model") String model) {
-            return runConfigurationTest(context, new OpenAICompatibleProvider(url, model, apiKey));
+                                                  @QueryParameter("model") String model,
+                                                  @QueryParameter("apiType") String apiType) {
+            OpenAICompatibleProvider provider = new OpenAICompatibleProvider(url, model, apiKey);
+            provider.setApiType(parseApiType(apiType));
+            return runConfigurationTest(context, provider);
+        }
+
+        /**
+         * Returns the selectable API types for configuration.
+         *
+         * @return API type options
+         */
+        @POST
+        @SuppressWarnings("lgtm[jenkins/no-permission-check]")
+        public ListBoxModel doFillApiTypeItems() {
+            ListBoxModel items = new ListBoxModel();
+            for (ApiType value : ApiType.values()) {
+                items.add(value.getDisplayName(), value.name());
+            }
+            return items;
+        }
+
+        @CheckForNull
+        private static ApiType parseApiType(@CheckForNull String apiType) {
+            String trimmed = Util.fixEmptyAndTrim(apiType);
+            if (trimmed == null) {
+                return null;
+            }
+            try {
+                return ApiType.valueOf(trimmed);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
         }
     }
 }

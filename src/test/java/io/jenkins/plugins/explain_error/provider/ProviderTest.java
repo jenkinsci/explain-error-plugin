@@ -347,6 +347,24 @@ class ProviderTest {
         assertEquals("http://localhost:1234", provider.getUrl());
         assertEquals("gateway-model", provider.getModel());
         assertEquals("test-key", Secret.toString(provider.getApiKey()));
+        assertEquals(OpenAICompatibleProvider.ApiType.CHAT_COMPLETIONS, provider.getApiType());
+    }
+
+    @Test
+    void testOpenAICompatibleNullApiTypeDefaultsToChatCompletions() {
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                "http://localhost:1234", "gateway-model", null);
+        provider.setApiType(null);
+        assertEquals(OpenAICompatibleProvider.ApiType.CHAT_COMPLETIONS, provider.getApiType());
+    }
+
+    @Test
+    void testOpenAICompatibleResponsesApiWithoutUrl() {
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(null, "gateway-model", null);
+        provider.setApiType(OpenAICompatibleProvider.ApiType.RESPONSES);
+        ExplanationException result = assertThrows(ExplanationException.class, () -> provider.explainError("Test error", null));
+
+        assertEquals("The provider is not properly configured.", result.getMessage());
     }
 
     @Test
