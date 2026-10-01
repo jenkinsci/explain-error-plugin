@@ -16,6 +16,7 @@ Usage quotas let administrators cap the number of real AI provider calls the plu
 | **Usage event tracking** | Rejected calls emit a `QUOTA_REJECTED` usage event (visible in `MetricsUsageRecorder`) |
 | **Real-time config changes** | Changing the limit takes effect immediately — no Jenkins restart needed |
 | **Thread safety** | The counter is synchronized, so concurrent builds on the same controller share the same window correctly |
+| **Automatic explanation limit** | Automatic explanations of failed builds also have their own hourly limit (default 30), checked before this quota. See [Automatic Explanation of Failed Builds](auto-explain.md) |
 
 ---
 

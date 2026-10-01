@@ -164,6 +164,7 @@ Use `provider.setThrowError(true)` to simulate failures, `provider.getLastCustom
 
 Complex features (e.g., AutoFix, usage quotas) must have a corresponding markdown doc under `docs/`. When you add or significantly update such a feature, keep the doc in sync. Existing feature docs:
 
+- `docs/auto-explain.md` — automatic explanation of failed builds, its safeguards and per-job override
 - `docs/auto-fix.md` — experimental auto-fix feature
 - `docs/usage-quota.md` — per-provider/model request quotas
 - `docs/data-protection.md` — log sanitization (when merged)
