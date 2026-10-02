@@ -185,4 +185,11 @@ class ScmRepoTest {
         assertFalse(str.contains("super-secret-token"), "Token must not appear in toString()");
         assertTrue(str.contains("[REDACTED]"), "toString() must contain [REDACTED]");
     }
+
+    @Test
+    void parse_unparsableUrl_throwsIllegalArgumentException() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> ScmRepo.parse("not a git remote", "tok"));
+        assertEquals("Cannot parse remote URL: not a git remote", e.getMessage());
+    }
 }

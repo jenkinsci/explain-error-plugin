@@ -273,4 +273,26 @@ class ExplainErrorFolderPropertyTest {
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
+
+    @Test
+    void folderLookupsHandleAMissingItemGroup() {
+        assertNull(ExplainErrorFolderProperty.findFolderWithQuota(null));
+        assertNull(ExplainErrorFolderProperty.findFolderLanguage(null));
+        assertNull(ExplainErrorFolderProperty.findFolderCustomContext(null));
+        assertNull(ExplainErrorFolderProperty.findFolderTemperature(null));
+        assertTrue(ExplainErrorFolderProperty.isFolderExplanationEnabled(null));
+        assertTrue(new ExplainErrorFolderProperty().tryAcquireQuota(), "a disabled quota never rejects calls");
+    }
+
+    @Test
+    void folderQuotaValidationRequiresConfigurePermission(JenkinsRule jenkins) throws IOException {
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "quota-folder");
+        ExplainErrorFolderProperty.DescriptorImpl descriptor =
+                jenkins.jenkins.getDescriptorByType(ExplainErrorFolderProperty.DescriptorImpl.class);
+
+        assertEquals(hudson.util.FormValidation.Kind.ERROR,
+                descriptor.doCheckMaxProviderCallsPerWindow(folder, -5).kind);
+        assertEquals(hudson.util.FormValidation.Kind.OK,
+                descriptor.doCheckMaxProviderCallsPerWindow(folder, 10).kind);
+    }
 }

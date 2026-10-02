@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import hudson.util.Secret;
@@ -16,6 +17,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.Test;
 
 class ProviderSmokeTest {
@@ -125,6 +128,129 @@ class ProviderSmokeTest {
         }
     }
 
+    @Test
+    void openAiFamilyProvidersSendBearerKeyModelAndTemperature() throws Exception {
+        try (StubAiServer server = StubAiServer.openAi("OpenAI family answer")) {
+            List<BaseAIProvider> providers = List.of(
+                    new OpenAIProvider(server.baseUrl(), "openai-model", Secret.fromString("openai-key")),
+                    new DeepSeekProvider(server.baseUrl(), "deepseek-model", Secret.fromString("deepseek-key")),
+                    new QwenProvider(server.baseUrl(), "qwen-model", Secret.fromString("qwen-key"), null),
+                    new MicrosoftFoundryProvider(server.baseUrl() + "/", "foundry-model",
+                            Secret.fromString("foundry-key")));
+
+            for (BaseAIProvider provider : providers) {
+                String explanation = provider.explainError(ERROR_LOGS, null, null, null, null, null, 0.25);
+                assertTrue(explanation.contains("OpenAI family answer"), provider.getClass() + ": " + explanation);
+            }
+
+            assertEquals(List.of("Bearer openai-key", "Bearer deepseek-key", "Bearer qwen-key", "Bearer foundry-key"),
+                    server.authorizationHeaders());
+            List<String> models = new ArrayList<>();
+            for (String body : server.requestBodies()) {
+                JsonNode request = OBJECT_MAPPER.readTree(body);
+                models.add(request.path("model").asText());
+                assertEquals(0.25, request.path("temperature").asDouble(), body);
+            }
+            assertEquals(List.of("openai-model", "deepseek-model", "qwen-model", "foundry-model"), models);
+            assertEquals("/openai/v1/chat/completions", server.requestPaths().get(3),
+                    "Microsoft Foundry requests must target the OpenAI v1 path");
+        }
+    }
+
+    @Test
+    void openAiFamilyProvidersOmitTemperatureWhenUnset() throws Exception {
+        try (StubAiServer server = StubAiServer.openAi("No temperature")) {
+            new DeepSeekProvider(server.baseUrl(), "deepseek-model", Secret.fromString("key"))
+                    .explainError(ERROR_LOGS, null);
+            new QwenProvider(server.baseUrl(), "qwen-model", Secret.fromString("key"), " ")
+                    .explainError(ERROR_LOGS, null);
+
+            for (String body : server.requestBodies()) {
+                assertFalse(OBJECT_MAPPER.readTree(body).has("temperature"), body);
+            }
+        }
+    }
+
+    @Test
+    void geminiProviderSendsTemperatureInGenerationConfig() throws Exception {
+        try (StubAiServer server = StubAiServer.gemini("Gemini temperature")) {
+            GeminiProvider provider = new GeminiProvider(server.baseUrl(), "test-model", Secret.fromString("key"));
+
+            String explanation = provider.explainError(ERROR_LOGS, null, null, null, null, null, 0.4);
+
+            assertTrue(explanation.contains("Gemini temperature"), explanation);
+            JsonNode request = OBJECT_MAPPER.readTree(server.requestBodies().get(0));
+            assertEquals(0.4, request.path("generationConfig").path("temperature").asDouble(),
+                    server.requestBodies().get(0));
+        }
+    }
+
+    @Test
+    void ollamaProviderSendsBearerApiKeyAndTemperature() throws Exception {
+        try (StubAiServer server = StubAiServer.ollama("Ollama with key")) {
+            OllamaProvider provider = new OllamaProvider(server.baseUrl(), "test-model",
+                    Secret.fromString("ollama-key"));
+
+            String explanation = provider.explainError(ERROR_LOGS, null, null, null, null, null, 0.6);
+
+            assertTrue(explanation.contains("Ollama with key"), explanation);
+            assertEquals(List.of("Bearer ollama-key"), server.authorizationHeaders());
+            JsonNode request = OBJECT_MAPPER.readTree(server.requestBodies().get(0));
+            assertEquals(0.6, request.path("options").path("temperature").asDouble(), server.requestBodies().get(0));
+        }
+    }
+
+    @Test
+    void anthropicProviderClampsTemperatureAndSkipsItForClaude47AndNewer() throws Exception {
+        Logger logger = Logger.getLogger(AnthropicProvider.class.getName());
+        Logger langChainLogger = Logger.getLogger("dev.langchain4j");
+        Level previousLevel = logger.getLevel();
+        Level previousLangChainLevel = langChainLogger.getLevel();
+        // FINE logging evaluates the lazily built log messages of both temperature branches;
+        // it also turns on request logging, which is kept out of the test output.
+        logger.setLevel(Level.FINE);
+        langChainLogger.setLevel(Level.WARNING);
+        try (StubAiServer server = StubAiServer.anthropicContent(analysisJson("Claude temperature"))) {
+            List<String> models = List.of("claude-sonnet-4-6", "Claude-Opus-4-7", "claude-sonnet-4-8-20270101",
+                    "claude-haiku-5", "claude-opus-5-1", "claude-sonnet-4-6");
+            List<Double> temperatures = List.of(1.5, 0.2, 0.2, 0.2, 0.2, -1.0);
+            for (int i = 0; i < models.size(); i++) {
+                AnthropicProvider provider = new AnthropicProvider(server.baseUrl(), models.get(i),
+                        Secret.fromString("anthropic-key"), null, 512);
+                provider.explainError(ERROR_LOGS, null, null, null, null, null, temperatures.get(i));
+            }
+            new AnthropicProvider(server.baseUrl(), "claude-opus-4-7", Secret.fromString("anthropic-key"), null, null)
+                    .explainError(ERROR_LOGS, null);
+
+            List<String> bodies = server.requestBodies();
+            assertEquals(1.0, OBJECT_MAPPER.readTree(bodies.get(0)).path("temperature").asDouble(),
+                    "temperatures above 1 must be clamped for Anthropic");
+            for (int i = 1; i <= 4; i++) {
+                assertFalse(OBJECT_MAPPER.readTree(bodies.get(i)).has("temperature"),
+                        "Claude 4.7+ must not receive a temperature: " + models.get(i));
+            }
+            assertEquals(0.0, OBJECT_MAPPER.readTree(bodies.get(5)).path("temperature").asDouble(-1),
+                    "negative temperatures must be clamped to 0");
+            assertFalse(OBJECT_MAPPER.readTree(bodies.get(6)).has("temperature"));
+            assertEquals(512, OBJECT_MAPPER.readTree(bodies.get(0)).path("max_tokens").asInt());
+            assertEquals(4096, OBJECT_MAPPER.readTree(bodies.get(6)).path("max_tokens").asInt());
+            assertTrue(server.requestHeaders("x-api-key").stream().allMatch("anthropic-key"::equals));
+        } finally {
+            logger.setLevel(previousLevel);
+            langChainLogger.setLevel(previousLangChainLevel);
+        }
+    }
+
+    @Test
+    void anthropicProviderUsesDefaultTemperatureWhenUnset() throws Exception {
+        try (StubAiServer server = StubAiServer.anthropicContent(analysisJson("Default temperature"))) {
+            new AnthropicProvider(server.baseUrl(), "claude-sonnet-4-6", Secret.fromString("key"), null, null)
+                    .explainError(ERROR_LOGS, null);
+
+            assertEquals(0.3, OBJECT_MAPPER.readTree(server.requestBodies().get(0)).path("temperature").asDouble());
+        }
+    }
+
     private static String analysisJson(String summary) {
         return """
                 {
@@ -147,6 +273,8 @@ class ProviderSmokeTest {
         private final AtomicInteger requestCount = new AtomicInteger();
         private final List<String> requestBodies = Collections.synchronizedList(new ArrayList<>());
         private final List<String> requestPaths = Collections.synchronizedList(new ArrayList<>());
+        private final List<Headers> requestHeaders =
+                Collections.synchronizedList(new ArrayList<>());
 
         private StubAiServer(String responseBody) throws IOException {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -232,6 +360,7 @@ class ProviderSmokeTest {
         private void respond(HttpExchange exchange, String responseBody) throws IOException {
             requestCount.incrementAndGet();
             requestPaths.add(exchange.getRequestURI().toString());
+            requestHeaders.add(exchange.getRequestHeaders());
             requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
 
             byte[] body = responseBody.getBytes(StandardCharsets.UTF_8);
@@ -255,6 +384,18 @@ class ProviderSmokeTest {
 
         private List<String> requestPaths() {
             return requestPaths;
+        }
+
+        private List<String> requestHeaders(String name) {
+            List<String> values = new ArrayList<>();
+            for (Headers headers : requestHeaders) {
+                values.add(headers.getFirst(name));
+            }
+            return values;
+        }
+
+        private List<String> authorizationHeaders() {
+            return requestHeaders("Authorization");
         }
 
         @Override

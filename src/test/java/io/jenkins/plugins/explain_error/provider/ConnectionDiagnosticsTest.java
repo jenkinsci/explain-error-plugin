@@ -11,8 +11,10 @@ import hudson.util.FormValidation;
 import hudson.util.Secret;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
@@ -252,5 +254,49 @@ class ConnectionDiagnosticsTest {
         assertTrue(html.contains("Connection diagnostics"), html);
         assertTrue(html.contains("TCP connect: FAILED"), html);
         assertTrue(html.contains("Error chain:"), html);
+    }
+
+    @Test
+    void unusableEndpointsSkipTheNetworkProbes() {
+        String ftp = ConnectionDiagnostics.run("ftp://files.example/archive", null);
+        assertTrue(ftp.contains("not a usable http(s) URL; network probes skipped"), ftp);
+        assertFalse(ftp.contains("Error chain"), "without a failure there is no error chain: " + ftp);
+
+        String invalid = ConnectionDiagnostics.run("http://bad host/v1", new RuntimeException("boom"));
+        assertTrue(invalid.contains("Endpoint: http://bad host/v1 — invalid URL: "), invalid);
+    }
+
+    @Test
+    void longMessagesAreAbbreviated() {
+        String report = ConnectionDiagnostics.run(null, new RuntimeException("x".repeat(500)));
+
+        assertTrue(report.contains("x".repeat(200) + "..."), report);
+        assertFalse(report.contains("x".repeat(201)), report);
+    }
+
+    @Test
+    void tlsHandshakeFailuresAreReported() throws Exception {
+        // A plain-text server answering a TLS ClientHello makes the handshake fail immediately.
+        try (ServerSocket plainText = new ServerSocket(0, 50, InetAddress.getLoopbackAddress())) {
+            Thread acceptor = new Thread(() -> {
+                while (!plainText.isClosed()) {
+                    try (Socket socket = plainText.accept()) {
+                        socket.getOutputStream().write("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"
+                                .getBytes(StandardCharsets.US_ASCII));
+                        socket.getOutputStream().flush();
+                    } catch (IOException e) {
+                        return;
+                    }
+                }
+            }, "plain-text-server");
+            acceptor.setDaemon(true);
+            acceptor.start();
+
+            String report = ConnectionDiagnostics.run(
+                    "https://127.0.0.1:" + plainText.getLocalPort() + "/v1", new RuntimeException("boom"));
+
+            assertTrue(report.contains("HTTP probe: TLS handshake FAILED"), report);
+            assertTrue(report.contains("check certificates/truststore on the controller"), report);
+        }
     }
 }

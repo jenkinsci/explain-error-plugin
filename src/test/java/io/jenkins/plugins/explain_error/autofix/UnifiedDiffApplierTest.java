@@ -156,4 +156,29 @@ class UnifiedDiffApplierTest {
         String diff = "--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n context1\n context2\n";
         assertNotNull(UnifiedDiffApplier.validate(diff));
     }
+
+    @Test
+    void applyIgnoresGitMetadataAndNoNewlineMarkers() {
+        String original = "alpha\nbeta";
+        String diff = "diff --git a/f.txt b/f.txt\nindex 123..456 100644\nsome preamble\n--- a/f.txt\n+++ b/f.txt\n"
+                + "@@ -1,2 +1,2 @@\n alpha\n-beta\n\\ No newline at end of file\n+gamma\n\\ No newline at end of file";
+
+        assertEquals("alpha\ngamma", UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyRejectsContextBeyondTheEndOfTheFile() {
+        String diff = "@@ -1,3 +1,3 @@\n one\n-two\n+2\n three";
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> UnifiedDiffApplier.apply("one\ntwo", diff));
+        assertTrue(e.getMessage().contains("context lines do not match"), e.getMessage());
+    }
+
+    @Test
+    void validateRejectsAHunkWithoutChangesBeforeAnotherHunk() {
+        String diff = "@@ -1,1 +1,1 @@\n context only\n@@ -5,1 +5,1 @@\n-old\n+new";
+
+        assertEquals("Hunk has no changed lines (no + or - lines)", UnifiedDiffApplier.validate(diff));
+    }
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -918,5 +919,38 @@ class PipelineLogExtractorTest {
         MockAuthorizationStrategy strategy = (MockAuthorizationStrategy) jenkins.jenkins.getAuthorizationStrategy();
         strategy.grant(Item.READ).onItems(item).to(username);
         jenkins.jenkins.setAuthorizationStrategy(strategy);
+    }
+
+    @Test
+    void invalidDownstreamPatternIsIgnoredAndEmptyNodeSetsHaveNoAncestor(JenkinsRule jenkins) throws Exception {
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(jenkins.createFreeStyleProject("invalid-pattern"));
+        PipelineLogExtractor extractor = new PipelineLogExtractor(build, 10, true, "[unclosed");
+
+        PipelineLogExtractor.ExtractionResult result = extractor.extractFailedStepLog();
+
+        assertFalse(result.downstreamCollectionEnabled(), "an invalid job pattern must disable downstream collection");
+        assertTrue(result.fallbackToBuildLog());
+        assertNull(extractor.findCommonAncestor(null));
+        assertNull(extractor.findCommonAncestor(Set.of()));
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void failingStepLogIsTrimmedToTheLastLines(JenkinsRule jenkins) throws Exception {
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-trim");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "    sh '#!/bin/sh\\nfor i in 1 2 3 4 5 6 7 8; do echo \"TRIM_LINE_$i\"; done; exit 1'\n"
+                + "}",
+                true));
+        WorkflowRun run = jenkins.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0));
+
+        List<String> lines = new PipelineLogExtractor(run, 3).getFailedStepLog();
+
+        // Only the last three lines of the failing step are kept, between the node header and footer.
+        int content = lines.indexOf("--- LOG CONTENT ---");
+        assertTrue(content >= 0, String.join("\n", lines));
+        assertEquals(List.of("TRIM_LINE_6", "TRIM_LINE_7", "TRIM_LINE_8"), lines.subList(content + 1, content + 4));
+        assertTrue(lines.get(content + 4).startsWith("### END OF LOG"), String.join("\n", lines));
     }
 }
