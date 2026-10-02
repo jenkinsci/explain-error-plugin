@@ -2,12 +2,18 @@ package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
+import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import org.junit.jupiter.api.Test;
+import org.jvnet.hudson.test.FailureBuilder;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.TestBuilder;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 /**
@@ -172,5 +178,34 @@ class ErrorRunListenerTest {
                     "Build should NOT be auto-explained");
             Thread.sleep(50);
         }
+    }
+
+    @Test
+    void failedBuildIsNotExplainedTwiceOrWithAnInvalidProvider(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(true);
+        config.setEnableAutoExplainOnFailure(true);
+        config.setAiProvider(new FakeAIProvider());
+
+        FreeStyleProject explainedDuringBuild = jenkins.createFreeStyleProject("explained-during-build");
+        explainedDuringBuild.getBuildersList().add(new TestBuilder() {
+            @Override
+            public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
+                build.addAction(new ErrorExplanationAction("Explained by the pipeline", null, "logs", "Test"));
+                return false;
+            }
+        });
+        FreeStyleBuild explained = jenkins.buildAndAssertStatus(Result.FAILURE, explainedDuringBuild);
+        assertEquals(1, explained.getActions(ErrorExplanationAction.class).size());
+        assertEquals("Explained by the pipeline", explained.getAction(ErrorExplanationAction.class).getExplanation());
+        jenkins.assertLogNotContains("Auto-explain triggered", explained);
+
+        config.setAiProvider(new OpenAIProvider(null, "gpt-test", null));
+        FreeStyleProject failing = jenkins.createFreeStyleProject("invalid-provider");
+        failing.getBuildersList().add(new FailureBuilder());
+        FreeStyleBuild notExplained = jenkins.buildAndAssertStatus(Result.FAILURE, failing);
+        jenkins.assertLogContains(
+                "[explain-error] Build failed, but the AI provider configuration is invalid.", notExplained);
+        assertNull(notExplained.getAction(ErrorExplanationAction.class));
     }
 }

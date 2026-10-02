@@ -272,4 +272,17 @@ class ErrorExplanationActionTest {
         assertEquals(List.of(), restored.getBestPractices());
         assertEquals("No space left on device", restored.getErrorSignature());
     }
+
+    @Test
+    void legacyActionsWithoutProviderGetDefaultsAndExposeTheirRunAndApi() {
+        ErrorExplanationAction legacy = new ErrorExplanationAction("explanation", "", "logs", null);
+        assertSame(legacy, legacy.readResolve());
+        assertEquals("Unknown", legacy.getProviderName());
+        assertEquals("Unknown", legacy.getProviderModel());
+
+        Run<?, ?> run = org.mockito.Mockito.mock(Run.class);
+        legacy.onAttached(run);
+        assertSame(run, legacy.getRun());
+        assertNotNull(legacy.getApi());
+    }
 }

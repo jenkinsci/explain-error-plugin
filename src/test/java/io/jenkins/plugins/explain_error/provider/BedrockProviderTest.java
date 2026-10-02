@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import hudson.ProxyConfiguration;
 import hudson.util.FormValidation;
+import hudson.util.StreamTaskListener;
 import io.jenkins.plugins.explain_error.autofix.FixAssistant;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -232,5 +235,94 @@ class BedrockProviderTest {
     void testBuildAwsProxyConfigurationSkipsMissingProxy() {
         assertNull(BedrockProvider.buildAwsProxyConfiguration(null));
         assertNull(BedrockProvider.buildAwsProxyConfiguration(new ProxyConfiguration("", 8080)));
+    }
+
+    @Test
+    void testCreateAssistantWithPrivateEndpointRoleAndTemperatureBuildsWithoutCallingAws() {
+        // Building the clients is purely local: credentials and the STS role are only used on the first request.
+        BedrockProvider provider = new BedrockProvider(
+                "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com",
+                "anthropic.claude-3-5-sonnet-20240620-v1:0", "us-east-1",
+                "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole");
+
+        assertNotNull(provider.createAssistant(null, null, 0.4));
+        assertNotNull(provider.createFixAssistant(null, null));
+    }
+
+    @Test
+    void testCreateAssistantWithEndpointOnlyUsesTheConfiguredRegion() {
+        BedrockProvider provider = new BedrockProvider("https://bedrock.internal.example",
+                "anthropic.claude-3-5-sonnet-20240620-v1:0", "eu-central-1", null);
+
+        assertNotNull(provider.createAssistant(null, null, null));
+    }
+
+    @Test
+    void testEffectiveEndpointForDiagnostics() {
+        assertEquals("https://bedrock.internal.example",
+                new BedrockProvider("https://bedrock.internal.example", "m", "eu-west-1", null)
+                        .getEffectiveEndpointForDiagnostics());
+        assertEquals("https://vpce.example.com",
+                new BedrockProvider(" vpce.example.com ", "m", null, null).getEffectiveEndpointForDiagnostics());
+        assertEquals("https://bedrock-runtime.eu-west-1.amazonaws.com",
+                new BedrockProvider(null, "m", "eu-west-1", null).getEffectiveEndpointForDiagnostics());
+        assertNull(new BedrockProvider(" ", "m", null, null).getEffectiveEndpointForDiagnostics());
+    }
+
+    @Test
+    void testValidationMessageForMissingModel() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        assertTrue(new BedrockProvider(null, " ", "eu-west-1", null)
+                .isNotValid(new StreamTaskListener(out, StandardCharsets.UTF_8)));
+        assertEquals("No Model configured for AWS Bedrock.", out.toString(StandardCharsets.UTF_8).trim());
+
+        out.reset();
+        assertFalse(new BedrockProvider(null, "m", "eu-west-1", null)
+                .isNotValid(new StreamTaskListener(out, StandardCharsets.UTF_8)));
+        assertEquals("", out.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void testEndpointValidationAcceptsBlankAndRejectsHostlessUrls() {
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateEndpoint(null).kind);
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateEndpoint("  ").kind);
+
+        FormValidation hostless = BedrockProvider.validateEndpoint("file:///tmp/bedrock");
+        assertEquals(FormValidation.Kind.ERROR, hostless.kind);
+        assertTrue(hostless.getMessage().contains("Endpoint is not well formed"));
+    }
+
+    @Test
+    void testDescriptorChecksAndDefaults() {
+        BedrockProvider.DescriptorImpl descriptor = new BedrockProvider.DescriptorImpl();
+
+        assertEquals("AWS Bedrock", descriptor.getDisplayName());
+        assertEquals("eu.anthropic.claude-3-5-sonnet-20240620-v1:0", descriptor.getDefaultModel());
+        assertEquals("eu-west-1", descriptor.getDefaultRegion());
+        assertEquals(FormValidation.Kind.OK, descriptor.doCheckUrl("vpce.example.com").kind);
+        assertEquals(FormValidation.Kind.ERROR, descriptor.doCheckUrl("ftp://vpce.example.com").kind);
+        assertEquals(FormValidation.Kind.OK, descriptor.doCheckRoleArn(" ").kind);
+        assertEquals(FormValidation.Kind.OK,
+                descriptor.doCheckRoleArn("arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole").kind);
+        assertEquals(FormValidation.Kind.OK,
+                descriptor.doCheckRoleArn("arn:aws-us-gov:iam::123456789012:role/path/Role").kind);
+        FormValidation invalidRole = descriptor.doCheckRoleArn("arn:aws:iam::123:user/someone");
+        assertEquals(FormValidation.Kind.ERROR, invalidRole.kind);
+        assertTrue(invalidRole.getMessage().contains("Role ARN must be an IAM role ARN"));
+    }
+
+    @Test
+    void testProxyWithoutCredentialsOrExclusions() {
+        assertEquals(Set.of(), BedrockProvider.parseNoProxyHosts(" "));
+        assertEquals(Set.of(), BedrockProvider.parseNoProxyHosts(null));
+
+        software.amazon.awssdk.http.apache.ProxyConfiguration awsProxy =
+                BedrockProvider.buildAwsProxyConfiguration(new ProxyConfiguration("proxy.example.com", 3128));
+
+        assertNotNull(awsProxy);
+        assertEquals("proxy.example.com", awsProxy.host());
+        assertEquals(3128, awsProxy.port());
+        assertNull(awsProxy.username());
     }
 }
