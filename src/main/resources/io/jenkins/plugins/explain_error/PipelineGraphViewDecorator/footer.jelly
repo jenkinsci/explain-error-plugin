@@ -1,0 +1,28 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
+    <j:set var="active" value="${it.pluginActive}" />
+    <j:if test="${active}">
+      <j:set var="enabled" value="${it.explainErrorEnabled}" />
+      <j:set var="existingExplanation" value="${it.existingExplanation}" />
+      <j:set var="hasExplanation" value="${existingExplanation != null}" />
+      <j:if test="${enabled or hasExplanation}">
+        <script src="${rootURL}/plugin/explain-error/js/explain-error-graph-view.js" type="text/javascript"/>
+        <j:set var="providerName" value="${it.providerName != null ? it.providerName : 'Unknown'}" />
+        <div id="explain-error-graph-container" class="jenkins-hidden"
+             data-run-url="${it.runUrl}"
+             data-provider-name="${providerName}"
+             data-has-explanation="${hasExplanation}"
+             data-plugin-enabled="${enabled}">
+        </div>
+        <!--
+          Rendered once, server-side, via the real Jenkins Symbols mechanism
+          (the same one behind ErrorExplanationAction#getIconFileName) so the
+          card built by explain-error-graph-view.js can clone real icon
+          markup instead of hard-coding SVG paths of its own. Kept hidden;
+          the JS reads and clones these nodes into the card it builds.
+        -->
+        <span id="explain-error-graph-icon-reload" class="jenkins-hidden"><l:icon src="symbol-reload plugin-ionicons-api" alt=""/></span>
+        <span id="explain-error-graph-icon-close" class="jenkins-hidden"><l:icon src="symbol-close plugin-ionicons-api" alt=""/></span>
+      </j:if>
+    </j:if>
+</j:jelly>
