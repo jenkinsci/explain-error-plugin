@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -92,6 +93,19 @@ public class CasCTest {
         assertEquals("anthropic.claude-3-5-sonnet-20240620-v1:0", bedrock.getModel());
         assertEquals("us-east-1", bedrock.getRegion());
         assertEquals("arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole", bedrock.getRoleArn());
+        assertNull(bedrock.getGuardrailIdentifier());
+        assertNull(bedrock.getGuardrailVersion());
+    }
+
+    @Test
+    @ConfiguredWithCode("casc_bedrock_guardrail.yaml")
+    void loadBedrockProviderConfigWithGuardrail(JenkinsConfiguredWithCodeRule jcwcRule) {
+        BedrockProvider bedrock =
+                assertInstanceOf(BedrockProvider.class, GlobalConfigurationImpl.get().getAiProvider());
+
+        assertEquals("arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123", bedrock.getGuardrailIdentifier());
+        assertEquals("1", bedrock.getGuardrailVersion());
+        assertFalse(bedrock.isNotValid(null));
     }
 
     @Test

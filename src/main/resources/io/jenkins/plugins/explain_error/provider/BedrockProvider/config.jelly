@@ -16,6 +16,15 @@
     <f:textbox clazz="required" default="${descriptor.defaultModel}"/>
   </f:entry>
 
+  <f:entry title="Guardrail Identifier" field="guardrailIdentifier">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="Guardrail Version" field="guardrailVersion">
+    <f:textbox/>
+  </f:entry>
+
   <f:validateButton title="Test Configuration" progress="Testing..."
-                    method="testConfiguration" with="url,model,region,roleArn" />
+                    method="testConfiguration"
+                    with="url,model,region,roleArn,guardrailIdentifier,guardrailVersion" />
 </j:jelly>
