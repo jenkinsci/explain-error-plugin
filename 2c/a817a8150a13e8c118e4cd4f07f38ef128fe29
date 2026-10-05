@@ -1,0 +1,41 @@
+src/test/java/io/jenkins/plugins/explain_error/provider/BedrockProviderGuardrailTest.java
+  s_ad691b5727f8df::t_f471690646be72 1-26,29-48,51-153,164-218,239-338
+  s_ad691b5727f8df::t_76854e96e7a42a 27-28,219-238
+  s_ad691b5727f8df::t_14762338b277de 49-50
+  s_ad691b5727f8df::t_e775b8cca15e1a 154-163
+src/main/resources/io/jenkins/plugins/explain_error/provider/BedrockProvider/help-guardrailIdentifier.html
+  s_ad691b5727f8df::t_14762338b277de 3-5
+  s_ad691b5727f8df::t_a0aab9430847dd 1-2,6-13
+README.md
+  s_ad691b5727f8df::t_271e35010e95a3 130-131,315
+src/main/java/io/jenkins/plugins/explain_error/provider/BedrockProvider.java
+  s_ad691b5727f8df::t_76854e96e7a42a 176
+  s_ad691b5727f8df::t_ec7087ec656178 3,6-8,10-12,27-28,31,39,56-61,65-66,93-115,119-122,127-133,149-175,177-192,329-355,358-359,361,364-366,368,398-404,427-442
+src/test/resources/io/jenkins/plugins/explain_error/casc_bedrock_guardrail.yaml
+  s_ad691b5727f8df::t_f471690646be72 1-9
+src/main/resources/io/jenkins/plugins/explain_error/provider/BedrockProvider/config.jelly
+  s_ad691b5727f8df::t_ec7087ec656178 19-26,28-29
+src/test/java/io/jenkins/plugins/explain_error/provider/BedrockProviderTest.java
+  s_ad691b5727f8df::t_f471690646be72 115-201
+src/main/resources/io/jenkins/plugins/explain_error/provider/BedrockProvider/help-guardrailVersion.html
+  s_ad691b5727f8df::t_a0aab9430847dd 1-4
+src/test/java/io/jenkins/plugins/explain_error/CasCTest.java
+  s_ad691b5727f8df::t_14762338b277de 103-104
+  s_ad691b5727f8df::t_f471690646be72 4,96-102,105-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2ca817a8150a13e8c118e4cd4f07f38ef128fe29",
+  "prompts": {},
+  "sessions": {
+    "s_ad691b5727f8df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "62f1fa90-2b36-47dc-92ed-5f590ad5ba46",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
