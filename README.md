@@ -127,6 +127,8 @@ unclassified:
         region: "us-east-1" # Optional, uses AWS SDK default if not specified
         # url: "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com" # Optional private endpoint
         # roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole" # Optional cross-account role
+        # guardrailIdentifier: "arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123" # Optional guardrail ID or ARN
+        # guardrailVersion: "1" # Required with guardrailIdentifier: a version number or DRAFT
     enableExplanation: true
 ```
 
@@ -310,6 +312,7 @@ This allows you to manage the plugin configuration alongside your other Jenkins 
 - **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
 - **Endpoint**: Optional Bedrock Runtime endpoint override for VPC endpoints or private AWS-compatible endpoints. Host-only values default to HTTPS
 - **Cross-account role**: Optional IAM role ARN. Jenkins uses its base AWS credentials to call STS AssumeRole, then invokes Bedrock with the temporary credentials
+- **Guardrail**: Optional [Amazon Bedrock guardrail](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html). Set both **Guardrail Identifier** (ID or ARN) and **Guardrail Version** (a version number or `DRAFT`) to apply it to every explanation and auto-fix request; a configuration with only one of the two is rejected rather than run unguarded. The guardrail evaluates the build log sent to the model and the model's answer. When it blocks either one, no explanation is produced and the guardrail's blocked message is reported as the error; an answer the guardrail only masked (for example PII) is shown as returned. The AWS credentials need `bedrock:ApplyGuardrail` on the guardrail in addition to `bedrock:InvokeModel`
 - **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
 
 ### Azure OpenAI

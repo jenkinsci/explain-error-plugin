@@ -113,6 +113,93 @@ class BedrockProviderTest {
     }
 
     @Test
+    void testGuardrailSettingsAreTrimmedAndBlankBecomesNull() {
+        BedrockProvider provider = new BedrockProvider(null, "test-model", "us-east-1", null);
+        assertNull(provider.getGuardrailIdentifier());
+        assertNull(provider.getGuardrailVersion());
+
+        provider.setGuardrailIdentifier(" arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123 ");
+        provider.setGuardrailVersion(" DRAFT ");
+        assertEquals("arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123", provider.getGuardrailIdentifier());
+        assertEquals("DRAFT", provider.getGuardrailVersion());
+
+        provider.setGuardrailIdentifier("  ");
+        provider.setGuardrailVersion("");
+        assertNull(provider.getGuardrailIdentifier());
+        assertNull(provider.getGuardrailVersion());
+    }
+
+    @Test
+    void testCompleteGuardrailIsValidAndBuilds() {
+        BedrockProvider provider = new BedrockProvider(null, "test-model", "us-east-1", null);
+        provider.setGuardrailIdentifier("abc123");
+        provider.setGuardrailVersion("1");
+
+        assertFalse(provider.isNotValid(null));
+        assertNotNull(provider.createAssistant(null, null, 0.2));
+        assertNotNull(provider.createFixAssistant(null, null));
+    }
+
+    @Test
+    void testIncompleteGuardrailIsRejectedInsteadOfDropped() {
+        BedrockProvider identifierOnly = new BedrockProvider(null, "test-model", "us-east-1", null);
+        identifierOnly.setGuardrailIdentifier("abc123");
+        BedrockProvider versionOnly = new BedrockProvider(null, "test-model", "us-east-1", null);
+        versionOnly.setGuardrailVersion("1");
+
+        for (BedrockProvider provider : new BedrockProvider[] {identifierOnly, versionOnly}) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            assertTrue(provider.isNotValid(new StreamTaskListener(out, StandardCharsets.UTF_8)));
+            assertEquals("AWS Bedrock guardrail needs both a Guardrail Identifier and a Guardrail Version.",
+                    out.toString(StandardCharsets.UTF_8).trim());
+            assertTrue(provider.isNotValid(null));
+            // The auto-fix path builds the model without calling isNotValid first.
+            assertThrows(IllegalStateException.class, () -> provider.createFixAssistant(null, null));
+            assertThrows(IllegalStateException.class, () -> provider.createAssistant(null, null, null));
+        }
+    }
+
+    @Test
+    void testGuardrailIdentifierValidation() {
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailIdentifier(" ", null).kind);
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailIdentifier("abc123", "1").kind);
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailIdentifier(
+                " arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123 ", "DRAFT").kind);
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailIdentifier(
+                "arn:aws-us-gov:bedrock:us-gov-west-1:123456789012:guardrail/abc123", "1").kind);
+
+        FormValidation missing = BedrockProvider.validateGuardrailIdentifier("", "1");
+        assertEquals(FormValidation.Kind.ERROR, missing.kind);
+        assertTrue(missing.getMessage().contains("Guardrail Identifier is required"));
+
+        for (String invalid : new String[] {
+                "My-Guardrail",
+                "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole",
+                "arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123:1"}) {
+            FormValidation validation = BedrockProvider.validateGuardrailIdentifier(invalid, "1");
+            assertEquals(FormValidation.Kind.ERROR, validation.kind, invalid);
+            assertTrue(validation.getMessage().contains("must be a guardrail ID or ARN"));
+        }
+    }
+
+    @Test
+    void testGuardrailVersionValidation() {
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailVersion(null, " ").kind);
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailVersion("DRAFT", "abc123").kind);
+        assertEquals(FormValidation.Kind.OK, BedrockProvider.validateGuardrailVersion(" 12 ", "abc123").kind);
+
+        FormValidation missing = BedrockProvider.validateGuardrailVersion(" ", "abc123");
+        assertEquals(FormValidation.Kind.ERROR, missing.kind);
+        assertTrue(missing.getMessage().contains("Guardrail Version is required"));
+
+        for (String invalid : new String[] {"draft", "0", "v1", "1.0", "latest"}) {
+            FormValidation validation = BedrockProvider.validateGuardrailVersion(invalid, "abc123");
+            assertEquals(FormValidation.Kind.ERROR, validation.kind, invalid);
+            assertTrue(validation.getMessage().contains("must be DRAFT or a version number"));
+        }
+    }
+
+    @Test
     void testEndpointConfiguration() {
         BedrockProvider provider = new BedrockProvider(
                 "https://vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com",
