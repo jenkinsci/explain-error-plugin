@@ -272,6 +272,63 @@ class OpenAICompatibleProviderTest {
         assertEquals("RESPONSES", apiTypes.get(1).value);
         assertEquals(FormValidation.Kind.OK, result.kind, result.getMessage());
         assertEquals("/responses", requestPath.get());
+
+        server.createContext("/chat/completions", new JsonHandler(exchange -> {
+            requestPath.set(exchange.getRequestURI().toString());
+            return chatCompletionResponse("{\"errorSummary\":\"ok\"}");
+        }));
+        FormValidation unknownType = descriptor.doTestConfiguration(null, Secret.fromString("key"),
+                "http://127.0.0.1:" + server.getAddress().getPort(), "gateway-model", "BOGUS");
+        assertEquals(FormValidation.Kind.OK, unknownType.kind, unknownType.getMessage());
+        assertEquals("/chat/completions", requestPath.get(), "an unknown API type falls back to Chat Completions");
+    }
+
+    @Test
+    void temperatureIsSentForBothApiTypes() throws Exception {
+        AtomicReference<String> chatBody = new AtomicReference<>();
+        AtomicReference<String> responsesBody = new AtomicReference<>();
+        AtomicReference<String> responsesAuthorization = new AtomicReference<>();
+        server.createContext("/chat/completions", new JsonHandler(exchange -> {
+            chatBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return chatCompletionResponse("{\"errorSummary\":\"chat\"}");
+        }));
+        server.createContext("/responses", new JsonHandler(exchange -> {
+            responsesAuthorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            responsesBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return responsesApiResponse("{\"errorSummary\":\"responses\"}");
+        }));
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
+
+        String chat = new OpenAICompatibleProvider(endpoint, "gateway-model", Secret.fromString("key"))
+                .explainError("FAILURE: sample error", null, null, null, null, null, 0.3);
+        OpenAICompatibleProvider responsesProvider = new OpenAICompatibleProvider(endpoint, "gateway-model", null);
+        responsesProvider.setApiType(OpenAICompatibleProvider.ApiType.RESPONSES);
+        String responses = responsesProvider.explainError("FAILURE: sample error", null, null, null, null, null, 0.6);
+
+        assertTrue(chat.contains("chat"), chat);
+        assertTrue(responses.contains("responses"), responses);
+        assertEquals(0.3, OBJECT_MAPPER.readTree(chatBody.get()).path("temperature").asDouble());
+        assertEquals(0.6, OBJECT_MAPPER.readTree(responsesBody.get()).path("temperature").asDouble());
+        assertNull(responsesAuthorization.get(), "no Authorization header without an API key");
+    }
+
+    @Test
+    void nonStandardHttpStatusIsReportedWithTheStatusCode() throws Exception {
+        AtomicReference<String> body = new AtomicReference<>("gateway exploded");
+        server.createContext("/chat/completions", exchange -> sendResponse(exchange, 600, body.get()));
+        OpenAICompatibleProvider provider = new OpenAICompatibleProvider(
+                "http://127.0.0.1:" + server.getAddress().getPort(), "gateway-model", Secret.fromString("key"));
+
+        ExplanationException withBody = org.junit.jupiter.api.Assertions.assertThrows(
+                ExplanationException.class, () -> provider.explainError("FAILURE: sample error", null));
+        assertTrue(withBody.getMessage().contains("Request to the AI endpoint failed with HTTP 600: gateway exploded"),
+                withBody.getMessage());
+
+        body.set("");
+        ExplanationException withoutBody = org.junit.jupiter.api.Assertions.assertThrows(
+                ExplanationException.class, () -> provider.explainError("FAILURE: sample error", null));
+        assertTrue(withoutBody.getMessage().endsWith("Request to the AI endpoint failed with HTTP 600."),
+                withoutBody.getMessage());
     }
 
     private static String responsesApiResponse(String text) {

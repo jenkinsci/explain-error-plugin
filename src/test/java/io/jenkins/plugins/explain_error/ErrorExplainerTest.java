@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -412,5 +413,68 @@ class ErrorExplainerTest {
         ErrorExplanationAction action = errorExplainer.explainErrorText("Build failed", "", build);
         assertNotNull(action);
         assertEquals("Child Provider", action.getProviderName());
+    }
+
+    @Test
+    void languageOverloadsDisabledExplanationsAndQuotasAreHonored(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableExplanation(true);
+        FakeAIProvider provider = new FakeAIProvider();
+        config.setAiProvider(provider);
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(jenkins.createFreeStyleProject());
+        ErrorExplainer explainer = new ErrorExplainer();
+        TaskListener listener = jenkins.createTaskListener();
+
+        assertNotNull(explainer.explainError(build, listener, "", 50, "French"));
+        assertEquals("French", provider.getLastLanguage());
+        assertNotNull(explainer.explainError(build, listener, "", 50, "German", "Mention the JDK version"));
+        assertTrue(provider.getLastCustomContext().contains("Mention the JDK version"));
+        assertNotNull(explainer.explainError(build, listener, "", 50, "Spanish", null, false, null));
+        assertEquals("Spanish", provider.getLastLanguage());
+
+        config.setEnableExplanation(false);
+        ExplanationException disabled = assertThrows(ExplanationException.class,
+                () -> explainer.explainErrorText("ERROR: boom", "", build));
+        assertEquals("AI error explanation is disabled.", disabled.getMessage());
+
+        config.setEnableExplanation(true);
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(0);
+        ExplanationException quota = assertThrows(ExplanationException.class,
+                () -> explainer.explainErrorText("ERROR: boom", "", build));
+        assertEquals("warning", quota.getLevel());
+        assertTrue(quota.getMessage().startsWith("Provider call quota exceeded."), quota.getMessage());
+
+        // A folder-level quota takes precedence over the exhausted global quota.
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "quota-folder");
+        ExplainErrorFolderProperty folderQuota = new ExplainErrorFolderProperty();
+        folderQuota.setEnableQuota(true);
+        folderQuota.setMaxProviderCallsPerWindow(5);
+        folder.getProperties().add(folderQuota);
+        FreeStyleBuild folderBuild = jenkins.buildAndAssertSuccess(folder.createProject(FreeStyleProject.class, "job"));
+        assertEquals("Summary: Request was successful\n",
+                explainer.explainErrorText("ERROR: boom", "", folderBuild).getExplanation());
+    }
+
+    @Test
+    void logExtractionFailuresAreReportedInTheBuildLog(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setEnableExplanation(true);
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        FreeStyleProject project = jenkins.createFreeStyleProject("unreadable-log");
+        FreeStyleBuild build = org.mockito.Mockito.mock(FreeStyleBuild.class);
+        org.mockito.Mockito.when(build.getParent()).thenReturn(project);
+        org.mockito.Mockito.when(build.getNumber()).thenReturn(1);
+        org.mockito.Mockito.when(build.getLog(org.mockito.ArgumentMatchers.anyInt()))
+                .thenThrow(new java.io.IOException("log file is gone"));
+        java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
+
+        String explanation = new ErrorExplainer().explainError(build,
+                new hudson.util.StreamTaskListener(log, java.nio.charset.StandardCharsets.UTF_8), "", 50);
+
+        assertNull(explanation);
+        assertTrue(log.toString(java.nio.charset.StandardCharsets.UTF_8)
+                .contains("[explain-error] Failed to explain error: log file is gone"), log.toString());
+        assertEquals(0, provider.getCallCount(), "the provider must not be called without logs");
     }
 }

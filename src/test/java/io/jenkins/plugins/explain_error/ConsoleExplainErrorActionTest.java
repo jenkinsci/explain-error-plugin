@@ -1,11 +1,19 @@
 package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.User;
+import hudson.security.ACL;
+import hudson.security.ACLContext;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.concurrent.ExecutionException;
@@ -16,9 +24,13 @@ import org.htmlunit.WebRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.FailureBuilder;
+import jenkins.model.Jenkins;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.SleepBuilder;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
+import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.StaplerResponse2;
 
 @WithJenkins
 class ConsoleExplainErrorActionTest {
@@ -208,5 +220,41 @@ class ConsoleExplainErrorActionTest {
             responseJson = JSONObject.fromObject(content);
             assertEquals(2, responseJson.getInt("buildingStatus"));
         }
+    }
+
+    @Test
+    void actionFollowsTheRunAndReportsEndpointErrors() throws Exception {
+        FreeStyleBuild other = rule.buildAndAssertSuccess(project);
+        action.onAttached(other);
+        assertSame(other, action.getRun());
+        action.onLoad(build);
+        assertSame(build, action.getRun());
+
+        // An unparsable maxLines parameter falls back to the default number of lines.
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            URL url = new URL(rule.jenkins.getRootUrl() + build.getUrl()
+                    + "console-explain-error/explainConsoleError?maxLines=lots");
+            Page page = client.getPage(new WebRequest(url, HttpMethod.POST));
+            assertEquals("success", JSONObject.fromObject(page.getWebResponse().getContentAsString())
+                    .getString("status"));
+        }
+
+        // Callers without Job/Read get an error response instead of an explanation.
+        rule.jenkins.setSecurityRealm(rule.createDummySecurityRealm());
+        rule.jenkins.setAuthorizationStrategy(new MockAuthorizationStrategy()
+                .grant(Jenkins.READ).everywhere().to("reader"));
+        StaplerRequest2 request = mock(StaplerRequest2.class);
+        StaplerResponse2 response = mock(StaplerResponse2.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+        try (ACLContext ignored = ACL.as2(User.getById("reader", true).impersonate2())) {
+            action.doExplainConsoleError(request, response);
+            action.doCheckBuildStatus(request, response);
+        }
+
+        JSONObject error = JSONObject.fromObject(body.toString());
+        assertEquals("error", error.getString("status"));
+        assertTrue(error.getString("message").contains("Job/Read"), error.toString());
+        verify(response).setStatus(500);
     }
 }

@@ -1,14 +1,19 @@
 package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import hudson.model.Result;
+import hudson.model.Run;
+import hudson.model.TaskListener;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -306,4 +311,125 @@ class ExplainErrorStepTest {
         assertNull(run.getAction(ErrorExplanationAction.class));
     }
 
+
+    @Test
+    void settersNormalizeMissingValuesToDefaults() {
+        ExplainErrorStep step = new ExplainErrorStep();
+        String defaultAllowedPaths = step.getAutoFixAllowedPaths();
+
+        step.setLogPattern(null);
+        step.setMaxLines(-1);
+        step.setLanguage(null);
+        step.setCustomContext(null);
+        step.setDownstreamJobPattern(null);
+        step.setWorkspaceContextPaths(null);
+        step.setWorkspaceContextMaxBytes(0);
+        step.setAutoFixCredentialsId(null);
+        step.setAutoFixRemoteUrl(null);
+        step.setAutoFixScmType(null);
+        step.setAutoFixGithubEnterpriseUrl(null);
+        step.setAutoFixGitlabUrl(null);
+        step.setAutoFixBitbucketUrl(null);
+        step.setAutoFixAllowedPaths(null);
+        step.setAutoFixTimeoutSeconds(0);
+        step.setAutoFixPrTemplate(null);
+
+        assertEquals("", step.getLogPattern());
+        assertEquals(100, step.getMaxLines());
+        assertEquals("", step.getLanguage());
+        assertEquals("", step.getCustomContext());
+        assertEquals("", step.getDownstreamJobPattern());
+        assertEquals(WorkspaceContextCollector.DEFAULT_PATHS, step.getWorkspaceContextPaths());
+        assertEquals(WorkspaceContextCollector.DEFAULT_MAX_BYTES, step.getWorkspaceContextMaxBytes());
+        assertEquals("", step.getAutoFixCredentialsId());
+        assertEquals("", step.getAutoFixRemoteUrl());
+        assertEquals("", step.getAutoFixScmType());
+        assertEquals("", step.getAutoFixGithubEnterpriseUrl());
+        assertEquals("", step.getAutoFixGitlabUrl());
+        assertEquals("", step.getAutoFixBitbucketUrl());
+        assertEquals(defaultAllowedPaths, step.getAutoFixAllowedPaths());
+        assertEquals(60, step.getAutoFixTimeoutSeconds());
+        assertEquals("", step.getAutoFixPrTemplate());
+    }
+
+    @Test
+    void settersKeepConfiguredValues() {
+        ExplainErrorStep step = new ExplainErrorStep();
+        step.setTemperature(0.4);
+        step.setCollectDownstreamLogs(true);
+        step.setIncludeWorkspaceContext(true);
+        step.setWorkspaceContextPaths("pom.xml");
+        step.setWorkspaceContextMaxBytes(512);
+        step.setAutoFix(true);
+        step.setAutoFixCredentialsId("scm-token");
+        step.setAutoFixRemoteUrl("https://github.com/acme/app.git");
+        step.setAutoFixScmType("github");
+        step.setAutoFixGithubEnterpriseUrl("https://ghe.example");
+        step.setAutoFixGitlabUrl("https://gitlab.example");
+        step.setAutoFixBitbucketUrl("https://bitbucket.example");
+        step.setAutoFixAllowedPaths("pom.xml");
+        step.setAutoFixDraftPr(true);
+        step.setAutoFixTimeoutSeconds(30);
+        step.setAutoFixPrTemplate("{explanation}");
+        step.setReturnStructured(true);
+
+        assertEquals(0.4, step.getTemperature());
+        assertTrue(step.isCollectDownstreamLogs());
+        assertTrue(step.isIncludeWorkspaceContext());
+        assertEquals("pom.xml", step.getWorkspaceContextPaths());
+        assertEquals(512, step.getWorkspaceContextMaxBytes());
+        assertTrue(step.isAutoFix());
+        assertEquals("scm-token", step.getAutoFixCredentialsId());
+        assertEquals("https://github.com/acme/app.git", step.getAutoFixRemoteUrl());
+        assertEquals("github", step.getAutoFixScmType());
+        assertEquals("https://ghe.example", step.getAutoFixGithubEnterpriseUrl());
+        assertEquals("https://gitlab.example", step.getAutoFixGitlabUrl());
+        assertEquals("https://bitbucket.example", step.getAutoFixBitbucketUrl());
+        assertEquals("pom.xml", step.getAutoFixAllowedPaths());
+        assertTrue(step.isAutoFixDraftPr());
+        assertEquals(30, step.getAutoFixTimeoutSeconds());
+        assertEquals("{explanation}", step.getAutoFixPrTemplate());
+        assertTrue(step.isReturnStructured());
+
+        ExplainErrorStep.DescriptorImpl descriptor = new ExplainErrorStep.DescriptorImpl();
+        assertEquals("explainError", descriptor.getFunctionName());
+        assertEquals("Explain Error with AI", descriptor.getDisplayName());
+        assertEquals(Set.of(Run.class, TaskListener.class), descriptor.getRequiredContext());
+    }
+
+    @Test
+    void workspaceContextIsCollectedOnlyWhenAWorkspaceIsAvailable(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-workspace-context");
+        job.setDefinition(new CpsFlowDefinition("""
+                explainError(includeWorkspaceContext: true)
+                node {
+                    writeFile file: 'notes.txt', text: 'not collected'
+                    explainError(includeWorkspaceContext: true, workspaceContextPaths: 'missing.txt')
+                    writeFile file: 'pom.xml', text: '<project>workspace-context</project>'
+                    explainError(includeWorkspaceContext: true, workspaceContextPaths: 'pom.xml', autoFix: true,
+                            customContext: 'Focus on the Maven build')
+                }
+                """, true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        jenkins.assertLogContains("[explain-error] Workspace context skipped: no workspace is available.", run);
+        jenkins.assertLogContains("[explain-error] Workspace context is empty.", run);
+        jenkins.assertLogContains("[explain-error] Workspace context collected.", run);
+        assertTrue(provider.getLastCustomContext().contains("<project>workspace-context</project>"),
+                "the workspace context is sent as additional context: " + provider.getLastCustomContext());
+        assertFalse(provider.getLastCustomContext().contains("not collected"));
+        assertTrue(provider.getLastCustomContext().contains("Focus on the Maven build"),
+                "the step's custom context is kept in front of the workspace context");
+        // Auto-fix receives the logs together with the workspace context; it stops at the missing credentials.
+        jenkins.assertLogContains("autoFixCredentialsId is required", run);
+
+        GlobalConfigurationImpl.get().setEnableExplanation(false);
+        job.setDefinition(new CpsFlowDefinition(
+                "explainError(autoFix: true, autoFixCredentialsId: 'scm-token')", true));
+        WorkflowRun disabled = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("[AutoFix] Skipped: no error logs available", disabled);
+    }
 }

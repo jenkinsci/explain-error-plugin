@@ -311,4 +311,51 @@ class GlobalConfigurationImplTest {
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
+
+    @Test
+    void legacyProviderSettingsAreMigratedToProviderInstances() {
+        List<Class<? extends BaseAIProvider>> expected = List.of(OpenAIProvider.class, GeminiProvider.class,
+                io.jenkins.plugins.explain_error.provider.OllamaProvider.class,
+                io.jenkins.plugins.explain_error.provider.LangGraphProvider.class);
+        AIProvider[] legacyProviders = {AIProvider.OPENAI, AIProvider.GEMINI, AIProvider.OLLAMA, AIProvider.LANGGRAPH};
+
+        for (int i = 0; i < legacyProviders.length; i++) {
+            config.setAiProvider(null);
+            config.setProvider(legacyProviders[i]);
+            config.setApiUrl("https://legacy.example");
+            config.setModel("legacy-model");
+            config.setApiKey(Secret.fromString("legacy-key"));
+
+            assertEquals(legacyProviders[i], config.getProvider());
+            assertEquals("https://legacy.example", config.getApiUrl());
+            assertEquals("legacy-model", config.getModel());
+            assertEquals("legacy-model", config.getRawModel());
+            assertEquals("legacy-key", config.getApiKey().getPlainText());
+
+            BaseAIProvider migrated = config.getAiProvider();
+            assertEquals(expected.get(i), migrated.getClass());
+            assertEquals("legacy-model", migrated.getModel());
+            assertNull(config.getProvider(), "the legacy setting is cleared once migrated");
+        }
+
+        assertEquals("OpenAI", AIProvider.OPENAI.getDisplayName());
+        assertEquals("gpt-4", AIProvider.OPENAI.getDefaultModel());
+    }
+
+    @Test
+    void autoExplainAndQuotaSettingsAreValidated() {
+        config.setAutoExplainMaxLogLines(0);
+        assertEquals(1, config.getAutoExplainMaxLogLines(), "at least one log line is always analyzed");
+        config.setAutoExplainMaxLogLines(250);
+        assertEquals(250, config.getAutoExplainMaxLogLines());
+
+        config.setEnableQuota(true);
+        assertTrue(config.isEnableQuota());
+        config.setEnableQuota(false);
+        assertFalse(config.isEnableQuota());
+
+        assertEquals(hudson.util.FormValidation.Kind.ERROR, config.doCheckMaxProviderCallsPerWindow(-1).kind);
+        assertEquals(hudson.util.FormValidation.Kind.OK, config.doCheckMaxProviderCallsPerWindow(0).kind);
+        assertEquals(hudson.util.FormValidation.Kind.OK, config.doCheckMaxProviderCallsPerWindow(100).kind);
+    }
 }

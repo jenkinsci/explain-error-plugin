@@ -3,6 +3,8 @@ package io.jenkins.plugins.explain_error.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,11 +14,15 @@ import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.ExplanationException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -626,6 +632,44 @@ class ProviderTest {
             jenkins.jenkins.setProxy(null);
             proxyServer.stop(0);
         }
+    }
+
+    @Test
+    void testJenkinsProxySelectorAndPreemptiveProxyAuthorization(JenkinsRule jenkins) throws Exception {
+        try {
+            jenkins.jenkins.setProxy(new ProxyConfiguration("127.0.0.1", 3128, "proxy-user", "proxy-password",
+                    "*.internal.example"));
+            ProxySelector selector = new ProxyAwareProvider().newClient().proxy().orElseThrow();
+
+            assertEquals(List.of(Proxy.NO_PROXY), selector.select(URI.create("ftp://files.example/archive")),
+                    "only http(s) requests may use the proxy");
+            assertEquals(List.of(Proxy.NO_PROXY), selector.select(URI.create("https://ai.internal.example/v1")),
+                    "noProxyHost exclusions must be honored");
+            Proxy proxy = selector.select(URI.create("https://api.example.com/v1")).get(0);
+            assertEquals(Proxy.Type.HTTP, proxy.type());
+            assertEquals(3128, ((InetSocketAddress) proxy.address()).getPort());
+            // Connection failures are ignored, like Jenkins core's own selector.
+            selector.connectFailed(URI.create("https://api.example.com/v1"), proxy.address(),
+                    new IOException("connection refused"));
+
+            assertEquals("Basic " + Base64.getEncoder().encodeToString(
+                            "proxy-user:proxy-password".getBytes(StandardCharsets.UTF_8)),
+                    BaseAIProvider.proxyAuthorizationHeaderOrNull());
+            // The AWS SDK client used by Bedrock is configured from the same proxy settings.
+            assertNotNull(new BedrockProvider("https://bedrock.internal.example", "model", "eu-west-1", null)
+                    .createAssistant(null, null, null));
+
+            jenkins.jenkins.setProxy(new ProxyConfiguration("127.0.0.1", 3128));
+            assertNull(BaseAIProvider.proxyAuthorizationHeaderOrNull(), "no header without proxy credentials");
+
+            jenkins.jenkins.setProxy(new ProxyConfiguration(null, 3128, "proxy-user", "proxy-password"));
+            assertNull(BaseAIProvider.proxyAuthorizationHeaderOrNull(),
+                    "credentials must never be sent when no proxy host is configured");
+            assertTrue(new ProxyAwareProvider().newClient().proxy().isEmpty());
+        } finally {
+            jenkins.jenkins.setProxy(null);
+        }
+        assertNull(BaseAIProvider.proxyAuthorizationHeaderOrNull());
     }
 
     private static final class ProxyAwareProvider extends BaseAIProvider {
