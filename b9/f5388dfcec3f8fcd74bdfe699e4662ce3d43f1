@@ -1,0 +1,69 @@
+src/test/java/io/jenkins/plugins/explain_error/TitleTextTest.java
+  s_e8b639792250d5::t_73d08b2aaeaea8 19-20,25-26
+  s_e8b639792250d5::t_ee6d912a7f8125 1-18,21-24,27-46
+AGENTS.md
+  s_e8b639792250d5::t_14180ef39842fb 46
+src/main/java/io/jenkins/plugins/explain_error/provider/AzureOpenAIProvider.java
+  s_e8b639792250d5::t_ee6d912a7f8125 517-518
+  s_e8b639792250d5::t_73d08b2aaeaea8 287-288,311-312
+src/main/resources/io/jenkins/plugins/explain_error/ConsolePageDecorator/footer.jelly
+  s_e8b639792250d5::t_4affe5379f3016 22
+src/main/java/io/jenkins/plugins/explain_error/JenkinsLogAnalysis.java
+  s_e8b639792250d5::t_ee6d912a7f8125 17-20,22-27
+src/main/java/io/jenkins/plugins/explain_error/provider/CustomOktaAIProvider.java
+  s_e8b639792250d5::t_73d08b2aaeaea8 347-348
+  s_e8b639792250d5::t_ee6d912a7f8125 468-469
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/index.jelly
+  s_e8b639792250d5::t_747135d7822a13 6-9
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplanationAction.java
+  s_e8b639792250d5::t_ee6d912a7f8125 18-20,35,111-122,135
+src/main/java/io/jenkins/plugins/explain_error/autofix/FixSuggestion.java
+  s_e8b639792250d5::t_4affe5379f3016 12-20
+docs/auto-fix.md
+  s_e8b639792250d5::t_14180ef39842fb 14,16-17,299-306,331-335
+README.md
+  s_e8b639792250d5::t_14180ef39842fb 457,489-490
+src/main/java/io/jenkins/plugins/explain_error/autofix/FixAssistant.java
+  s_e8b639792250d5::t_73d08b2aaeaea8 15-16
+src/main/java/io/jenkins/plugins/explain_error/TitleText.java
+  s_e8b639792250d5::t_ee6d912a7f8125 1-41
+src/main/java/io/jenkins/plugins/explain_error/ConsoleExplainErrorAction.java
+  s_e8b639792250d5::t_5dd60ab59dfe30 3
+  s_e8b639792250d5::t_4affe5379f3016 91-92,114-115,160-164,173-175
+src/main/java/io/jenkins/plugins/explain_error/autofix/AutoFixOrchestrator.java
+  s_e8b639792250d5::t_4affe5379f3016 72-77,95,290,329,340,691-747,751-752,782-785
+  s_e8b639792250d5::t_5dd60ab59dfe30 6,13,34
+src/main/java/io/jenkins/plugins/explain_error/ExplainErrorStep.java
+  s_e8b639792250d5::t_4affe5379f3016 372
+src/test/java/io/jenkins/plugins/explain_error/autofix/AutoFixPullRequestBodyTest.java
+  s_e8b639792250d5::t_e9655ea2fb14aa 1-24
+src/main/java/io/jenkins/plugins/explain_error/provider/LangGraphProvider.java
+  s_e8b639792250d5::t_ee6d912a7f8125 210-211,284-285
+src/test/java/io/jenkins/plugins/explain_error/ErrorExplanationActionTest.java
+  s_e8b639792250d5::t_e9655ea2fb14aa 8,12,290-349
+src/main/webapp/js/explain-error-footer.js
+  s_e8b639792250d5::t_4affe5379f3016 185,236,242
+src/test/java/io/jenkins/plugins/explain_error/autofix/AutoFixOrchestratorFlowTest.java
+  s_e8b639792250d5::t_c9183f4c06c272 72
+  s_e8b639792250d5::t_27528bea4bc8f8 19,156-215
+  s_e8b639792250d5::t_1393062ba2c77a 216
+src/test/java/io/jenkins/plugins/explain_error/ExplainErrorStepTest.java
+  s_e8b639792250d5::t_ecb5eaacab31b3 202,210-225
+  s_e8b639792250d5::t_42ea2359a6d5ea 226-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b9f5388dfcec3f8fcd74bdfe699e4662ce3d43f1",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
