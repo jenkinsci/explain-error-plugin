@@ -1,0 +1,24 @@
+src/test/java/io/jenkins/plugins/explain_error/provider/AzureOpenAIProviderTest.java
+  s_e8b639792250d5::t_9d5b8cf1663119 575,579
+src/test/java/io/jenkins/plugins/explain_error/provider/LangGraphProviderTest.java
+  s_e8b639792250d5::t_9d5b8cf1663119 64-65,81
+src/test/java/io/jenkins/plugins/explain_error/provider/CustomOktaAIProviderTest.java
+  s_e8b639792250d5::t_511c654eb1bbaf 314
+  s_e8b639792250d5::t_9d5b8cf1663119 310
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "18c87e947ecf589ebe08d2f544a71b6566813f80",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
