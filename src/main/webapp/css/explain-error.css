@@ -1,0 +1,58 @@
+/* The AI explanation, on the build's own page and in the console card. */
+
+.eep-explanation {
+  max-width: 60rem;
+  line-height: 1.6;
+  color: var(--text-color);
+}
+
+.eep-summary {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  white-space: pre-line;
+}
+
+.eep-heading,
+.eep-details > summary {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: var(--font-bold-weight, 600);
+}
+
+.eep-details > summary {
+  cursor: pointer;
+}
+
+.eep-steps,
+.eep-practices {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.eep-steps li,
+.eep-practices li {
+  margin-bottom: 0.5rem;
+  white-space: pre-line;
+}
+
+.eep-explanation code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+  background: var(--button-background, rgba(128, 128, 128, 0.15));
+  font-family: var(--font-family-mono, monospace);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+.eep-snippet,
+.eep-plain {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.eep-meta {
+  margin: 1rem 0 0;
+  color: var(--text-color-secondary);
+  font-size: 0.8125rem;
+}
