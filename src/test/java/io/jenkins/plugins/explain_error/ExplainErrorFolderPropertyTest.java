@@ -295,4 +295,56 @@ class ExplainErrorFolderPropertyTest {
         assertEquals(hudson.util.FormValidation.Kind.OK,
                 descriptor.doCheckMaxProviderCallsPerWindow(folder, 10).kind);
     }
+
+    // -----------------------------------------------------------------------
+    // Round trips through the folder's Configure page
+    // -----------------------------------------------------------------------
+
+    @Test
+    void savingAFolderThatNeverUsedTheSectionStoresNothing(JenkinsRule jenkins) throws Exception {
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "untouched");
+
+        jenkins.configRoundtrip(folder);
+
+        assertNull(folder.getProperties().get(ExplainErrorFolderProperty.class));
+    }
+
+    @Test
+    void savingAFolderWithOnlyPromptSettingsDoesNotAddAProvider(JenkinsRule jenkins) throws Exception {
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "prompt-only");
+        ExplainErrorFolderProperty property = new ExplainErrorFolderProperty();
+        property.setLanguage("中文");
+        property.setCustomContext("Agents run Docker through Colima.");
+        folder.addProperty(property);
+
+        jenkins.configRoundtrip(folder);
+
+        ExplainErrorFolderProperty saved = folder.getProperties().get(ExplainErrorFolderProperty.class);
+        assertNotNull(saved);
+        assertNull(saved.getAiProvider(), "saving must not turn the preselected provider into an override");
+        assertTrue(saved.isEnableExplanation());
+        assertEquals("中文", saved.getLanguage());
+        assertEquals("Agents run Docker through Colima.", saved.getCustomContext());
+        assertNull(ExplainErrorFolderProperty.findFolderProvider(folder));
+    }
+
+    @Test
+    void savingAFolderKeepsItsProviderOverride(JenkinsRule jenkins) throws Exception {
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "own-provider");
+        ExplainErrorFolderProperty property = new ExplainErrorFolderProperty();
+        property.setAiProvider(
+                new OpenAIProvider("https://llm.example.com/v1", "gpt-4", Secret.fromString("folder-key")));
+        property.setLanguage("Deutsch");
+        folder.addProperty(property);
+
+        jenkins.configRoundtrip(folder);
+
+        ExplainErrorFolderProperty saved = folder.getProperties().get(ExplainErrorFolderProperty.class);
+        assertNotNull(saved);
+        OpenAIProvider provider = assertInstanceOf(OpenAIProvider.class, saved.getAiProvider());
+        assertEquals("https://llm.example.com/v1", provider.getUrl());
+        assertEquals("gpt-4", provider.getModel());
+        assertEquals("folder-key", provider.getApiKey().getPlainText());
+        assertEquals("Deutsch", saved.getLanguage());
+    }
 }

@@ -7,16 +7,19 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Item;
 import hudson.Extension;
+import hudson.Util;
 import hudson.model.ItemGroup;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.verb.POST;
 
 /**
@@ -24,6 +27,9 @@ import org.kohsuke.stapler.verb.POST;
  * Allows teams to configure their own AI provider settings at the folder level.
  */
 public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractFolder<?>> {
+
+    /** Name of the optional block that wraps the provider selector on the folder's Configure page. */
+    static final String PROVIDER_OVERRIDE = "providerOverride";
 
     private BaseAIProvider aiProvider;
     private boolean enableExplanation = true;
@@ -132,6 +138,15 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
     @DataBoundSetter
     public void setMaxProviderCallsPerWindow(int maxProviderCallsPerWindow) {
         this.maxProviderCallsPerWindow = Math.max(0, maxProviderCallsPerWindow);
+    }
+
+    /** True when this property would change nothing for the jobs in its folder. */
+    boolean hasNoSettings() {
+        return aiProvider == null
+                && Util.fixEmptyAndTrim(language) == null
+                && Util.fixEmptyAndTrim(customContext) == null
+                && temperature == null
+                && !enableQuota;
     }
 
     QuotaEnforcer getQuotaEnforcer() {
@@ -324,6 +339,25 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         @Override
         public String getDisplayName() {
             return "Explain Error Configuration";
+        }
+
+        /**
+         * The provider selector sits in its own optional block on the form, so a folder can set a
+         * language, context or quota without overriding the provider. Left unticked, the form
+         * submits no provider at all; a selector on its own would submit whichever provider
+         * happens to be listed first.
+         */
+        @Override
+        public AbstractFolderProperty<?> newInstance(@CheckForNull StaplerRequest2 req, @NonNull JSONObject formData)
+                throws FormException {
+            Object providerOverride = formData.remove(PROVIDER_OVERRIDE);
+            if (providerOverride instanceof JSONObject block) {
+                formData.put("aiProvider", block.get("aiProvider"));
+            }
+            ExplainErrorFolderProperty property = (ExplainErrorFolderProperty) super.newInstance(req, formData);
+            // Every folder's Configure page carries this section. Saving one that leaves it empty
+            // should not add a property to the folder.
+            return property == null || property.hasNoSettings() ? null : property;
         }
 
         @POST
