@@ -443,18 +443,30 @@ public class AutoFixOrchestrator {
     /**
      * Extracts the remote URL from the run's SCM configuration via reflection (to avoid
      * a hard compile-time dependency on the git plugin).
+     *
+     * <p>For a Pipeline the build's own checkouts are consulted first, then the job, then the
+     * job's "Pipeline script from SCM" definition.
      */
     String extractRemoteUrl(Run<?, ?> run) {
-        SCM scm = extractConfiguredScm(run.getParent());
+        SCM scm = extractConfiguredScm(run);
         if (scm == null) {
             throw new IllegalStateException("No SCM configured on this job");
         }
         return extractGitRemoteUrl(scm);
     }
 
-    private SCM extractConfiguredScm(Item job) {
+    private SCM extractConfiguredScm(Run<?, ?> run) {
+        Item job = run.getParent();
         if (job instanceof AbstractProject<?, ?> project) {
             return project.getScm();
+        }
+
+        // A Pipeline job reports the SCMs of its last completed build, so on a first build it
+        // has none, and after the script changes it can name a repository this build never
+        // touched. The build knows what it checked out itself.
+        SCM fromBuild = extractFirstScmFromMethod(run, "getSCMs");
+        if (fromBuild != null) {
+            return fromBuild;
         }
 
         SCM fromScmsMethod = extractFirstScmFromMethod(job, "getSCMs");

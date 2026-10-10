@@ -100,13 +100,17 @@ pipeline {
 }
 ```
 
-The plugin automatically detects the remote URL from the job's SCM configuration (the same
-repository the build checks out from). A PR is opened on that repository.
+The plugin detects the remote URL automatically. For a Freestyle job it comes from the job's
+SCM configuration. For a Pipeline it is the first repository the build itself has checked out,
+which also works on the first build of a job. If the build has not checked anything out, the
+plugin falls back to the previous build's checkout and then to the job's "Pipeline script from
+SCM" definition. A PR is opened on that repository.
 
 ### With an explicit remote URL (Pipeline jobs)
 
-Pipeline jobs that use `checkout scm` inside a `script` block, or multi-branch pipelines with
-complex SCM configs, may not expose the remote URL automatically. Provide it explicitly:
+Provide the remote URL explicitly when the build checks out several repositories and the first
+one is not the one to fix, when it fails before checking anything out on a job with no earlier
+build, or when the SCM plugin does not expose its remotes:
 
 ```groovy
 explainError(
@@ -228,7 +232,7 @@ The PR description includes:
 |-----------|------|---------|-------------|
 | `autoFix` | boolean | `false` | Enable auto-fix. Must be `true` to activate the feature |
 | `autoFixCredentialsId` | string | `''` | **Required.** Jenkins Secret text or Username with password credentials ID for the SCM token |
-| `autoFixRemoteUrl` | string | `''` | SCM remote URL. Auto-detected from job SCM config if empty |
+| `autoFixRemoteUrl` | string | `''` | SCM remote URL. Auto-detected from the build's checkout or the job's SCM config if empty |
 | `autoFixScmType` | string | `''` | Force SCM type: `github`, `gitlab`, `bitbucket`, or `bitbucketserver`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` |
 | `autoFixGithubEnterpriseUrl` | string | `''` | Base URL of GitHub Enterprise (e.g. `https://github.mycompany.com`) |
 | `autoFixGitlabUrl` | string | `''` | Base URL of self-hosted GitLab (e.g. `https://gitlab.mycompany.com`) |
@@ -344,7 +348,8 @@ Check **Manage Jenkins → Credentials**.
 
 ### "No SCM configured on this job" / "Job type … does not support SCM URL extraction"
 
-The plugin could not determine the remote URL from the job's SCM config. Provide it explicitly:
+The plugin could not determine the remote URL from the build's checkouts or the job's SCM
+config. Provide it explicitly:
 
 ```groovy
 explainError(
