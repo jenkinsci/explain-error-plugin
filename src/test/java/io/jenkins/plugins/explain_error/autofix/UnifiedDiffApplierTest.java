@@ -91,6 +91,73 @@ class UnifiedDiffApplierTest {
     }
 
     // -----------------------------------------------------------------------
+    // apply() — the diff's own trailing newline is not a context line
+    // -----------------------------------------------------------------------
+
+    @Test
+    void applyHunkInTheMiddleOfAFileWhenTheDiffEndsWithANewline() {
+        // The diff a provider returned for a bad pin on line 2 of a three-line requirements.txt
+        String original = "flask==3.0.3\nrequests==2.99.0\npytest==8.3.3\n";
+        String diff = "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1,2 +1,2 @@\n"
+                + " flask==3.0.3\n-requests==2.99.0\n+requests==2.32.3\n";
+
+        assertEquals("flask==3.0.3\nrequests==2.32.3\npytest==8.3.3\n", UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyHunkInTheMiddleOfAFileWhenTheDiffUsesCrlf() {
+        String original = "flask==3.0.3\nrequests==2.99.0\npytest==8.3.3\n";
+        String diff = "--- a/requirements.txt\r\n+++ b/requirements.txt\r\n@@ -1,2 +1,2 @@\r\n"
+                + " flask==3.0.3\r\n-requests==2.99.0\r\n+requests==2.32.3\r\n";
+
+        assertEquals("flask==3.0.3\nrequests==2.32.3\npytest==8.3.3\n", UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyIgnoresBlankLinesBetweenHunksAndAfterTheLastOne() {
+        String original = "alpha\nbeta\ngamma\ndelta\nepsilon\nzeta\n";
+        String diff = "--- a/file.txt\n+++ b/file.txt\n"
+                + "@@ -1,2 +1,2 @@\n-alpha\n+ALPHA\n beta\n\n"
+                + "@@ -4,2 +4,2 @@\n delta\n-epsilon\n+EPSILON\n\n";
+
+        assertEquals("ALPHA\nbeta\ngamma\ndelta\nEPSILON\nzeta\n", UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyStillTreatsAnEmptyLineInsideAHunkAsBlankContext() {
+        // Some tools strip the single space that marks a blank context line
+        String diff = "@@ -1,3 +1,3 @@\n a\n\n-b\n+B\n";
+
+        assertEquals("a\n\nB\nc\n", UnifiedDiffApplier.apply("a\n\nb\nc\n", diff));
+        assertThrows(IllegalArgumentException.class, () -> UnifiedDiffApplier.apply("a\nx\nb\nc\n", diff));
+    }
+
+    @Test
+    void applyKeepsATrailingBlankContextLineThatIsMarkedWithASpace() {
+        String diff = "@@ -1,2 +1,2 @@\n-a\n+A\n \n";
+
+        assertEquals("A\n\nb\n", UnifiedDiffApplier.apply("a\n\nb\n", diff));
+        assertThrows(IllegalArgumentException.class, () -> UnifiedDiffApplier.apply("a\nx\nb\n", diff));
+    }
+
+    @Test
+    void applyInsertionAtTheBeginningKeepsTheFirstLine() {
+        // The trailing newline used to count as one context line to remove, which replaced
+        // the file's first line with an empty one without raising an error
+        String diff = "@@ -0,0 +1,1 @@\n+# header\n";
+
+        assertEquals("# header\na\nb\n", UnifiedDiffApplier.apply("a\nb\n", diff));
+    }
+
+    @Test
+    void applyToEmptyFileEndsWithANewlineUnlessTheDiffSaysOtherwise() {
+        assertEquals("line1\nline2\n", UnifiedDiffApplier.apply("", "@@ -0,0 +1,2 @@\n+line1\n+line2\n"));
+        assertEquals("line1\nline2\n", UnifiedDiffApplier.apply("", "@@ -0,0 +1,2 @@\n+line1\n+line2"));
+        assertEquals("line1\nline2", UnifiedDiffApplier.apply("",
+                "@@ -0,0 +1,2 @@\n+line1\n+line2\n\\ No newline at end of file\n"));
+    }
+
+    // -----------------------------------------------------------------------
     // apply() — error paths
     // -----------------------------------------------------------------------
 
