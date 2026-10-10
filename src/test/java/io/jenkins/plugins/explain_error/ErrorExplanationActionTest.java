@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Run;
+import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.io.StringWriter;
 import java.util.List;
 import net.sf.json.JSONObject;
+import org.htmlunit.html.DomNode;
+import org.htmlunit.html.HtmlPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -284,5 +287,84 @@ class ErrorExplanationActionTest {
         legacy.onAttached(run);
         assertSame(run, legacy.getRun());
         assertNotNull(legacy.getApi());
+    }
+
+    // -----------------------------------------------------------------------
+    // The explanation as rendered for the browser
+    // -----------------------------------------------------------------------
+
+    @Test
+    void pageRendersTheAnalysisAsSections(JenkinsRule jenkins) throws Exception {
+        FreeStyleBuild build = buildWith(jenkins, structuredAction());
+
+        HtmlPage page = jenkins.createWebClient().getPage(build, "error-explanation");
+
+        DomNode summary = page.querySelector(".eep-summary");
+        assertEquals("npm ci failed: <b>package-lock.json</b> is out of sync.", summary.getTextContent().trim());
+        assertEquals("npm ci", summary.querySelector("code").getTextContent());
+        assertNull(summary.querySelector("b"), "markup written by the model must stay text");
+        assertEquals(2, page.querySelectorAll("ol.eep-steps > li").size());
+        assertEquals("npm install", page.querySelector("ol.eep-steps code").getTextContent());
+        assertEquals("npm error code EUSAGE", page.querySelector("pre.eep-snippet").getTextContent());
+        assertEquals(1, page.querySelectorAll("ul.eep-practices > li").size());
+        String meta = page.querySelector(".eep-meta").getTextContent().replaceAll("\\s+", " ").trim();
+        assertEquals("DeepSeek \u00b7 deepseek-v4-flash \u00b7 2 log lines analysed", meta);
+    }
+
+    @Test
+    void pageFallsBackToPlainTextForExplanationsWithoutFields(JenkinsRule jenkins) throws Exception {
+        FreeStyleBuild build = buildWith(jenkins, action);
+
+        HtmlPage page = jenkins.createWebClient().getPage(build, "error-explanation");
+
+        assertEquals(testExplanation, page.querySelector("pre.eep-plain").getTextContent());
+        assertNull(page.querySelector(".eep-explanation"));
+    }
+
+    @Test
+    void consoleCardShowsAnExistingExplanationAsSections(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setAiProvider(new FakeAIProvider());
+        FreeStyleBuild build = buildWith(jenkins, structuredAction());
+
+        HtmlPage page = jenkins.createWebClient().getPage(build, "console");
+
+        assertEquals(2, page.querySelectorAll("#explain-error-content ol.eep-steps > li").size());
+    }
+
+    @Test
+    void panelViewServesTheExplanationOnItsOwn(JenkinsRule jenkins) throws Exception {
+        FreeStyleBuild build = buildWith(jenkins, structuredAction());
+
+        String html = jenkins.createWebClient().goTo(build.getUrl() + "error-explanation/panel", "text/html")
+                .getWebResponse().getContentAsString();
+
+        assertTrue(html.contains("class=\"eep-explanation\""), html);
+        assertTrue(html.contains("<code>npm install</code>"), html);
+        assertFalse(html.contains("<b>package-lock.json</b>"), html);
+        assertFalse(html.contains("page-header"), "the fragment must not carry the page layout");
+    }
+
+    @Test
+    void providerLabelLeavesOutWhatIsUnknown() {
+        assertEquals("Ollama", action.getProviderLabel());
+        assertEquals("DeepSeek \u00b7 deepseek-v4-flash", structuredAction().getProviderLabel());
+    }
+
+    private static ErrorExplanationAction structuredAction() {
+        ErrorExplanationAction structured = new ErrorExplanationAction(
+                "plain text", "", "line 1\nline 2", "DeepSeek", "deepseek-v4-flash", 2);
+        structured.setStructuredData(new JenkinsLogAnalysis(
+                "`npm ci` failed: <b>package-lock.json</b> is out of sync.",
+                List.of("Run `npm install`.", "Commit the lock file."),
+                List.of("Review lock file changes."),
+                "npm error code EUSAGE"));
+        return structured;
+    }
+
+    private static FreeStyleBuild buildWith(JenkinsRule jenkins, ErrorExplanationAction explanation) throws Exception {
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(jenkins.createFreeStyleProject());
+        build.addAction(explanation);
+        build.save();
+        return build;
     }
 }

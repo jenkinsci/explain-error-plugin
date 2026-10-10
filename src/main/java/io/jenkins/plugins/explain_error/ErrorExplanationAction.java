@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.Api;
 import hudson.model.Run;
 import java.util.ArrayList;
@@ -102,6 +103,55 @@ public class ErrorExplanationAction implements RunAction2 {
     @Exported(visibility = 1)
     public String getErrorSignature() {
         return errorSignature;
+    }
+
+    /**
+     * Whether the analysis is available field by field. Explanations stored by older plugin
+     * versions, and free-text answers, only have {@link #getExplanation()}.
+     */
+    public boolean isStructured() {
+        return errorSummary != null && !errorSummary.isBlank();
+    }
+
+    /** The summary as HTML for the panel: escaped, with backtick spans as {@code <code>}. */
+    @NonNull
+    public String getSummaryHtml() {
+        return ExplanationMarkup.inline(errorSummary);
+    }
+
+    @NonNull
+    public List<String> getResolutionStepsHtml() {
+        return inlineAll(resolutionSteps);
+    }
+
+    @NonNull
+    public List<String> getBestPracticesHtml() {
+        return inlineAll(bestPractices);
+    }
+
+    /** Provider and model for the line under the explanation, leaving out what is not known. */
+    @NonNull
+    public String getProviderLabel() {
+        List<String> parts = new ArrayList<>();
+        for (String part : new String[] {providerName, providerModel}) {
+            if (part != null && !part.isBlank() && !"Unknown".equals(part)) {
+                parts.add(part);
+            }
+        }
+        return String.join(" \u00b7 ", parts);
+    }
+
+    @NonNull
+    private static List<String> inlineAll(@CheckForNull List<String> values) {
+        List<String> html = new ArrayList<>();
+        if (values != null) {
+            for (String value : values) {
+                if (value != null && !value.isBlank()) {
+                    html.add(ExplanationMarkup.inline(value));
+                }
+            }
+        }
+        return html;
     }
 
     /**

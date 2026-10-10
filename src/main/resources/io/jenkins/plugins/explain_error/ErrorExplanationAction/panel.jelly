@@ -1,0 +1,6 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
+    <l:ajax>
+        <st:include page="explanation.jelly"/>
+    </l:ajax>
+</j:jelly>

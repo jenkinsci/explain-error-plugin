@@ -241,11 +241,32 @@ function showErrorExplanation(message, providerName, url) {
   const cardTitle = document.querySelector('.jenkins-card__title');
   cardTitle.firstChild.textContent = `AI Error Explanation (${providerName})`;
   container.classList.remove('jenkins-hidden');
-  spinner.classList.add('jenkins-hidden');
-  content.textContent = message;
-  content.classList.remove('jenkins-hidden');
-  urlString.classList.remove('jenkins-hidden');
   urlString.href = url;
+  renderExplanation(content, message).then(() => {
+    spinner.classList.add('jenkins-hidden');
+    content.classList.remove('jenkins-hidden');
+    urlString.classList.remove('jenkins-hidden');
+  });
+}
+
+// The explanation has just been stored on the build, so ask the server for it rendered
+// (summary, steps, log excerpt) rather than building markup here. The plain text is the fallback.
+function renderExplanation(content, message) {
+  const container = document.getElementById('explain-error-container');
+  const rootURL = document.head.getAttribute("data-rooturl");
+  const url = rootURL + '/' + container.dataset.runUrl + 'error-explanation/panel';
+
+  return fetch(url)
+    .then(response => response.ok ? response.text() : Promise.reject(new Error(`HTTP ${response.status}`)))
+    .then(html => {
+      content.innerHTML = html;
+    })
+    .catch(() => {
+      const plain = document.createElement('pre');
+      plain.className = 'eep-plain';
+      plain.textContent = message;
+      content.replaceChildren(plain);
+    });
 }
 
 function showSpinner() {
