@@ -344,7 +344,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
         messages.addObject()
                 .put("role", "user")
                 .put("content", buildUserPrompt(errorLogs, language, customContext)
-                        + "\n\nReturn ONLY valid JSON with these keys: errorSummary, resolutionSteps, bestPractices, errorSignature.");
+                        + "\n\nReturn ONLY valid JSON with these keys: errorSummary, resolutionSteps, "
+                        + "bestPractices, errorSignature, title (at most 70 characters, naming the root cause).");
 
         String userMetadata = buildUserMetadata();
         if (userMetadata != null) {
@@ -464,7 +465,8 @@ public class CustomOktaAIProvider extends BaseAIProvider {
                 errorSummary,
                 toStringList(json.path("resolutionSteps")),
                 toStringList(json.path("bestPractices")),
-                Util.fixEmptyAndTrim(json.path("errorSignature").asText(null)));
+                Util.fixEmptyAndTrim(json.path("errorSignature").asText(null)),
+                Util.fixEmptyAndTrim(json.path("title").asText(null)));
     }
 
     private JsonNode tryParseJson(String content) throws IOException {

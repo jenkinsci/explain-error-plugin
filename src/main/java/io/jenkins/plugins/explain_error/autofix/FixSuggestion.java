@@ -9,7 +9,15 @@ public record FixSuggestion(
         String explanation,
         String confidence,
         String fixType,
-        List<FileChange> changes) {
+        List<FileChange> changes,
+        String title) {
+
+    /** For callers from before the title existed. */
+    public FixSuggestion(boolean fixable, String explanation, String confidence, String fixType,
+                         List<FileChange> changes) {
+        this(fixable, explanation, confidence, fixType, changes, null);
+    }
+
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record FileChange(

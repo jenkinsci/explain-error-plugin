@@ -15,6 +15,9 @@ import org.kohsuke.stapler.export.ExportedBean;
 @ExportedBean(defaultVisibility = 999)
 public class ErrorExplanationAction implements RunAction2 {
 
+    /** Titles are asked for at 70 characters; anything much longer is not a title. */
+    static final int MAX_TITLE_LENGTH = 90;
+
     private final String explanation;
     private final String urlString;
     private final transient String originalErrorLogs;
@@ -29,6 +32,7 @@ public class ErrorExplanationAction implements RunAction2 {
     private List<String> resolutionSteps;
     private List<String> bestPractices;
     private String errorSignature;
+    private String title;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this(explanation, urlString, originalErrorLogs, providerName, null,
@@ -104,6 +108,18 @@ public class ErrorExplanationAction implements RunAction2 {
         return errorSignature;
     }
 
+    /** A one-line title naming the root cause; null when the provider did not return one. */
+    @Exported(visibility = 1)
+    @CheckForNull
+    public String getTitle() {
+        return title;
+    }
+
+    /** The heading for this explanation: its title when there is one, with the provider's name. */
+    public String getHeading() {
+        return (title != null ? title : getDisplayName()) + " (" + providerName + ")";
+    }
+
     /**
      * Stores the structured AI analysis alongside the rendered explanation.
      * Lists are copied so the persisted build XML never references immutable JDK collections.
@@ -116,6 +132,7 @@ public class ErrorExplanationAction implements RunAction2 {
         this.resolutionSteps = copyOf(analysis.resolutionSteps());
         this.bestPractices = copyOf(analysis.bestPractices());
         this.errorSignature = analysis.errorSignature();
+        this.title = TitleText.clean(analysis.title(), MAX_TITLE_LENGTH);
     }
 
     @CheckForNull

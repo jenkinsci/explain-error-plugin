@@ -3,12 +3,14 @@ package io.jenkins.plugins.explain_error.autofix;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.model.AbstractProject;
 import hudson.model.Item;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.SCM;
 import hudson.util.Secret;
+import io.jenkins.plugins.explain_error.TitleText;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmApiClient;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmClientFactory;
 import io.jenkins.plugins.explain_error.autofix.scm.PullRequest;
@@ -29,6 +31,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -66,6 +69,12 @@ public class AutoFixOrchestrator {
     private static final Pattern TEMPLATE_PLACEHOLDER = Pattern.compile("\\{(\\w+)\\}");
 
     /** Default PR body template with {@code {variable}} placeholders. */
+    /** Longest subject line for the pull request title and the commit message. */
+    private static final int MAX_SUBJECT_LENGTH = 72;
+    private static final int MAX_SLUG_LENGTH = 40;
+    /** A subject that already carries a Conventional Commits type, such as "fix:" or "build(deps):". */
+    private static final Pattern CONVENTIONAL_PREFIX = Pattern.compile("^[a-z]+(\\([^)]*\\))?!?:\\s*");
+
     private static final String DEFAULT_PR_TEMPLATE = """
             ## AI Auto-Fix for {jobName} #{buildNumber}
 
@@ -83,7 +92,7 @@ public class AutoFixOrchestrator {
             ### Build Details
 
             - **Job:** {jobName}
-            - **Build:** #{buildNumber}
+            - **Build:** {buildLink}
             - **Fix Type:** {fixType}
             - **Confidence:** {confidence}
 
@@ -278,7 +287,7 @@ public class AutoFixOrchestrator {
         listener.getLogger().println("[AutoFix] Default branch: " + defaultBranch);
 
         // Step 8 — Create fix branch
-        String branchName = "fix/jenkins-ai-" + run.getNumber() + "-" + System.currentTimeMillis();
+        String branchName = branchName(run.getNumber(), suggestion.title(), System.currentTimeMillis());
         listener.getLogger().println("[AutoFix] Creating branch: " + branchName);
         client.createBranch(branchName, defaultBranch);
         createdBranchRef[0] = branchName;
@@ -317,7 +326,7 @@ public class AutoFixOrchestrator {
         }
 
         // Commit all changes atomically
-        String commitMessage = "fix: AI auto-fix for build #" + run.getNumber();
+        String commitMessage = commitMessage(run, suggestion.title());
         try {
             client.commitFiles(branchName, commitMessage, fileContents);
         } catch (IOException e) {
@@ -328,7 +337,7 @@ public class AutoFixOrchestrator {
         }
 
         // Step 10 — Create PR
-        String prTitle = "fix: AI auto-fix for " + run.getParent().getFullName() + " #" + run.getNumber();
+        String prTitle = prTitle(run, suggestion.title());
         String effectiveTemplate = (prTemplate != null && !prTemplate.isBlank()) ? prTemplate : DEFAULT_PR_TEMPLATE;
         String prBody = buildPrBody(run, suggestion, effectiveTemplate);
 
@@ -679,9 +688,68 @@ public class AutoFixOrchestrator {
     /**
      * Builds a Markdown PR body by substituting {@code {variable}} placeholders in the template.
      */
+    /**
+     * The subject shared by the pull request and the commit: what the change does when the AI
+     * said so, otherwise {@code null}.
+     */
+    @CheckForNull
+    static String subject(@CheckForNull String title) {
+        String clean = TitleText.clean(title, MAX_SUBJECT_LENGTH - "fix: ".length());
+        if (clean == null) {
+            return null;
+        }
+        return CONVENTIONAL_PREFIX.matcher(clean).lookingAt() ? clean : "fix: " + clean;
+    }
+
+    static String prTitle(Run<?, ?> run, @CheckForNull String title) {
+        String subject = subject(title);
+        return subject != null ? subject
+                : "fix: AI auto-fix for " + run.getParent().getFullName() + " #" + run.getNumber();
+    }
+
+    static String commitMessage(Run<?, ?> run, @CheckForNull String title) {
+        String subject = subject(title);
+        return subject != null
+                ? subject + "\n\nAI auto-fix for " + run.getParent().getFullName() + " #" + run.getNumber() + "."
+                : "fix: AI auto-fix for build #" + run.getNumber();
+    }
+
+    /**
+     * {@code fix/jenkins-ai-<build>-<what-the-change-does>-<suffix>}. The suffix keeps two fixes
+     * for the same build number apart (another job, or a second attempt); it is the time in
+     * base 36, or in full when there is no title to tell branches apart by.
+     */
+    static String branchName(int buildNumber, @CheckForNull String title, long now) {
+        String slug = slug(TitleText.clean(title, MAX_SUBJECT_LENGTH));
+        String prefix = "fix/jenkins-ai-" + buildNumber + "-";
+        return slug.isEmpty() ? prefix + now : prefix + slug + "-" + Long.toString(now, 36);
+    }
+
+    private static String slug(@CheckForNull String title) {
+        if (title == null) {
+            return "";
+        }
+        String slug = CONVENTIONAL_PREFIX.matcher(title).replaceFirst("")
+                .toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        if (slug.length() > MAX_SLUG_LENGTH) {
+            int cut = slug.lastIndexOf('-', MAX_SLUG_LENGTH);
+            slug = slug.substring(0, cut > 0 ? cut : MAX_SLUG_LENGTH);
+        }
+        return slug;
+    }
+
+    /** The build's address, or an empty string when Jenkins does not know its own URL. */
+    private static String buildUrl(Run<?, ?> run) {
+        Jenkins jenkins = Jenkins.getInstanceOrNull();
+        String rootUrl = jenkins != null ? jenkins.getRootUrl() : null;
+        return rootUrl != null ? rootUrl + run.getUrl() : "";
+    }
+
     String buildPrBody(Run<?, ?> run, FixSuggestion suggestion, String template) {
         String jobName = run.getParent().getFullName();
         String buildNumber = String.valueOf(run.getNumber());
+        String buildUrl = buildUrl(run);
+        String title = TitleText.clean(suggestion.title(), MAX_SUBJECT_LENGTH);
         String explanation = suggestion.explanation() != null ? suggestion.explanation() : "No explanation provided.";
         String confidence = suggestion.confidence() != null ? suggestion.confidence() : "unknown";
         String fixType = suggestion.fixType() != null ? suggestion.fixType() : "unknown";
@@ -711,7 +779,10 @@ public class AutoFixOrchestrator {
                 "explanation", explanation,
                 "changesSummary", changesSummary.toString().stripTrailing(),
                 "fixType", fixType,
-                "confidence", confidence
+                "confidence", confidence,
+                "title", title != null ? title : "",
+                "buildUrl", buildUrl,
+                "buildLink", buildUrl.isEmpty() ? "#" + buildNumber : "[#" + buildNumber + "](" + buildUrl + ")"
         );
         return TEMPLATE_PLACEHOLDER.matcher(template).replaceAll(m -> {
             String val = values.get(m.group(1));

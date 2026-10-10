@@ -182,7 +182,7 @@ function sendExplainRequest(forceNew = false) {
   .then(json => {
     try {
       if (json.status == "success") {
-        showErrorExplanation(json.message, json.providerName, json.url);
+        showErrorExplanation(json.message, json.providerName, json.url, json.title);
       }
       else {
         if (json.status == "warning") {
@@ -233,13 +233,13 @@ function decodeHtml(text) {
   return textarea.value;
 }
 
-function showErrorExplanation(message, providerName, url) {
+function showErrorExplanation(message, providerName, url, title) {
   const container = document.getElementById('explain-error-container');
   const spinner = document.getElementById('explain-error-spinner');
   const content = document.getElementById('explain-error-content');
   const urlString = document.getElementById('explain-error-url');
   const cardTitle = document.querySelector('.jenkins-card__title');
-  cardTitle.firstChild.textContent = `AI Error Explanation (${providerName})`;
+  cardTitle.firstChild.textContent = `${title || 'AI Error Explanation'} (${providerName})`;
   container.classList.remove('jenkins-hidden');
   spinner.classList.add('jenkins-hidden');
   content.textContent = message;

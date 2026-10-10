@@ -454,6 +454,7 @@ Map keys returned when `returnStructured: true`:
 
 | Key | Type | Description |
 |---|---|---|
+| `title` | `String` | One-line title naming the root cause, at most about 70 characters (`null` if the provider returned none) |
 | `errorSummary` | `String` | Root cause summary |
 | `resolutionSteps` | `List<String>` | Ordered steps to resolve the error (empty if none) |
 | `bestPractices` | `List<String>` | Recommendations to avoid recurrence (empty if none) |
@@ -485,8 +486,8 @@ The step returns `null` when no explanation could be generated (explanation disa
 | **autoFixAllowedPaths** | Comma-separated list of file glob patterns the AI is permitted to modify | `pom.xml,build.gradle,*.yml,*.yaml,...` |
 | **autoFixDraftPr** | Open the pull request as a draft (GitHub only) | `false` |
 | **autoFixTimeoutSeconds** | Maximum seconds to wait for the auto-fix to complete | `60` |
-| **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}` placeholders | Built-in template |
-| **returnStructured** | Return a `Map` with `errorSummary`, `resolutionSteps`, `bestPractices`, `errorSignature`, and `explanation` instead of the explanation text | `false` |
+| **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}`, `{title}`, `{buildUrl}`, `{buildLink}` placeholders | Built-in template |
+| **returnStructured** | Return a `Map` with `title`, `errorSummary`, `resolutionSteps`, `bestPractices`, `errorSignature`, and `explanation` instead of the explanation text | `false` |
 
 ```groovy
 explainError(

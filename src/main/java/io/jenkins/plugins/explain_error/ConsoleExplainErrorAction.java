@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import com.google.common.annotations.VisibleForTesting;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -87,7 +88,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                 recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
                         existingAction.getProviderModel(), startTimeNanos, existingAction.getInputLogLineCount());
                 // Return existing explanation with a flag indicating it's cached
-                writeJsonResponse(rsp, "success", existingAction.getProviderName(), createCachedResponse(existingAction.getExplanation()));
+                writeJsonResponse(rsp, "success", existingAction.getProviderName(),
+                        createCachedResponse(existingAction.getExplanation()), existingAction.getTitle());
                 return;
             }
 
@@ -109,7 +111,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             ErrorExplainer explainer = new ErrorExplainer();
             try {
                 ErrorExplanationAction action = explainer.explainErrorText(errorText, urlString, run);
-                writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation());
+                writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
+                        action.getTitle());
             } catch (ExplanationException ee) {
                 writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage());
             }
@@ -154,6 +157,11 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     }
 
     private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName, String message) throws IOException {
+        writeJsonResponse(rsp, status, providerName, message, null);
+    }
+
+    private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName, String message,
+                                   @CheckForNull String title) throws IOException {
         rsp.setContentType("application/json");
         rsp.setCharacterEncoding("UTF-8");
         PrintWriter writer = rsp.getWriter();
@@ -162,6 +170,9 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         json.put("status", status);
         json.put("providerName", providerName);
         json.put("message", message);
+        if (title != null) {
+            json.put("title", title);
+        }
         json.put("url", urlString);
         writer.write(json.toString());
         writer.flush();

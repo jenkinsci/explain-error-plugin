@@ -207,7 +207,8 @@ public class LangGraphProvider extends BaseAIProvider {
                 .put("role", "human")
                 .put("content", buildUserPrompt(errorLogs, language, customContext)
                         + "\n\nReturn ONLY valid JSON with these keys: errorSummary, resolutionSteps (array), "
-                        + "bestPractices (array), errorSignature.");
+                        + "bestPractices (array), errorSignature, "
+                        + "title (at most 70 characters, naming the root cause).");
 
         return OBJECT_MAPPER.writeValueAsString(payload);
     }
@@ -280,7 +281,8 @@ public class LangGraphProvider extends BaseAIProvider {
                 errorSummary,
                 toStringList(json.path("resolutionSteps")),
                 toStringList(json.path("bestPractices")),
-                Util.fixEmptyAndTrim(json.path("errorSignature").asText(null)));
+                Util.fixEmptyAndTrim(json.path("errorSignature").asText(null)),
+                Util.fixEmptyAndTrim(json.path("title").asText(null)));
     }
 
     private JsonNode tryParseJson(String content) throws IOException {
