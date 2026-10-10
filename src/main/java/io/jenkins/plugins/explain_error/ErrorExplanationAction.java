@@ -30,6 +30,11 @@ public class ErrorExplanationAction implements RunAction2 {
     private List<String> bestPractices;
     private String errorSignature;
 
+    // Identifies the failure so a later build failing the same way can reuse this explanation
+    private String failureFingerprint;
+    // Number of the build whose explanation was reused, or 0 if generated for this build
+    private int reusedFromBuild;
+
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this(explanation, urlString, originalErrorLogs, providerName, null,
                 ErrorExplainer.countLines(originalErrorLogs));
@@ -121,6 +126,41 @@ public class ErrorExplanationAction implements RunAction2 {
     @CheckForNull
     private static List<String> copyOf(@CheckForNull List<String> values) {
         return values == null ? null : new ArrayList<>(values);
+    }
+
+    @CheckForNull
+    String getFailureFingerprint() {
+        return failureFingerprint;
+    }
+
+    void setFailureFingerprint(@CheckForNull String failureFingerprint) {
+        this.failureFingerprint = failureFingerprint;
+    }
+
+    /**
+     * Returns the number of the earlier build whose explanation was reused for this build
+     * because it failed the same way, or {@code 0} if the explanation was generated for this build.
+     */
+    @Exported(visibility = 1)
+    public int getReusedFromBuild() {
+        return reusedFromBuild;
+    }
+
+    /**
+     * Creates an explanation for another build that failed the same way as the build of this action,
+     * without calling the AI provider again.
+     *
+     * @param sourceBuildNumber the number of the build this action belongs to
+     * @param urlString         the link to the failure output of the other build
+     * @param errorLogs         the failure log of the other build
+     */
+    ErrorExplanationAction reuseFor(int sourceBuildNumber, String urlString, String errorLogs) {
+        ErrorExplanationAction reused = new ErrorExplanationAction(explanation, urlString, errorLogs,
+                providerName, providerModel, inputLogLineCount);
+        reused.setStructuredData(new JenkinsLogAnalysis(errorSummary, resolutionSteps, bestPractices, errorSignature));
+        reused.failureFingerprint = failureFingerprint;
+        reused.reusedFromBuild = sourceBuildNumber;
+        return reused;
     }
 
     @Exported(visibility = 1)

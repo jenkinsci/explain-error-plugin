@@ -259,6 +259,52 @@ class ErrorExplanationActionTest {
     }
 
     @Test
+    void testReuseForCopiesTheExplanationAndRecordsTheSourceBuild() {
+        ErrorExplanationAction source = new ErrorExplanationAction(
+                "Disk is full", "https://example.com/1", "log 1", "Ollama", "llama3.2", 7);
+        source.setStructuredData(new JenkinsLogAnalysis("Disk is full", List.of("Free space"), null, "ENOSPC"));
+        source.setFailureFingerprint("abc");
+
+        ErrorExplanationAction reused = source.reuseFor(41, "https://example.com/2", "log 2");
+
+        assertEquals("Disk is full", reused.getExplanation());
+        assertEquals("https://example.com/2", reused.getUrlString());
+        assertEquals("log 2", reused.getOriginalErrorLogs());
+        assertEquals("Ollama", reused.getProviderName());
+        assertEquals("llama3.2", reused.getProviderModel());
+        assertEquals(7, reused.getInputLogLineCount());
+        assertEquals("Disk is full", reused.getErrorSummary());
+        assertEquals(List.of("Free space"), reused.getResolutionSteps());
+        assertEquals("ENOSPC", reused.getErrorSignature());
+        assertEquals("abc", reused.getFailureFingerprint());
+        assertEquals(41, reused.getReusedFromBuild());
+        assertEquals(0, source.getReusedFromBuild());
+    }
+
+    @Test
+    void testReusedFromBuildIsExposedViaRestApi() throws Exception {
+        ErrorExplanationAction reused = action.reuseFor(12, "", testErrorLogs);
+
+        StringWriter writer = new StringWriter();
+        Model<ErrorExplanationAction> model = new ModelBuilder().get(ErrorExplanationAction.class);
+        model.writeTo(reused, Flavor.JSON.createDataWriter(reused, writer));
+        JSONObject json = JSONObject.fromObject(writer.toString());
+
+        assertEquals(12, json.getInt("reusedFromBuild"));
+    }
+
+    @Test
+    void testFailureFingerprintAndReuseSurviveBuildXmlRoundTrip() {
+        action.setFailureFingerprint("abc");
+        ErrorExplanationAction reused = action.reuseFor(5, "", testErrorLogs);
+
+        ErrorExplanationAction restored = (ErrorExplanationAction) Run.XSTREAM2.fromXML(Run.XSTREAM2.toXML(reused));
+
+        assertEquals("abc", restored.getFailureFingerprint());
+        assertEquals(5, restored.getReusedFromBuild());
+    }
+
+    @Test
     void testStructuredDataSurvivesBuildXmlRoundTrip() {
         action.setStructuredData(new JenkinsLogAnalysis(
                 "Disk is full", List.of("Free disk space"), List.of(), "No space left on device"));

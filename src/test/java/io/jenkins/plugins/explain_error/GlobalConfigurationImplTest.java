@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.*;
 
+import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.AzureOpenAIProvider;
@@ -27,9 +28,11 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 class GlobalConfigurationImplTest {
 
     private GlobalConfigurationImpl config;
+    private JenkinsRule jenkins;
 
     @BeforeEach
     void setUp(JenkinsRule jenkins) {
+        this.jenkins = jenkins;
         config = GlobalConfigurationImpl.get();
 
         // Reset to clean state for each test (no auto-population)
@@ -257,6 +260,43 @@ class GlobalConfigurationImplTest {
         assertEquals(QuotaWindow.HOURLY.name(), items.get(0).value);
         assertEquals("Daily", items.get(1).name);
         assertEquals(QuotaWindow.DAILY.name(), items.get(1).value);
+    }
+
+    @Test
+    void autoExplainHourlyLimitDefaultsTo30AndIsAtLeastOne() {
+        assertEquals(30, config.getAutoExplainMaxPerHour());
+
+        config.setAutoExplainMaxPerHour(0);
+        assertEquals(1, config.getAutoExplainMaxPerHour());
+
+        config.setAutoExplainMaxPerHour(120);
+        assertEquals(120, config.getAutoExplainMaxPerHour());
+    }
+
+    @Test
+    void autoExplainHourlyLimitRejectsCallsOverTheLimit() {
+        config.setAutoExplainMaxPerHour(2);
+
+        assertTrue(config.tryAcquireAutoExplainQuota());
+        assertTrue(config.tryAcquireAutoExplainQuota());
+        assertFalse(config.tryAcquireAutoExplainQuota());
+    }
+
+    @Test
+    void validatesAutoExplainHourlyLimit() {
+        assertEquals(FormValidation.Kind.ERROR, config.doCheckAutoExplainMaxPerHour(0).kind);
+        assertEquals(FormValidation.Kind.OK, config.doCheckAutoExplainMaxPerHour(30).kind);
+    }
+
+    @Test
+    void autoExplainHourlyLimitSurvivesConfigurationRoundTrip() throws Exception {
+        config.setEnableAutoExplainOnFailure(true);
+        config.setAutoExplainMaxPerHour(45);
+
+        jenkins.configRoundtrip();
+
+        assertTrue(GlobalConfigurationImpl.get().isEnableAutoExplainOnFailure());
+        assertEquals(45, GlobalConfigurationImpl.get().getAutoExplainMaxPerHour());
     }
 
     private List<String> providerDisplayNames() {
