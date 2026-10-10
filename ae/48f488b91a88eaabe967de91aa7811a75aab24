@@ -1,0 +1,30 @@
+src/main/resources/io/jenkins/plugins/explain_error/ExplainErrorFolderProperty/config.jelly
+  s_e8b639792250d5::t_c740504b1fe41d 4-8
+src/test/java/io/jenkins/plugins/explain_error/ExplainErrorFolderPropertyTest.java
+  s_e8b639792250d5::t_71987bdd8b31c8 298-348
+  s_e8b639792250d5::t_5d866f085ec4fc 349
+src/main/resources/io/jenkins/plugins/explain_error/ExplainErrorFolderProperty/help-providerOverride.html
+  s_e8b639792250d5::t_c740504b1fe41d 1-7
+src/main/java/io/jenkins/plugins/explain_error/ExplainErrorFolderProperty.java
+  s_e8b639792250d5::t_c740504b1fe41d 31-33,143-151,344-360
+  s_e8b639792250d5::t_ee063f8022d7d8 10,16,22
+  s_e8b639792250d5::t_45e3886ba8da88 361-362
+README.md
+  s_e8b639792250d5::t_b665f762f6eba4 88-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae48f488b91a88eaabe967de91aa7811a75aab24",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
