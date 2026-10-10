@@ -54,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -476,7 +477,7 @@ class AutoFixOrchestratorFlowTest {
     }
 
     @Test
-    void extractRemoteUrl_inlinePipelineIsNotSupported() {
+    void extractRemoteUrl_inlinePipelineWithoutACheckout() {
         WorkflowJob job = mock(WorkflowJob.class);
         doReturn(mock(CpsFlowDefinition.class)).when(job).getDefinition();
         doReturn(job).when(run).getParent();
@@ -484,6 +485,50 @@ class AutoFixOrchestratorFlowTest {
         IllegalStateException e = assertThrows(IllegalStateException.class,
                 () -> new AutoFixOrchestrator().extractRemoteUrl(run));
         assertTrue(e.getMessage().endsWith("does not support SCM URL extraction"), e.getMessage());
+    }
+
+    @Test
+    void extractRemoteUrl_inlinePipelineFirstBuildUsesItsOwnCheckout() {
+        // No earlier build, so the job has no SCM to report yet; the script has none either
+        WorkflowJob job = mock(WorkflowJob.class);
+        doReturn(mock(CpsFlowDefinition.class)).when(job).getDefinition();
+        WorkflowRun build = mock(WorkflowRun.class);
+        doReturn(job).when(build).getParent();
+        doReturn(List.of(new FakeGitScm(List.of("https://github.com/acme/app.git")))).when(build).getSCMs();
+
+        assertEquals("https://github.com/acme/app.git", new AutoFixOrchestrator().extractRemoteUrl(build));
+    }
+
+    @Test
+    void extractRemoteUrl_buildCheckoutWinsOverAnEarlierBuilds() {
+        WorkflowJob job = mock(WorkflowJob.class);
+        doReturn(List.of(new FakeGitScm(List.of("https://github.com/acme/moved-away.git")))).when(job).getSCMs();
+        WorkflowRun build = mock(WorkflowRun.class);
+        doReturn(job).when(build).getParent();
+        doReturn(List.of(new FakeGitScm(List.of("https://github.com/acme/app.git")))).when(build).getSCMs();
+
+        assertEquals("https://github.com/acme/app.git", new AutoFixOrchestrator().extractRemoteUrl(build));
+    }
+
+    @Test
+    void extractRemoteUrl_buildWithoutACheckoutFallsBackToTheJob() {
+        WorkflowJob job = mock(WorkflowJob.class);
+        doReturn(List.of(new FakeGitScm(List.of("https://github.com/acme/app.git")))).when(job).getSCMs();
+        WorkflowRun build = mock(WorkflowRun.class);
+        doReturn(job).when(build).getParent();
+
+        assertEquals("https://github.com/acme/app.git", new AutoFixOrchestrator().extractRemoteUrl(build));
+    }
+
+    @Test
+    void extractRemoteUrl_buildCheckoutLookupFailureIsReported() {
+        WorkflowRun build = mock(WorkflowRun.class);
+        doReturn(mock(WorkflowJob.class)).when(build).getParent();
+        when(build.getSCMs()).thenThrow(new IllegalStateException("checkouts broken"));
+
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> new AutoFixOrchestrator().extractRemoteUrl(build));
+        assertTrue(e.getMessage().startsWith("Failed to inspect SCMs via getSCMs"), e.getMessage());
     }
 
     @Test
