@@ -31,6 +31,7 @@ public class UnifiedDiffApplier {
         String[] diffLines = diff.split("\r?\n", -1);
 
         int offset = 0; // cumulative offset from previous hunk applications
+        boolean newContentLacksFinalNewline = false;
 
         int i = 0;
         while (i < diffLines.length) {
@@ -60,6 +61,14 @@ public class UnifiedDiffApplier {
                 hunkLines.add(diffLines[i]);
                 i++;
             }
+            // A diff that ends with a line terminator, or separates its hunks with a blank line,
+            // leaves empty strings at the end of the hunk body. They are not blank context lines:
+            // read as such, the hunk only applies where an empty line happens to follow it.
+            while (!hunkLines.isEmpty() && hunkLines.get(hunkLines.size() - 1).isEmpty()) {
+                hunkLines.remove(hunkLines.size() - 1);
+            }
+            newContentLacksFinalNewline = !hunkLines.isEmpty()
+                    && hunkLines.get(hunkLines.size() - 1).startsWith("\\");
 
             // Calculate insertion point in result (0-based)
             // startOld is 1-based; apply cumulative offset.
@@ -107,6 +116,13 @@ public class UnifiedDiffApplier {
 
             // Update offset: new lines added minus old lines removed
             offset += insertLines.size() - removedCount;
+        }
+
+        // A non-empty original carries its final newline as a trailing empty element. An empty
+        // one has nothing to carry, so the new content gets the newline a diff implies unless
+        // the diff ends with "\ No newline at end of file".
+        if (lines.isEmpty() && !result.isEmpty() && !newContentLacksFinalNewline) {
+            result.add("");
         }
 
         return String.join("\n", result);
