@@ -1,7 +1,11 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
     <f:optionalBlock field="enableExplanation" title="Enable AI Error Explanation" checked="${instance.enableExplanation}" inline="true">
-        <f:dropdownDescriptorSelector title="AI Provider" field="aiProvider"/>
+        <f:optionalBlock name="providerOverride" title="Use a different AI provider for this folder"
+                         checked="${instance.aiProvider != null}"
+                         help="${descriptor.getHelpFile('providerOverride')}">
+            <f:dropdownDescriptorSelector title="AI Provider" field="aiProvider"/>
+        </f:optionalBlock>
         <f:entry title="Custom Context" field="customContext"
                  description="Additional instructions or context for the AI. Overrides the global custom context for jobs in this folder.">
           <f:textarea />

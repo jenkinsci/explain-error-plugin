@@ -85,8 +85,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 Support for folder-level overrides allows different teams to use their own AI providers, models, language, temperature, and custom context.
 
 1. Click **Configure** on any folder
-2. Expand **"Explain Error Configuration"** and set:
-   - **AI Provider** — overrides the global provider
+2. Under **Properties**, check **"Enable AI Error Explanation"** and set:
+   - **Use a different AI provider for this folder** — check it to override the global provider; leave it unchecked to keep the provider of the parent folder or the global configuration
    - **Temperature** — overrides the global temperature
    - **Language** — overrides the global language
    - **Custom Context** — overrides the global custom context
