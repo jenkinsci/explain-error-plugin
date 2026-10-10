@@ -307,10 +307,11 @@ class CustomOktaAIProviderTest {
         assertEquals("Fenced", fenced.errorSummary());
         assertEquals(List.of("Pin versions"), fenced.bestPractices());
 
-        answer.set("Result: {\"errorSummary\":\"Embedded\",\"errorSignature\":\" sig \"} done");
+        answer.set("Result: {\"errorSummary\":\"Embedded\",\"errorSignature\":\" sig \",\"title\":\" A title \"} done");
         JenkinsLogAnalysis embedded = provider.analyzeError("FAILURE", null, null, null, null, null, null);
         assertEquals("Embedded", embedded.errorSummary());
         assertEquals("sig", embedded.errorSignature());
+        assertEquals("A title", embedded.title());
 
         answer.set("[\"not\",\"an\",\"object\"]");
         assertEquals("[\"not\",\"an\",\"object\"]",
