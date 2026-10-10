@@ -8,7 +8,7 @@
 
 ## 🎥 Demo
 
-👉 [Watch the hands-on demo on YouTube](https://youtu.be/rPI9PMeDQ2o?si=YMeprtSz9VmqglCL) — setup, run, and see how AI explains your Jenkins job failures.
+👉 [Watch the 90-second overview on YouTube](https://youtu.be/3dwNNoYePE0) — one-click explanations, the `explainError()` pipeline step, automatic mode, twelve AI providers, and auto-fix pull requests.
 
 ---
 
