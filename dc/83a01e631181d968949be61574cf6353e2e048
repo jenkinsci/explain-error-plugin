@@ -1,0 +1,71 @@
+src/main/java/io/jenkins/plugins/explain_error/PendingExplanations.java
+  s_e8b639792250d5::t_a035999f06af3d 5,7,14-15,19,21-23,28-32,40-49
+  s_e8b639792250d5::t_3c595ecc8435be 1-4,6,8-13,16-18,20,24-27,33-39,50-51
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_fr.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/main/webapp/js/explain-error-pending.js
+  s_e8b639792250d5::t_a8fed31cc56c48 1-27
+src/main/webapp/css/explain-error.css
+  s_e8b639792250d5::t_1f0c1388ccfe8e 78-83
+  s_e8b639792250d5::t_a8fed31cc56c48 73-75,77,84-97
+  s_e8b639792250d5::t_9222c1444e3264 76
+src/main/java/io/jenkins/plugins/explain_error/ExplanationLabels.java
+  s_e8b639792250d5::t_a8fed31cc56c48 126-130
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/test/java/io/jenkins/plugins/explain_error/ProviderFailureTest.java
+  s_e8b639792250d5::t_94e656e6e53c7d 1-23,25-51
+  s_e8b639792250d5::t_504cca8270f95d 24
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/explanation.jelly
+  s_e8b639792250d5::t_a8fed31cc56c48 39-42,45-46,49-51
+  s_e8b639792250d5::t_956bdbc5a3844f 52
+src/main/java/io/jenkins/plugins/explain_error/ConsoleExplainErrorAction.java
+  s_e8b639792250d5::t_47404be4c3cfd2 130-131
+  s_e8b639792250d5::t_0b9a99ab007370 117,188-195,207-208
+  s_e8b639792250d5::t_0580af6f007604 118,153-156,164-181,209
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_zh_TW.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/main/resources/io/jenkins/plugins/explain_error/ConsoleExplainErrorAction/summary.jelly
+  s_e8b639792250d5::t_a8fed31cc56c48 1-15
+src/main/resources/io/jenkins/plugins/explain_error/ConsolePageDecorator/footer.jelly
+  s_e8b639792250d5::t_a8fed31cc56c48 21-24,30-40,43
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_de.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_ja.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/main/webapp/js/explain-error-footer.js
+  s_e8b639792250d5::t_99c0123eb29bc2 256,258-259,264,266-273
+  s_e8b639792250d5::t_a035999f06af3d 15,19,44,53-55,96-97,100-101,116-151,154-157,159-162,190-196,205-207,209,231-237,241,245-255,257,260-263,265,274,276-279,323,350-352
+  s_e8b639792250d5::t_acd5cea6a94437 275
+src/main/java/io/jenkins/plugins/explain_error/ErrorRunListener.java
+  s_e8b639792250d5::t_3c595ecc8435be 106,134-135
+README.md
+  s_e8b639792250d5::t_88b40091e89c01 608-610,621-623
+  s_e8b639792250d5::t_e7b7cf4d410bed 624
+src/main/java/io/jenkins/plugins/explain_error/ProviderFailure.java
+  s_e8b639792250d5::t_3c595ecc8435be 1-67
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_es.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_zh_CN.properties
+  s_e8b639792250d5::t_a8fed31cc56c48 9
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/panel.jelly
+  s_e8b639792250d5::t_a8fed31cc56c48 4
+src/test/java/io/jenkins/plugins/explain_error/ExplainCardStatesTest.java
+  s_e8b639792250d5::t_94e656e6e53c7d 1-321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dc83a01e631181d968949be61574cf6353e2e048",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
