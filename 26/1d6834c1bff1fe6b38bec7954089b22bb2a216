@@ -1,0 +1,28 @@
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/summary.jelly
+  s_e8b639792250d5::t_ae6f1909f02902 12-13,15,17
+  s_e8b639792250d5::t_f507ea3ecb2762 1-11,14,16,18-21
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplanationAction.java
+  s_e8b639792250d5::t_f507ea3ecb2762 19-21,151-179
+  s_e8b639792250d5::t_45e50c2071e58c 180
+src/test/java/io/jenkins/plugins/explain_error/ExplanationBuildSummaryTest.java
+  s_e8b639792250d5::t_f507ea3ecb2762 1-107
+  s_e8b639792250d5::t_e892b9194bb94b 108-110
+src/main/webapp/css/explain-error.css
+  s_e8b639792250d5::t_f507ea3ecb2762 59-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "261d6834c1bff1fe6b38bec7954089b22bb2a216",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
