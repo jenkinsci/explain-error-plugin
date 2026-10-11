@@ -15,11 +15,11 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -59,6 +59,7 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.core.Authentication;
 
 /**
@@ -258,7 +259,12 @@ class AutoFixOrchestratorFlowTest {
         assertEquals(AutoFixStatus.FAILED, result.getStatus());
         assertEquals("Cannot modify non-existent file: pom.xml", result.getMessage());
         server.verify(deleteRequestedFor(urlPathMatching(REPO_API + "/git/refs/heads/" + BRANCH_PATTERN)));
-        verify(run, never()).addOrReplaceAction(any(Action.class));
+        verify(run).addOrReplaceAction(argThat((Action action) -> action instanceof AutoFixAction fix
+                && fix.getStatus() == AutoFixStatus.FAILED
+                && "Cannot modify non-existent file: pom.xml".equals(fix.getMessage())
+                && fix.getPrUrl() == null
+                && fix.getProposedChanges().size() == 1
+                && POM_DIFF.equals(fix.getProposedChanges().get(0).getUnifiedDiff())));
     }
 
     @Test
@@ -310,7 +316,9 @@ class AutoFixOrchestratorFlowTest {
         assertEquals(AutoFixStatus.FAILED, result.getStatus());
         assertTrue(result.getMessage().startsWith("Failed to create pull request: "), result.getMessage());
         assertTrue(log().contains("[AutoFix] Rolling back branch: fix/jenkins-ai-42-"), log());
-        verify(run, never()).save();
+        verify(run).addOrReplaceAction(argThat((Action action) -> action instanceof AutoFixAction fix
+                && fix.getStatus() == AutoFixStatus.FAILED && fix.hasProposedChanges()));
+        verify(run).save();
     }
 
     // -----------------------------------------------------------------------
@@ -386,6 +394,72 @@ class AutoFixOrchestratorFlowTest {
 
         assertEquals(AutoFixStatus.FAILED, result.getStatus());
         verify(fixAssistant, never()).suggestFix(anyString());
+    }
+
+    // -----------------------------------------------------------------------
+    // What stays on the build when no pull request is created
+    // -----------------------------------------------------------------------
+
+    @Test
+    void failureAfterASuggestion_keepsTheProposedFixOnTheBuild() throws Exception {
+        when(fixAssistant.suggestFix(anyString())).thenReturn(MAPPER.writeValueAsString(new FixSuggestion(
+                true, "The version was never bumped.", "high", "dependency",
+                List.of(fileChange("pom.xml", "modify", POM_DIFF, "Bump version")), "bump the version to 1.1")));
+
+        AutoFixResult result = attempt(withToken(null), List.of("pom.xml"), 30, null);
+
+        assertEquals(AutoFixStatus.FAILED, result.getStatus());
+        ArgumentCaptor<Action> stored = ArgumentCaptor.forClass(Action.class);
+        verify(run).addOrReplaceAction(stored.capture());
+        verify(run).save();
+        AutoFixAction action = (AutoFixAction) stored.getValue();
+        assertEquals(AutoFixStatus.FAILED, action.getStatus());
+        assertEquals("SCM credentials not found for ID: scm-token", action.getMessage());
+        assertFalse(action.hasCreatedPr());
+        assertEquals("bump the version to 1.1", action.getSuggestedTitle());
+        assertEquals("The version was never bumped.", action.getSuggestedExplanation());
+        assertEquals("high", action.getSuggestedConfidence());
+        assertEquals("dependency", action.getSuggestedFixType());
+        assertEquals(1, action.getProposedChanges().size());
+        AutoFixAction.ProposedChange change = action.getProposedChanges().get(0);
+        assertEquals("pom.xml", change.getFilePath());
+        assertEquals("modify", change.getAction());
+        assertEquals("Bump version", change.getDescription());
+        assertEquals(POM_DIFF, change.getUnifiedDiff());
+        assertTrue(log().contains(
+                "[AutoFix] The proposed fix was not applied. It is kept on the build under \"AI Auto-Fix\"."), log());
+    }
+
+    @Test
+    void failureBeforeAnySuggestion_keepsTheReasonAlone() {
+        AutoFixResult result = withToken("scm-token").attemptAutoFix(run, "logs", aiProvider, " ",
+                "https://github.example.com/acme/app.git", "github", gheUrl(), null, null,
+                List.of("pom.xml"), false, 30, listener, null);
+
+        assertEquals(AutoFixStatus.FAILED, result.getStatus());
+        verify(run).addOrReplaceAction(argThat((Action action) -> action instanceof AutoFixAction fix
+                && fix.getStatus() == AutoFixStatus.FAILED
+                && "autoFixCredentialsId is required for auto-fix".equals(fix.getMessage())
+                && !fix.hasSuggestion()));
+        assertFalse(log().contains("The proposed fix was not applied"), log());
+    }
+
+    @Test
+    void fixTheAiDoesNotTrust_keepsItsReasoning() throws Exception {
+        when(fixAssistant.suggestFix(anyString())).thenReturn(MAPPER.writeValueAsString(new FixSuggestion(
+                false, "The agent ran out of disk space; no file in the repository causes that.", "low", "unknown",
+                List.of())));
+
+        AutoFixResult result = attempt(withToken("scm-token"), List.of("pom.xml"), 30, null);
+
+        assertEquals(AutoFixStatus.SKIPPED_LOW_CONFIDENCE, result.getStatus());
+        verify(run).addOrReplaceAction(argThat((Action action) -> action instanceof AutoFixAction fix
+                && fix.getStatus() == AutoFixStatus.SKIPPED_LOW_CONFIDENCE
+                && fix.hasSuggestion()
+                && !fix.hasProposedChanges()
+                && "The agent ran out of disk space; no file in the repository causes that."
+                        .equals(fix.getSuggestedExplanation())));
+        assertFalse(log().contains("The proposed fix was not applied"), log());
     }
 
     // -----------------------------------------------------------------------

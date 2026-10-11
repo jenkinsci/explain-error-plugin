@@ -5,15 +5,75 @@
         <l:main-panel>
             <h1>AI Auto-Fix</h1>
             <l:card title="Status: ${it.statusDisplayName}">
-                <p>${it.message}</p>
-                <j:if test="${it.hasCreatedPr()}">
-                    <div class="jenkins-!-margin-top-3">
-                        <a href="${it.prUrl}" class="jenkins-button" target="_blank">
-                            <l:icon src="symbol-git-pull-request-outline plugin-ionicons-api" class="icon-md" />
-                            View Pull Request
-                        </a>
+                <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/auto-fix.css" type="text/css"/>
+                <j:choose>
+                    <j:when test="${it.hasCreatedPr()}">
+                        <!-- div, not p: Jelly's HTML output leaves </p> out -->
+                        <div class="eep-fix__pr">
+                            <a href="${it.prUrl}" target="_blank" rel="noopener noreferrer">${it.prTitle != null ? it.prTitle : it.prUrl}</a>
+                        </div>
+                        <div class="jenkins-!-margin-top-3">
+                            <a href="${it.prUrl}" class="jenkins-button" target="_blank" rel="noopener noreferrer">
+                                <l:icon src="symbol-git-pull-request-outline plugin-ionicons-api" class="icon-md" />
+                                View Pull Request
+                            </a>
+                        </div>
+                        <div class="jenkins-!-margin-top-2 eep-fix__branch">
+                            <strong>Branch:</strong>
+                            <j:choose>
+                                <j:when test="${it.branchUrl != null}">
+                                    <a href="${it.branchUrl}" target="_blank" rel="noopener noreferrer">${it.branchName}</a>
+                                </j:when>
+                                <j:otherwise>${it.branchName}</j:otherwise>
+                            </j:choose>
+                        </div>
+                    </j:when>
+                    <j:otherwise>
+                        <div class="eep-fix__message">${it.message}</div>
+                    </j:otherwise>
+                </j:choose>
+                <j:if test="${it.hasSuggestion()}">
+                    <!-- Everything here was written by the model and goes through Jelly's escaping -->
+                    <div class="eep-fix">
+                        <h2 class="eep-fix__heading">
+                            <j:choose>
+                                <j:when test="${it.hasProposedChanges()}">${%Proposed fix}</j:when>
+                                <j:otherwise>${%What the AI found}</j:otherwise>
+                            </j:choose>
+                            <j:if test="${it.suggestedTitle != null}">: ${it.suggestedTitle}</j:if>
+                        </h2>
+                        <j:if test="${it.hasProposedChanges()}">
+                            <div class="eep-fix__note">${%notApplied}</div>
+                        </j:if>
+                        <j:if test="${it.suggestedExplanation != null}">
+                            <div class="eep-fix__explanation">${it.suggestedExplanation}</div>
+                        </j:if>
+                        <j:if test="${it.suggestedConfidence != null or it.suggestedFixType != null}">
+                            <div class="eep-fix__meta">
+                                <j:if test="${it.suggestedConfidence != null}">${%Confidence}: ${it.suggestedConfidence}</j:if>
+                                <j:if test="${it.suggestedConfidence != null and it.suggestedFixType != null}"> &#183; </j:if>
+                                <j:if test="${it.suggestedFixType != null}">${%Type}: ${it.suggestedFixType}</j:if>
+                            </div>
+                        </j:if>
+                        <j:forEach var="change" items="${it.proposedChanges}">
+                            <div class="eep-fix__change">
+                                <div class="eep-fix__file">
+                                    <code>${change.filePath}</code>
+                                    <j:if test="${change.action != null}"><span class="eep-fix__action">${change.action}</span></j:if>
+                                    <j:if test="${!change.patch.isEmpty()}">
+                                        <l:copyButton text="${change.patch}" label="${%Copy diff}"/>
+                                    </j:if>
+                                </div>
+                                <j:if test="${change.description != null}">
+                                    <div class="eep-fix__description">${change.description}</div>
+                                </j:if>
+                                <j:if test="${!change.patch.isEmpty()}">
+                                    <!-- One block per line, so no line breaks need to survive Jelly's whitespace trimming -->
+                                    <pre class="eep-diff"><j:forEach var="line" items="${change.diffLines}"><span class="eep-diff__line eep-diff__${line.kind}">${line.text}</span></j:forEach></pre>
+                                </j:if>
+                            </div>
+                        </j:forEach>
                     </div>
-                    <p class="jenkins-!-margin-top-2"><strong>Branch:</strong> ${it.branchName}</p>
                 </j:if>
                 <p class="jenkins-!-color-secondary">Generated on: ${it.formattedTimestamp}</p>
             </l:card>
