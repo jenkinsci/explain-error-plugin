@@ -56,3 +56,17 @@
   color: var(--text-color-secondary);
   font-size: 0.8125rem;
 }
+
+/* The conclusion on the build's own page. */
+
+.eep-build-summary__heading {
+  font-weight: var(--font-bold-weight, 600);
+}
+
+.eep-build-summary__text {
+  margin: 0.25rem 0;
+}
+
+.eep-build-summary__more {
+  font-size: 0.8125rem;
+}

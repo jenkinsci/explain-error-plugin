@@ -1,0 +1,21 @@
+<?jelly escape-by-default='true'?>
+<!--
+  Shown on the build's own page, which is where people land when a build fails: the conclusion
+  of the explanation and a link to the rest of it.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:t="/lib/hudson">
+    <j:if test="${it.hasValidExplanation()}">
+        <j:set var="explanationUrl" value="${rootURL}/${it.run.url}${it.urlName}/"/>
+        <t:summary icon="symbol-sparkles-outline plugin-ionicons-api">
+            <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/explain-error.css" type="text/css"/>
+            <div class="eep-build-summary eep-explanation">
+                <!-- div, not p: Jelly's HTML output leaves </p> out, and the link below would join the paragraph -->
+                <div><a class="eep-build-summary__heading" href="${explanationUrl}">${it.heading}</a></div>
+                <j:if test="${it.structured}">
+                    <div class="eep-build-summary__text"><j:out value="${it.summaryPreviewHtml}"/></div>
+                </j:if>
+                <div><a class="eep-build-summary__more" href="${explanationUrl}">${%View full explanation}</a></div>
+            </div>
+        </t:summary>
+    </j:if>
+</j:jelly>
