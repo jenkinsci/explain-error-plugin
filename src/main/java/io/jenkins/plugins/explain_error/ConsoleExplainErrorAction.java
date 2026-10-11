@@ -114,7 +114,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                 writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
                         action.getTitle());
             } catch (ExplanationException ee) {
-                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage());
+                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage(), null,
+                        ProviderFailure.describe(ee));
             }
         } catch (Exception e) {
             LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
@@ -126,6 +127,8 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     /**
      * AJAX endpoint to check build status.
      * Returns JSON with buildingStatus to determine if button should be shown. 0 - SUCCESS, 1 - RUNNING, 2 - FINISHED and FAILURE
+     * It also carries explanation, which says whether the build has one: "ready", "pending" (an automatic
+     * one has been requested and has not come back yet) or "none".
      */
     @RequirePOST
     public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) {
@@ -147,13 +150,33 @@ public class ConsoleExplainErrorAction implements RunAction2 {
             rsp.setCharacterEncoding("UTF-8");
             PrintWriter writer = rsp.getWriter();
 
-            String response = String.format("{\"buildingStatus\": %s}", buildingStatus);
-            writer.write(response);
+            JSONObject json = new JSONObject();
+            json.put("buildingStatus", buildingStatus);
+            json.put("explanation", getExplanationState());
+            writer.write(json.toString());
             writer.flush();
         } catch (Exception e) {
             LOGGER.severe("Error checking build status: " + e.getMessage());
             rsp.setStatus(500);
         }
+    }
+
+    /**
+     * Whether the build has an explanation: "ready", "pending" or "none".
+     */
+    public String getExplanationState() {
+        ErrorExplanationAction existing = run.getAction(ErrorExplanationAction.class);
+        if (existing != null && existing.hasValidExplanation()) {
+            return "ready";
+        }
+        return isExplanationPending() ? "pending" : "none";
+    }
+
+    /**
+     * Whether an automatic explanation of this build has been requested and has not come back yet.
+     */
+    public boolean isExplanationPending() {
+        return PendingExplanations.contains(run);
     }
 
     private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName, String message) throws IOException {
@@ -162,6 +185,14 @@ public class ConsoleExplainErrorAction implements RunAction2 {
 
     private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName, String message,
                                    @CheckForNull String title) throws IOException {
+        writeJsonResponse(rsp, status, providerName, message, title, null);
+    }
+
+    /**
+     * @param reason a failure in plain words when it is known; {@code message} is then its detail
+     */
+    private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName, String message,
+                                   @CheckForNull String title, @CheckForNull String reason) throws IOException {
         rsp.setContentType("application/json");
         rsp.setCharacterEncoding("UTF-8");
         PrintWriter writer = rsp.getWriter();
@@ -172,6 +203,9 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         json.put("message", message);
         if (title != null) {
             json.put("title", title);
+        }
+        if (reason != null) {
+            json.put("reason", reason);
         }
         json.put("url", urlString);
         writer.write(json.toString());

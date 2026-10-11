@@ -1,0 +1,15 @@
+<?jelly escape-by-default='true'?>
+<!--
+  Shown on the build's own page while its automatic explanation is being generated. The page
+  reloads when the answer is in, and the explanation's own summary takes this one's place.
+-->
+<j:jelly xmlns:j="jelly:core" xmlns:t="/lib/hudson" xmlns:l="/lib/layout">
+    <j:if test="${it.explanationPending}">
+        <t:summary icon="symbol-sparkles-outline plugin-ionicons-api">
+            <div id="explain-error-pending" data-status-url="${rootURL}/${it.run.url}${it.urlName}/checkBuildStatus">
+                <l:spinner text="${%Explaining this failure…}"/>
+            </div>
+            <script src="${rootURL}/plugin/explain-error/js/explain-error-pending.js" type="text/javascript"/>
+        </t:summary>
+    </j:if>
+</j:jelly>

@@ -36,12 +36,19 @@
                         </ul>
                     </details>
                 </j:if>
-                <j:if test="${!it.providerLabel.isEmpty() or it.inputLogLineCount > 0}">
+                <j:set var="hasProvider" value="${!it.providerLabel.isEmpty()}"/>
+                <j:set var="hasLines" value="${it.inputLogLineCount > 0}"/>
+                <!-- showGenerated: set by the views that do not show the time themselves -->
+                <j:if test="${hasProvider or hasLines or showGenerated}">
                     <p class="eep-meta">
                         ${it.providerLabel}
-                        <j:if test="${it.inputLogLineCount > 0}">
-                            <j:if test="${!it.providerLabel.isEmpty()}"> &#183; </j:if>
+                        <j:if test="${hasLines}">
+                            <j:if test="${hasProvider}"> &#183; </j:if>
                             ${labels.linesAnalysed(it.inputLogLineCount)}
+                        </j:if>
+                        <j:if test="${showGenerated}">
+                            <j:if test="${hasProvider or hasLines}"> &#183; </j:if>
+                            <span class="eep-generated">${labels.generatedOn(it.formattedTimestamp)}</span>
                         </j:if>
                     </p>
                 </j:if>

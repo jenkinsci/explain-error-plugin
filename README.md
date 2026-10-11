@@ -605,6 +605,9 @@ Works with Freestyle, Declarative, or any job type.
 
 ![AI Error Explanation](docs/images/console-output.png)
 
+If the request fails, the card stays open with what went wrong and a **Try again** button. Once a build
+has an explanation the button reads **Show explanation**, and the card says when it was generated.
+
 ### Method 3: Automatic (RunListener)
 
 No pipeline changes needed. When **"Automatically explain failed builds"** is enabled in the global plugin
@@ -614,6 +617,10 @@ Unstable, aborted and not-built results are intentionally left untouched.
 The listener skips builds that already carry an `ErrorExplanationAction` (e.g. from an explicit
 `explainError()` step), so adding the toggle alongside an existing pipeline step produces no
 duplicate explanations.
+
+While the explanation is being generated, the build page shows a spinner in its place and reloads when
+it is in; on the console page the button reads **Explaining…** until then, instead of offering to request
+a second one.
 
 To enable:
 

@@ -1,6 +1,7 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
     <l:ajax>
+        <j:set var="showGenerated" value="${true}"/>
         <st:include page="explanation.jelly"/>
     </l:ajax>
 </j:jelly>
