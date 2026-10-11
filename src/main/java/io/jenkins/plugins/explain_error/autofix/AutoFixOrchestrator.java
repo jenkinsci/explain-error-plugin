@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -138,6 +139,56 @@ public class AutoFixOrchestrator {
             TaskListener listener,
             String prTemplate) {
 
+        AtomicReference<FixSuggestion> suggestionRef = new AtomicReference<>();
+        AutoFixResult result = attemptWithTimeout(
+                run, errorLogs, aiProvider, credentialsId, remoteUrl,
+                scmTypeOverride, githubEnterpriseUrl, gitlabUrl, bitbucketUrl,
+                allowedPathGlobs, draftPr, timeoutSeconds, listener, prTemplate, suggestionRef);
+        if (result.getStatus() != AutoFixStatus.CREATED) {
+            recordOutcome(run, result, suggestionRef.get(), listener);
+        }
+        return result;
+    }
+
+    /**
+     * Keeps on the build what happened and what the AI proposed. Without a pull request the
+     * build log would be the only trace, and the fix itself would be lost: this way it can
+     * still be reviewed and applied by hand.
+     */
+    private void recordOutcome(Run<?, ?> run, AutoFixResult result, @CheckForNull FixSuggestion suggestion,
+                               TaskListener listener) {
+        AutoFixAction action = new AutoFixAction(
+                result.getStatus(), null, null, result.getMessage(), null, System.currentTimeMillis(), null);
+        action.setSuggestion(suggestion);
+        run.addOrReplaceAction(action);
+        try {
+            run.save();
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Failed to persist AutoFixAction to build", e);
+        }
+        if (action.hasProposedChanges()) {
+            listener.getLogger().println("[AutoFix] The proposed fix was not applied. It is kept on the build under \""
+                    + action.getDisplayName() + "\".");
+        }
+    }
+
+    private AutoFixResult attemptWithTimeout(
+            Run<?, ?> run,
+            String errorLogs,
+            BaseAIProvider aiProvider,
+            String credentialsId,
+            String remoteUrl,
+            String scmTypeOverride,
+            String githubEnterpriseUrl,
+            String gitlabUrl,
+            String bitbucketUrl,
+            List<String> allowedPathGlobs,
+            boolean draftPr,
+            int timeoutSeconds,
+            TaskListener listener,
+            String prTemplate,
+            AtomicReference<FixSuggestion> suggestionRef) {
+
         // We keep track of the branch name so we can clean up on timeout/failure.
         final String[] createdBranchRef = {null};
 
@@ -146,7 +197,7 @@ public class AutoFixOrchestrator {
                 return doAttemptAutoFix(
                         run, errorLogs, aiProvider, credentialsId, remoteUrl,
                         scmTypeOverride, githubEnterpriseUrl, gitlabUrl, bitbucketUrl,
-                        allowedPathGlobs, draftPr, listener, createdBranchRef, prTemplate);
+                        allowedPathGlobs, draftPr, listener, createdBranchRef, prTemplate, suggestionRef);
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Auto-fix failed with exception", e);
                 listener.getLogger().println("[AutoFix] Error: " + e.getMessage());
@@ -204,7 +255,8 @@ public class AutoFixOrchestrator {
             boolean draftPr,
             TaskListener listener,
             String[] createdBranchRef,
-            String prTemplate) throws Exception {
+            String prTemplate,
+            AtomicReference<FixSuggestion> suggestionRef) throws Exception {
 
         listener.getLogger().println("[AutoFix] Requesting fix suggestion from AI provider...");
 
@@ -218,6 +270,7 @@ public class AutoFixOrchestrator {
         String rawJson = fixAssistant.suggestFix(errorLogs);
         LOGGER.fine("Raw AI response: " + rawJson);
         FixSuggestion suggestion = parseFixSuggestion(rawJson);
+        suggestionRef.set(suggestion);
 
         listener.getLogger().println("[AutoFix] AI suggestion: fixable=" + suggestion.fixable()
                 + ", confidence=" + suggestion.confidence()

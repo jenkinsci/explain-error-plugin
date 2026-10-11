@@ -18,7 +18,8 @@ When a build fails and `autoFix: true` is set, the plugin runs this workflow aut
 7. Stores the PR URL in the Jenkins build sidebar under **"AI Auto-Fix"**
 
 If any step fails (invalid diff, missing credentials, API error), the branch is deleted and the
-build is marked with status `FAILED` — the original build result is not affected.
+build is marked with status `FAILED` — the original build result is not affected. What the AI
+proposed is kept on the build's **"AI Auto-Fix"** page, so the fix can still be applied by hand.
 
 ---
 
@@ -217,13 +218,21 @@ After the build completes:
 
 1. Open the build page in Jenkins
 2. Click **"AI Auto-Fix"** in the left sidebar
-3. If a PR was created, you'll see a button linking directly to it
-4. If the fix was skipped or failed, the status message explains why
+3. If a PR was created, you'll see its title, a button linking directly to it, and the fix branch
+4. If the fix was skipped or failed, the status message explains why, and the page shows what the
+   AI proposed: its explanation, and for each file the diff with a **Copy diff** button
 
 The PR description includes:
 - Root cause summary from the AI
 - List of changed files with one-line descriptions
 - Build details (job name, build number, fix type, confidence level)
+
+### Applying a fix by hand
+
+When no pull request was created, **Copy diff** puts that file's diff on the clipboard as a patch
+(with the `---`/`+++` file lines added if the model left them out). Save it to a file and run
+`git apply <file>` in the repository. Diffs written by a model are not always exact; when
+`git apply` rejects one, the page still shows which lines to change.
 
 ---
 
