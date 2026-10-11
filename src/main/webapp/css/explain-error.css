@@ -70,3 +70,28 @@
 .eep-build-summary__more {
   font-size: 0.8125rem;
 }
+
+/* A request that failed, kept in the console card. */
+
+.eep-failure.jenkins-alert {
+  max-width: 60rem;
+  margin-bottom: 0;
+}
+
+/* An earlier explanation shown under a request that failed */
+.eep-failure + #explain-error-content {
+  margin-top: 1rem;
+}
+
+.eep-failure__headline {
+  font-weight: var(--font-bold-weight, 600);
+}
+
+.eep-failure .eep-details > summary {
+  margin: 0.5rem 0;
+  font-weight: inherit;
+}
+
+.eep-failure__actions {
+  margin-top: 0.75rem;
+}

@@ -123,4 +123,9 @@ public final class ExplanationLabels {
         // As text, so the number is not grouped the way one particular locale would group it
         return MessageFormat.format(bundle.getString("linesAnalysed"), String.valueOf(count));
     }
+
+    /** "Generated on ...", for the line under the explanation where the time is not shown elsewhere. */
+    public String generatedOn(String time) {
+        return MessageFormat.format(bundle.getString("generatedOn"), time);
+    }
 }

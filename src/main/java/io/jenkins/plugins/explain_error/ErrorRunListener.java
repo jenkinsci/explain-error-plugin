@@ -103,6 +103,7 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
         // Capture the security context on the build thread; the background thread
         // starts with no authentication of its own.
         Authentication authentication = Jenkins.getAuthentication2();
+        PendingExplanations.add(run);
         EXECUTOR.submit(() -> explainAsync(run, authentication));
     }
 
@@ -130,6 +131,8 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             // Safety net: never let a failure in the listener surface to the
             // build completion pipeline. Log and move on.
             LOGGER.log(Level.WARNING, "[" + fullName(run) + "] Auto-explain on failure failed unexpectedly.", e);
+        } finally {
+            PendingExplanations.remove(run);
         }
     }
 
