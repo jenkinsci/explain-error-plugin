@@ -1,0 +1,64 @@
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplanationAction.java
+  s_e8b639792250d5::t_594ce6a2a95714 37-38,114-122
+  s_e8b639792250d5::t_0aa0208a63e2c4 123
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels.properties
+  s_e8b639792250d5::t_a926f2efc6318d 6
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_ja.properties
+  s_e8b639792250d5::t_a926f2efc6318d 6
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_zh_TW.properties
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+  s_e8b639792250d5::t_a926f2efc6318d 6
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/explanation.jelly
+  s_e8b639792250d5::t_594ce6a2a95714 10,15,24,44
+  s_e8b639792250d5::t_a926f2efc6318d 31
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_es.properties
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+  s_e8b639792250d5::t_a926f2efc6318d 6
+src/test/java/io/jenkins/plugins/explain_error/provider/PromptTest.java
+  s_e8b639792250d5::t_4edd02c1292c1b 1-100
+  s_e8b639792250d5::t_918d93b00536b3 101
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_fr.properties
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+  s_e8b639792250d5::t_a926f2efc6318d 6
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_zh_CN.properties
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+  s_e8b639792250d5::t_a926f2efc6318d 6
+src/main/java/io/jenkins/plugins/explain_error/provider/BaseAIProvider.java
+  s_e8b639792250d5::t_0bd9d7d529fed3 52-84,125-131,133,308-311
+README.md
+  s_e8b639792250d5::t_a926f2efc6318d 71-72
+src/main/java/io/jenkins/plugins/explain_error/JenkinsLogAnalysis.java
+  s_e8b639792250d5::t_594ce6a2a95714 7,10,13,16,30-34,37,40,45,52
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplainer.java
+  s_e8b639792250d5::t_594ce6a2a95714 186,201,324,330
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_de.properties
+  s_e8b639792250d5::t_bf5af75999ab66 1-5,7-8
+  s_e8b639792250d5::t_a926f2efc6318d 6
+src/test/java/io/jenkins/plugins/explain_error/ExplanationLabelsTest.java
+  s_e8b639792250d5::t_a926f2efc6318d 70-71
+  s_e8b639792250d5::t_38609038e178e5 1-69,72-94
+src/main/java/io/jenkins/plugins/explain_error/ExplanationLabels.java
+  s_e8b639792250d5::t_bf5af75999ab66 1-100,102-103,109-122,125-126
+  s_e8b639792250d5::t_a926f2efc6318d 101,104-108
+  s_e8b639792250d5::t_4edd02c1292c1b 123-124
+src/test/java/io/jenkins/plugins/explain_error/ExplanationLanguageTest.java
+  s_e8b639792250d5::t_5b8dbc64ee9aa6 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7f3c8d44b9019433407a4698a0d2b892bb8b429",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
