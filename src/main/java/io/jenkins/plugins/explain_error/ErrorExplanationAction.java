@@ -34,6 +34,8 @@ public class ErrorExplanationAction implements RunAction2 {
     private List<String> bestPractices;
     private String errorSignature;
     private String title;
+    /** The language the explanation was asked for in; null means English, as on older builds. */
+    private String language;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this(explanation, urlString, originalErrorLogs, providerName, null,
@@ -107,6 +109,16 @@ public class ErrorExplanationAction implements RunAction2 {
     @Exported(visibility = 1)
     public String getErrorSignature() {
         return errorSignature;
+    }
+
+    void setLanguage(@CheckForNull String language) {
+        this.language = language == null || language.isBlank() ? null : language.strip();
+    }
+
+    /** The headings around the explanation, in the explanation's own language. */
+    @NonNull
+    public ExplanationLabels getLabels() {
+        return ExplanationLabels.forLanguage(language);
     }
 
     /** A one-line title naming the root cause; null when the provider did not return one. */

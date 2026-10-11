@@ -49,7 +49,39 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                         When additional instructions are provided, you MUST incorporate them into your analysis fields,
                         especially in errorSummary and resolutionSteps.
 
-                        The error logs may contain sections from downstream (sub-job) builds, clearly delimited like this:
+                        Write for the developer who has to fix this build and wants the answer at a glance:
+                        - title: the root cause in at most 70 characters, not the symptom. No trailing period.
+                        - errorSummary: what failed and why, in one or two sentences.
+                        - resolutionSteps: at most four steps, the most likely fix first, one sentence each.
+                            Leave out generic advice (reproduce it locally, read the logs, ask the team) unless
+                            it is specific to this failure.
+                        - bestPractices: at most two, and only practices that would have prevented this failure.
+                            An empty list is fine.
+                        - errorSignature: the few log lines that show the failure, copied verbatim, at most ten lines.
+
+                        Say only what the logs support. Do not guess at causes, commits or people the logs do not show.
+
+                        Lines such as "### Node ID: 12 ###", "Node Name: ...", "Start Time: ...", "--- LOG CONTENT ---"
+                        and "### END OF LOG 12 ###" are markers Jenkins added around each step's output. Use them to
+                        tell steps apart, but never quote them or mention node IDs.
+                        Describe the failure, not the logs: do not say what the logs lack or do not contain.
+
+                        If the additional instructions ask for more or less detail, they take precedence over the
+                        limits above.
+                        """;
+
+    /** How a downstream build's section starts in the logs sent to the provider. */
+    public static final String DOWNSTREAM_SECTION_MARKER = "### Downstream Job: ";
+
+    /**
+     * How to read downstream sections. Sent only with logs that contain one: on every other request
+     * it was forty lines about something that was not there, and models answered by reporting that
+     * the logs had no downstream jobs.
+     */
+    public static final String DOWNSTREAM_GUIDE = """
+
+
+                        The error logs contain sections from downstream (sub-job) builds, clearly delimited like this:
                             ### Downstream Job: <job-name> #<build-number> ###
                             Result: <result>
                             --- LOG CONTENT ---
@@ -90,7 +122,15 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                             source of the error if a FAILURE section is present.
                         - If multiple sub-jobs have Result: FAILURE, summarize each one separately.
                         - Logs outside downstream sections belong to the parent (upstream) job.
+
+                        In short:
+                        - Sub-jobs with Result: FAILURE are the primary ROOT CAUSE — identify them by name in errorSummary.
+                        - Sub-jobs with Result: ABORTED (interrupted by fail-fast, not the root cause) were killed by a sibling failure via fail-fast — do NOT treat them as the error source.
+                        - Sub-jobs with plain Result: ABORTED or Result: UNSTABLE indicate other types of problems (for example: manual aborts, timeouts, or test failures). Explain these issues,
+                            especially when there is no Result: FAILURE, but clearly describe how they differ from a hard failure.
+                        - Sub-jobs with Result: UNAVAILABLE cannot be analyzed in detail; briefly mention that their logs or results are not accessible.
                         """;
+
     public static final String USER_PROMPT_TEMPLATE = """
                         Analyze the following Jenkins build error logs and provide a clear, actionable explanation.
 
@@ -102,12 +142,6 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                         {{errorLogs}}
 
                         Remember: Your ENTIRE response must be in {{language}}, including all field values.
-                        If the logs contain "### Downstream Job: ..." sections:
-                        - Sub-jobs with Result: FAILURE are the primary ROOT CAUSE — identify them by name in errorSummary.
-                        - Sub-jobs with Result: ABORTED (interrupted by fail-fast, not the root cause) were killed by a sibling failure via fail-fast — do NOT treat them as the error source.
-                        - Sub-jobs with plain Result: ABORTED or Result: UNSTABLE indicate other types of problems (for example: manual aborts, timeouts, or test failures). Explain these issues,
-                            especially when there is no Result: FAILURE, but clearly describe how they differ from a hard failure.
-                        - Sub-jobs with Result: UNAVAILABLE cannot be analyzed in detail; briefly mention that their logs or results are not accessible.
                         If additional instructions were provided above, you MUST address them in your errorSummary or resolutionSteps.
                         """;
 
@@ -271,6 +305,10 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         String additionalContext = StringUtils.isBlank(customContext)
             ? "" 
             : "\n\nIMPORTANT - ADDITIONAL INSTRUCTIONS (You MUST address these in your response):\n" + customContext.trim();
+        if (errorLogs.contains(DOWNSTREAM_SECTION_MARKER)) {
+            // Ahead of the user's own instructions, which stay the last thing before the logs.
+            additionalContext = DOWNSTREAM_GUIDE.stripTrailing() + additionalContext;
+        }
         
         LOGGER.fine("Explaining error with language: " + responseLanguage + ", customContext length: " + additionalContext.length()
                 + ", temperature: " + (temperature != null ? temperature : "unset (provider default)"));

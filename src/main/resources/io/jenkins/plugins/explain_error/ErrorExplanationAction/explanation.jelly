@@ -7,11 +7,12 @@
 <j:jelly xmlns:j="jelly:core">
     <j:choose>
         <j:when test="${it.structured}">
+            <j:set var="labels" value="${it.labels}"/>
             <div class="eep-explanation">
                 <p class="eep-summary"><j:out value="${it.summaryHtml}"/></p>
                 <j:set var="steps" value="${it.resolutionStepsHtml}"/>
                 <j:if test="${!steps.isEmpty()}">
-                    <h3 class="eep-heading">${%How to fix it}</h3>
+                    <h3 class="eep-heading">${labels.howToFix}</h3>
                     <ol class="eep-steps">
                         <j:forEach var="step" items="${steps}">
                             <li><j:out value="${step}"/></li>
@@ -20,14 +21,14 @@
                 </j:if>
                 <j:if test="${it.errorSignature != null and !it.errorSignature.isBlank()}">
                     <details class="eep-details" open="open">
-                        <summary>${%Where it failed}</summary>
+                        <summary>${labels.whereItFailed}</summary>
                         <pre class="eep-snippet">${it.errorSignature}</pre>
                     </details>
                 </j:if>
                 <j:set var="practices" value="${it.bestPracticesHtml}"/>
                 <j:if test="${!practices.isEmpty()}">
                     <details class="eep-details">
-                        <summary>${%Best practices}</summary>
+                        <summary>${labels.bestPracticesHeading}</summary>
                         <ul class="eep-practices">
                             <j:forEach var="practice" items="${practices}">
                                 <li><j:out value="${practice}"/></li>
@@ -40,7 +41,7 @@
                         ${it.providerLabel}
                         <j:if test="${it.inputLogLineCount > 0}">
                             <j:if test="${!it.providerLabel.isEmpty()}"> &#183; </j:if>
-                            ${%analysed(it.inputLogLineCount)}
+                            ${labels.linesAnalysed(it.inputLogLineCount)}
                         </j:if>
                     </p>
                 </j:if>
