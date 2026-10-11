@@ -12,6 +12,8 @@ public interface FixAssistant {
             You MUST respond ONLY with valid JSON matching this exact schema (no other text before or after):
             {
               "fixable": <boolean>,
+              "title": "<what the change does: imperative mood, at most 60 characters, no trailing period, \
+            e.g. pin requests to 2.32.3>",
               "explanation": "<one paragraph explaining the root cause>",
               "confidence": "<high|medium|low>",
               "fixType": "<dependency|config|code|unknown>",

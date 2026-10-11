@@ -572,10 +572,11 @@ class AzureOpenAIProviderTest {
         assertEquals(List.of("Step"), fenced.resolutionSteps());
 
         response.set(chatResponse(OBJECT_MAPPER.getNodeFactory().textNode(
-                "Sure: {\"errorSummary\":\"Embedded\",\"errorSignature\":\" sig \"} done")));
+                "Sure: {\"errorSummary\":\"Embedded\",\"errorSignature\":\" sig \",\"title\":\" A title \"} done")));
         JenkinsLogAnalysis embedded = analyze(provider, job);
         assertEquals("Embedded", embedded.errorSummary());
         assertEquals("sig", embedded.errorSignature());
+        assertEquals("A title", embedded.title());
 
         response.set(chatResponse(OBJECT_MAPPER.getNodeFactory().textNode("{\"bestPractices\":[]}")));
         JenkinsLogAnalysis noSummary = analyze(provider, job);

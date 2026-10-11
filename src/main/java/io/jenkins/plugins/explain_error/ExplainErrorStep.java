@@ -369,6 +369,7 @@ public class ExplainErrorStep extends Step {
                 return explanation;
             }
             Map<String, Object> result = new LinkedHashMap<>();
+            result.put("title", TitleText.clean(analysis.title(), ErrorExplanationAction.MAX_TITLE_LENGTH));
             result.put("errorSummary", analysis.errorSummary());
             result.put("resolutionSteps", listOrEmpty(analysis.resolutionSteps()));
             result.put("bestPractices", listOrEmpty(analysis.bestPractices()));

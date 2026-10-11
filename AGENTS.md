@@ -43,7 +43,7 @@ The Explain Error Plugin is a Jenkins plugin that provides AI-powered explanatio
 - **PipelineLogExtractor**: Extracts logs from the specific failing Pipeline step node (via `FlowGraphWalker`); integrates with optional `pipeline-graph-view` plugin for deep-linking
 - **AutoFixOrchestrator** / **AutoFixAction** / **FixAssistant** / **UnifiedDiffApplier**: AI auto-fix flow — structured fix suggestion → diff validation (±3-line fuzzy matching) → branch → commits → pull request, with rollback on failure
 - **ScmApiClient + GitHubApiClient / GitLabApiClient / BitbucketApiClient**: SCM REST clients using JDK `HttpClient` (zero extra dependencies); support GitHub Enterprise, GitLab self-managed, and Bitbucket Cloud
-- **JenkinsLogAnalysis**: Structured record for AI responses (errorSummary, resolutionSteps, bestPractices, errorSignature)
+- **JenkinsLogAnalysis**: Structured record for AI responses (errorSummary, resolutionSteps, bestPractices, errorSignature, title)
 - **ExplanationException**: Custom exception for error explanation failures
 - **AIProvider**: Deprecated enum for backward compatibility with old configuration format
 

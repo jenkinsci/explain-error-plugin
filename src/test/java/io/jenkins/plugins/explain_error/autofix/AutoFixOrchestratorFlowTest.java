@@ -16,6 +16,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -68,7 +69,7 @@ class AutoFixOrchestratorFlowTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String REPO_API = "/api/v3/repos/acme/app";
-    private static final String BRANCH_PATTERN = "fix/jenkins-ai-42-\\d+";
+    private static final String BRANCH_PATTERN = "fix/jenkins-ai-42-[0-9a-z-]+";
     private static final String POM = "<project>\n  <version>1.0</version>\n</project>\n";
     /** Generous enough that the fix branch is always created before the auto-fix times out. */
     private static final int TIMEOUT_SECONDS = 10;
@@ -150,6 +151,67 @@ class AutoFixOrchestratorFlowTest {
         verify(run).save();
         assertTrue(log().contains("[AutoFix] SCM type: GITHUB, owner: acme, repo: app"), log());
         assertTrue(log().contains("[AutoFix] Pull request created: https://github.example.com/acme/app/pull/7"));
+    }
+
+    @Test
+    void titledFix_namesThePullRequestCommitAndBranchAfterTheChange() throws Exception {
+        when(fixAssistant.suggestFix(anyString())).thenReturn(MAPPER.writeValueAsString(new FixSuggestion(
+                true, "Bump the version", "high", "dependency",
+                List.of(fileChange("pom.xml", "modify", POM_DIFF, "Bump version")),
+                "bump the project version to 1.1.")));
+        stubRepository(true);
+        stubBranchCreation();
+        stubFileContent("pom.xml", POM);
+        stubCommitAndPullRequest();
+
+        AutoFixResult result = attempt(withToken("scm-token"), List.of("pom.xml"), 30, null);
+
+        assertEquals(AutoFixStatus.CREATED, result.getStatus(), log());
+        assertTrue(result.getBranchName().matches("fix/jenkins-ai-42-bump-the-project-version-to-1-1-[0-9a-z]+"),
+                result.getBranchName());
+        server.verify(postRequestedFor(urlEqualTo(REPO_API + "/git/commits"))
+                .withRequestBody(matchingJsonPath("$.message",
+                        equalTo("fix: bump the project version to 1.1\n\nAI auto-fix for team/app #42."))));
+        server.verify(postRequestedFor(urlEqualTo(REPO_API + "/pulls"))
+                .withRequestBody(matchingJsonPath("$.title", equalTo("fix: bump the project version to 1.1")))
+                .withRequestBody(matchingJsonPath("$.body", containing("- **Build:** #42"))));
+        verify(run).addOrReplaceAction(argThat((Action action) -> action instanceof AutoFixAction fix
+                && "fix: bump the project version to 1.1".equals(fix.getPrTitle())));
+    }
+
+    @Test
+    void subject_prefixesTheTitleUnlessItAlreadyNamesAType() {
+        assertEquals("fix: pin requests to 2.34.2", AutoFixOrchestrator.subject("pin requests to 2.34.2."));
+        assertEquals("build(deps): pin requests to 2.34.2",
+                AutoFixOrchestrator.subject("build(deps): pin requests to 2.34.2"));
+        assertEquals(72, AutoFixOrchestrator.subject("replace " + "very ".repeat(30) + "long title").length());
+        assertNull(AutoFixOrchestrator.subject("  "));
+        assertNull(AutoFixOrchestrator.subject(null));
+    }
+
+    @Test
+    void branchName_saysWhatTheChangeIsAndStaysUnique() {
+        long now = 1_791_648_150_923L;
+        String suffix = Long.toString(now, 36);
+
+        assertEquals("fix/jenkins-ai-7-pin-requests-to-2-34-2-" + suffix,
+                AutoFixOrchestrator.branchName(7, "pin requests to 2.34.2", now));
+        assertEquals("fix/jenkins-ai-7-pin-requests-" + suffix,
+                AutoFixOrchestrator.branchName(7, "fix: Pin `requests`!", now));
+        assertEquals("fix/jenkins-ai-7-replace-the-deprecated-maven-compiler-" + suffix,
+                AutoFixOrchestrator.branchName(7,
+                        "replace the deprecated maven-compiler-plugin configuration with release", now));
+        // No title: the name the plugin has always used
+        assertEquals("fix/jenkins-ai-7-" + now, AutoFixOrchestrator.branchName(7, null, now));
+        assertEquals("fix/jenkins-ai-7-" + now, AutoFixOrchestrator.branchName(7, "...", now));
+    }
+
+    @Test
+    void buildPrBody_offersTheTitleAndFallsBackToTheBuildNumberWithoutARootUrl() {
+        FixSuggestion suggestion = new FixSuggestion(true, "why", "high", "dependency", List.of(), "pin requests.");
+
+        assertEquals("pin requests | #42 | ",
+                new AutoFixOrchestrator().buildPrBody(run, suggestion, "{title} | {buildLink} | {buildUrl}"));
     }
 
     @Test

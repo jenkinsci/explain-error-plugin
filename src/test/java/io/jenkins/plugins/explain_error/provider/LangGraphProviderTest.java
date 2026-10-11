@@ -61,7 +61,8 @@ class LangGraphProviderTest {
             body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             respond(exchange, 200, aiMessages("""
                     {"errorSummary":"Compilation failed","resolutionSteps":["Fix the import"," "],\
-                    "bestPractices":["Run the build locally"],"errorSignature":"cannot find symbol"}"""));
+                    "bestPractices":["Run the build locally"],"errorSignature":"cannot find symbol",\
+                    "title":"Missing import"}"""));
         });
 
         // A trailing slash on the base URL must not produce a double slash in the request path.
@@ -77,6 +78,7 @@ class LangGraphProviderTest {
         assertEquals(List.of("Fix the import"), analysis.resolutionSteps(), "blank entries must be dropped");
         assertEquals(List.of("Run the build locally"), analysis.bestPractices());
         assertEquals("cannot find symbol", analysis.errorSignature());
+        assertEquals("Missing import", analysis.title());
 
         JsonNode payload = OBJECT_MAPPER.readTree(body.get());
         assertEquals("build-doctor", payload.path("assistant_id").asText());

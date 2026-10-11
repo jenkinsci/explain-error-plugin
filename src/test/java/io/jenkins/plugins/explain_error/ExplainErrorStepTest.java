@@ -199,11 +199,30 @@ class ExplainErrorStepTest {
                 + "  assert r.containsKey('resolutionSteps') : 'missing resolutionSteps'\n"
                 + "  assert r.containsKey('bestPractices') : 'missing bestPractices'\n"
                 + "  assert r.containsKey('errorSignature') : 'missing errorSignature'\n"
+                + "  assert r.containsKey('title') : 'missing title'\n"
                 + "  echo 'all keys present'\n"
                 + "}", true));
 
         WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
         jenkins.assertLogContains("all keys present", run);
+    }
+
+    @Test
+    void testReturnStructuredCarriesTheTitle(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setAnswer(new JenkinsLogAnalysis("Disk is full", null, null, null, "Agent ran out of disk space."));
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-return-structured-title");
+        job.setDefinition(new CpsFlowDefinition(
+                "node {\n"
+                + "  def r = explainError(returnStructured: true)\n"
+                + "  echo \"title: ${r.title}\"\n"
+                + "}", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        jenkins.assertLogContains("title: Agent ran out of disk space", run);
+        jenkins.assertLogNotContains("title: Agent ran out of disk space.", run);
     }
 
     @Test

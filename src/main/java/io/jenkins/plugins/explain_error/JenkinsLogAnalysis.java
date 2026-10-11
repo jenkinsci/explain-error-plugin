@@ -14,8 +14,17 @@ public record JenkinsLogAnalysis(
     List<String> bestPractices,
 
     @Description("Error snippet")
-    String errorSignature
+    String errorSignature,
+    @Description("Title for the failure, at most 70 characters: name the root cause, not the symptom."
+            + " No trailing period.")
+    String title
 ) {
+    /** For callers and stored data from before the title existed. */
+    public JenkinsLogAnalysis(String errorSummary, List<String> resolutionSteps, List<String> bestPractices,
+                              String errorSignature) {
+        this(errorSummary, resolutionSteps, bestPractices, errorSignature, null);
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(4096);

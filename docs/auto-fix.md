@@ -11,9 +11,10 @@ When a build fails and `autoFix: true` is set, the plugin runs this workflow aut
 1. Sends the error logs to your configured AI provider and asks for a fix suggestion
 2. Validates every proposed file path (no path traversal, must match the allow-list)
 3. Validates every unified diff before touching any branch
-4. Creates a new branch (`fix/jenkins-ai-<build#>-<timestamp>`) via the SCM REST API
+4. Creates a new branch (`fix/jenkins-ai-<build#>-<what-the-change-does>-<suffix>`) via the SCM REST API
 5. Applies the diffs and commits all changes atomically
-6. Opens a pull request with a structured description (root cause, file changes, build link)
+6. Opens a pull request titled after the change (for example `fix: pin requests to 2.34.2`), with a
+   structured description (root cause, file changes, build link)
 7. Stores the PR URL in the Jenkins build sidebar under **"AI Auto-Fix"**
 
 If any step fails (invalid diff, missing credentials, API error), the branch is deleted and the
@@ -295,7 +296,14 @@ _Confidence: {confidence} | Type: {fixType}_
 ```
 
 Available placeholders: `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`,
-`{fixType}`, `{confidence}`.
+`{fixType}`, `{confidence}`, `{title}` (what the change does, as in the pull request title),
+`{buildUrl}` (the build's address, empty when the Jenkins URL is not configured) and `{buildLink}`
+(the build number as a Markdown link to it, or the plain number without a Jenkins URL).
+
+The pull request title and the commit subject are `fix: <title>`, where the title is the AI's
+one-line description of the change. When the provider returns none, they fall back to
+`fix: AI auto-fix for <job> #<build>` and `fix: AI auto-fix for build #<build>`, and the branch to
+`fix/jenkins-ai-<build#>-<timestamp>`.
 
 ---
 
@@ -320,7 +328,11 @@ guaranteed fix.
 ## Security considerations
 
 - The token is retrieved from Jenkins Credentials at runtime and **never logged**
-- The branch name is `fix/jenkins-ai-<build#>-<timestamp>` — no user-controlled input
+- The branch name is `fix/jenkins-ai-<build#>-<slug>-<suffix>`. The slug comes from the AI's title
+  for the change, reduced to lowercase letters, digits and hyphens and cut to 40 characters; the
+  rest is the build number and a time-based suffix
+- The pull request title and commit subject carry that same AI-written title as plain text, on one
+  line and at most 72 characters
 - File paths are validated against: absolute-path check, path-traversal check (`../`), and the
   allow-list globs — in that order — before any branch is created
 - The diff is parsed and validated before it is applied; malformed diffs abort the workflow

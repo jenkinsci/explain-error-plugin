@@ -3,7 +3,10 @@
     <l:layout title="AI Error Explanation">
         <st:include it="${it.run}" page="sidepanel.jelly"/>
         <l:main-panel>
-            <h1>${%aiError(it.providerName)}</h1>
+            <j:choose>
+                <j:when test="${it.title != null}"><h1>${it.heading}</h1></j:when>
+                <j:otherwise><h1>${%aiError(it.providerName)}</h1></j:otherwise>
+            </j:choose>
             
             <l:card title="Generated on: ${it.formattedTimestamp}">
                 <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/explain-error.css" type="text/css"/>
