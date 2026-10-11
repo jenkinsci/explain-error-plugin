@@ -68,8 +68,8 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI, Ollama, and OpenAI Compatible providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
 | **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
 | **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
-| **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. | `English` |
-| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps) | *Optional*. Can be overridden at folder and step level. |
+| **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. The section labels around the explanation follow it for English, Chinese (Simplified and Traditional), Japanese, Spanish, French and German; other languages get English labels. | `English` |
+| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). Explanations are short by default (a summary of one or two sentences, up to four resolution steps, up to two best practices); ask here for more or less detail. | *Optional*. Can be overridden at folder and step level. |
 | **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
 | **Max Log Lines** *(auto-explain)* | Number of console log lines read per build for automatic explanation. Increase this for models with large context windows (e.g. DeepSeek, Kimi). Only visible when **Automatically explain failed builds** is enabled. | `100` |
 

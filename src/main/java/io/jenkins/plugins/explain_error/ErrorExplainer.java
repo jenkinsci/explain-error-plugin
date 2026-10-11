@@ -183,7 +183,7 @@ public class ErrorExplainer {
                 JenkinsLogAnalysis analysis = provider.analyzeError(errorLogs, listener, effectiveLanguage,
                         effectiveCustomContext, run != null ? run.getParent() : null, null, effectiveTemperature);
                 this.lastAnalysis = analysis;
-                String explanation = analysis.toString();
+                String explanation = analysis.toText(ExplanationLabels.forLanguage(effectiveLanguage));
                 LOGGER.fine(jobInfo + " AI error explanation succeeded.");
                 logToConsole(listener, "AI request completed successfully.");
 
@@ -198,6 +198,7 @@ public class ErrorExplainer {
                 ErrorExplanationAction action = new ErrorExplanationAction(explanation, urlString, errorLogs,
                         provider.getProviderName(), provider.getModel(), inputLogLineCount);
                 action.setStructuredData(analysis);
+                action.setLanguage(effectiveLanguage);
                 run.addOrReplaceAction(action);
                 logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
@@ -320,12 +321,13 @@ public class ErrorExplainer {
             JenkinsLogAnalysis analysis = provider.analyzeError(errorText, new LogTaskListener(LOGGER, Level.FINE),
                     effectiveLanguage, effectiveCustomContext, run.getParent(), null, effectiveTemperature);
             this.lastAnalysis = analysis;
-            String explanation = analysis.toString();
+            String explanation = analysis.toText(ExplanationLabels.forLanguage(effectiveLanguage));
             LOGGER.fine(jobInfo + " AI error explanation succeeded.");
             LOGGER.fine("Explanation length: " + explanation.length());
             ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
                     provider.getProviderName(), provider.getModel(), inputLogLineCount);
             action.setStructuredData(analysis);
+            action.setLanguage(effectiveLanguage);
             run.addOrReplaceAction(action);
             run.save();
             recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount, false);
