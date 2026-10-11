@@ -350,9 +350,10 @@ public class ExplainErrorStep extends Step {
                         step.getAutoFixTimeoutSeconds(),
                         listener,
                         step.getAutoFixPrTemplate().isEmpty() ? null : step.getAutoFixPrTemplate());
-                listener.getLogger().println("[AutoFix] Status: " + fixResult.getStatus() + " - " + fixResult.getMessage());
-                if (fixResult.getStatus() == AutoFixStatus.CREATED) {
-                    listener.getLogger().println("[AutoFix] PR created: " + fixResult.getPrUrl());
+                // A pull request that was created has been logged with its address already
+                if (fixResult.getStatus() != AutoFixStatus.CREATED) {
+                    listener.getLogger().println("[AutoFix] Status: " + fixResult.getStatus() + " - "
+                            + fixResult.getMessage());
                 }
             }
 

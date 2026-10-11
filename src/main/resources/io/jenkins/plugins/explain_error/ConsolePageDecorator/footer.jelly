@@ -21,7 +21,7 @@
              data-has-explanation="${hasExplanation}" data-plugin-enabled="${enabled}">
           <l:card title="${hasExplanation ? existingExplanation.heading : 'AI Error Explanation'}" controls="${controls}">
             <div id="explain-error-spinner" class="jenkins-hidden">
-              <l:spinner text="Analyzing error logs..."/>
+              <l:spinner text="${%Analyzing error logs...}"/>
             </div>
             <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/explain-error.css" type="text/css"/>
             <div id="explain-error-content" class="${hasExplanation?'':'jenkins-hidden'}">
@@ -30,9 +30,9 @@
               </j:if>
             </div>
             <div class="jenkins-!-margin-top-3">
-              <a id="explain-error-url" href="${hasExplanation ? existingExplanation.urlString: ''}" class="jenkins-button jenkins-!-destructive-color  ${hasExplanation?'':'jenkins-hidden'}" target="_self" >
-                <l:icon src="symbol-warning-outline plugin-ionicons-api" class="icon-md" />
-                View failure output
+              <a id="explain-error-url" href="${hasExplanation ? existingExplanation.urlString: ''}" class="jenkins-button ${hasExplanation?'':'jenkins-hidden'}" target="_self" >
+                <l:icon src="symbol-terminal" class="icon-md" />
+                ${%View failure output}
               </a>
             </div>
           </l:card>

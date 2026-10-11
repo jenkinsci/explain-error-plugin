@@ -1,6 +1,6 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:st="jelly:stapler">
-    <l:layout title="AI Error Explanation">
+    <l:layout title="${%AI Error Explanation}">
         <st:include it="${it.run}" page="sidepanel.jelly"/>
         <l:main-panel>
             <j:choose>
@@ -8,13 +8,13 @@
                 <j:otherwise><h1>${%aiError(it.providerName)}</h1></j:otherwise>
             </j:choose>
             
-            <l:card title="Generated on: ${it.formattedTimestamp}">
+            <l:card title="${%generatedOn(it.formattedTimestamp)}">
                 <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/explain-error.css" type="text/css"/>
                 <st:include page="explanation.jelly"/>
                 <div class="jenkins-!-margin-top-3">
-                    <a id="explain-error-url" href="${it.urlString}" class="jenkins-button jenkins-!-destructive-color" target="_self" >
-                        <l:icon src="symbol-warning-outline plugin-ionicons-api" class="icon-md" />
-                        View failure output
+                    <a id="explain-error-url" href="${it.urlString}" class="jenkins-button" target="_self" >
+                        <l:icon src="symbol-terminal" class="icon-md" />
+                        ${%View failure output}
                     </a>
                 </div>
             </l:card>
