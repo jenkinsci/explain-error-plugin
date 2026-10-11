@@ -33,6 +33,10 @@
                    description="Number of log lines to read from the build console for auto-explanation. Increase this for models with larger context windows (e.g. DeepSeek, Kimi).">
             <f:number clazz="setting-input" min="1" default="100" />
           </f:entry>
+          <f:entry title="Max Automatic Explanations per Hour" field="autoExplainMaxPerHour"
+                   description="Maximum number of AI provider calls made for automatic explanations per hour, in addition to the request quota. Failed builds beyond it are not explained automatically and say so in their console; the Explain Error button and the explainError() step are not affected.">
+            <f:number clazz="setting-input" min="1" default="30" />
+          </f:entry>
         </f:optionalBlock>
       </f:optionalBlock>
     </f:section>

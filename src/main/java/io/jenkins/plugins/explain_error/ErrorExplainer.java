@@ -31,6 +31,7 @@ public class ErrorExplainer {
     private String urlString;
     private String lastErrorLogs;
     private JenkinsLogAnalysis lastAnalysis;
+    private boolean providerCalled;
     private final UsageRecorder usageRecorder;
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
@@ -53,6 +54,15 @@ public class ErrorExplainer {
      */
     public String getLastErrorLogs() {
         return lastErrorLogs;
+    }
+
+    /**
+     * Whether the last call to {@link #explainError} got as far as asking the AI provider,
+     * whatever the provider then answered. A request that was turned away before that
+     * (disabled, misconfigured, over quota) did not cost a provider call.
+     */
+    boolean wasProviderCalled() {
+        return providerCalled;
     }
 
     /**
@@ -180,6 +190,7 @@ public class ErrorExplainer {
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
+                this.providerCalled = true;
                 JenkinsLogAnalysis analysis = provider.analyzeError(errorLogs, listener, effectiveLanguage,
                         effectiveCustomContext, run != null ? run.getParent() : null, null, effectiveTemperature);
                 this.lastAnalysis = analysis;

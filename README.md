@@ -72,6 +72,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). Explanations are short by default (a summary of one or two sentences, up to four resolution steps, up to two best practices); ask here for more or less detail. | *Optional*. Can be overridden at folder and step level. |
 | **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
 | **Max Log Lines** *(auto-explain)* | Number of console log lines read per build for automatic explanation. Increase this for models with large context windows (e.g. DeepSeek, Kimi). Only visible when **Automatically explain failed builds** is enabled. | `100` |
+| **Max Automatic Explanations per Hour** *(auto-explain)* | Maximum number of AI provider calls for automatic explanations per hour, in addition to the request quota. Failed builds beyond it are not explained automatically and say so in their console. See [Automatic Explanation](docs/auto-explain.md). | `30` |
 
 `Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
 
@@ -289,6 +290,7 @@ unclassified:
     enableExplanation: true
     # enableAutoExplainOnFailure: true # Optional, automatically explain failed builds without pipeline changes
     # autoExplainMaxLogLines: 100    # Optional, number of log lines read per build (increase for large-context models)
+    # autoExplainMaxPerHour: 30      # Optional, provider calls per hour for automatic explanations
     # temperature: 0.7 # Optional, leave empty for provider default
     # language: "English" # Optional, defaults to English
     # customContext: "Additional context for the AI" # Optional
@@ -633,9 +635,18 @@ To enable:
 4. Optionally adjust **"Max Log Lines"** — default is `100`. If your model supports a large context window (e.g. DeepSeek, Kimi), increase this to capture more of the build log for a more accurate explanation.
 5. Save
 
+Limits keep a burst of failures, for example during an outage, from turning into a burst of provider calls:
+
+* **Hourly limit** — at most 30 provider calls per hour for automatic explanations by default (**"Max Automatic Explanations per Hour"**)
+* **Bounded background work** — at most 2 explanations run at the same time and 50 wait
+
+A failed build that is skipped because of either limit says so in its console, and can still be explained
+with the **Explain Error** button.
+
 All existing configuration (provider, model, language, custom context, quota limits) applies
 to auto-explained builds in the same way as pipeline-step and console-action requests.
 Requests from the RunListener are tracked under the `run_listener` entry point in usage metrics.
+See [Automatic Explanation of Failed Builds](docs/auto-explain.md) for details and tuning.
 
 ## Troubleshooting
 
