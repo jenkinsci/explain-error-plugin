@@ -1,0 +1,47 @@
+src/main/resources/io/jenkins/plugins/explain_error/GlobalConfigurationImpl/config.jelly
+  s_e8b639792250d5::t_39a6a98b1d69d8 36-39
+docs/usage-quota.md
+  s_e8b639792250d5::t_b8dff4cd18e780 19
+  s_e8b639792250d5::t_319ff8b18f44d9 152
+src/main/java/io/jenkins/plugins/explain_error/ErrorRunListener.java
+  s_e8b639792250d5::t_0d746415040c46 130-133,150,181,202-205
+  s_e8b639792250d5::t_39a6a98b1d69d8 3,14-17,21,45-52,56-59,61,68-90,134-149,151-157,163,165-168,183-187
+  s_e8b639792250d5::t_11aa353202bf1e 91
+src/main/java/io/jenkins/plugins/explain_error/UsageEvent.java
+  s_e8b639792250d5::t_ed5e907cea68e8 49-50
+src/test/java/io/jenkins/plugins/explain_error/AutoExplainLimitsTest.java
+  s_e8b639792250d5::t_90e4f376638124 83,89-97,131-161,163,165-167,169,171,179,226,254,272
+  s_e8b639792250d5::t_57a20b2e12df08 1-82,84-88,98-130,162,164,168,170,172-178,180-225,227-253,255-271,273-342
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplainer.java
+  s_e8b639792250d5::t_0d746415040c46 34,59-67,193
+AGENTS.md
+  s_e8b639792250d5::t_b8dff4cd18e780 167
+docs/auto-explain.md
+  s_e8b639792250d5::t_b8dff4cd18e780 1-110
+README.md
+  s_e8b639792250d5::t_b8dff4cd18e780 75,293,638-645,649
+src/main/java/io/jenkins/plugins/explain_error/GlobalConfigurationImpl.java
+  s_e8b639792250d5::t_ed5e907cea68e8 27-28,46,49,168,171-180,246-263,265,268,293-300
+  s_e8b639792250d5::t_0d746415040c46 169-170,264,266-267
+  s_e8b639792250d5::t_477037264c0ae7 269,301
+src/main/java/io/jenkins/plugins/explain_error/QuotaEnforcer.java
+  s_e8b639792250d5::t_ed5e907cea68e8 51,56-57
+  s_e8b639792250d5::t_0d746415040c46 49-50,52-55
+  s_e8b639792250d5::t_444c9c696f91df 48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "26b5cc32cb5cd6e2e76968d4f71a551c728484e4",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
