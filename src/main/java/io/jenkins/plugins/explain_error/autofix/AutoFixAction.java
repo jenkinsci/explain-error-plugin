@@ -21,6 +21,7 @@ public class AutoFixAction implements RunAction2 {
     /** Pull request pages on GitHub, GitLab and Bitbucket: the repository, then what marks a pull request. */
     private static final Pattern PULL_REQUEST_URL =
             Pattern.compile("(https?://.+?)(/pull/|/-/merge_requests/|/pull-requests/)\\d+/?");
+    private static final Pattern BITBUCKET_SERVER_REPOSITORY = Pattern.compile(".+/projects/[^/]+/repos/[^/]+");
 
     private final AutoFixStatus status;
     private final String prUrl;       // nullable
@@ -235,7 +236,9 @@ public class AutoFixAction implements RunAction2 {
         return switch (pullRequest.group(2)) {
             case "/pull/" -> repository + "/tree/" + branchName;
             case "/-/merge_requests/" -> repository + "/-/tree/" + branchName;
-            default -> repository + "/branch/" + branchName;
+            // Bitbucket Cloud. Bitbucket Server keeps branches elsewhere, so it gets no link.
+            default -> BITBUCKET_SERVER_REPOSITORY.matcher(repository).matches()
+                    ? null : repository + "/branch/" + branchName;
         };
     }
 

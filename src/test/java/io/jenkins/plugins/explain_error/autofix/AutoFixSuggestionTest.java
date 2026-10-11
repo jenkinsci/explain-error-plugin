@@ -118,6 +118,8 @@ class AutoFixSuggestionTest {
     @Test
     void noBranchLinkWithoutARecognisedPullRequest() {
         assertNull(created("https://example.com/review/5", "fix/x").getBranchUrl());
+        assertNull(created("https://bitbucket.example.com/projects/ACME/repos/app/pull-requests/5", "fix/x")
+                .getBranchUrl(), "Bitbucket Server has no /branch/ page");
         assertNull(created(null, "fix/x").getBranchUrl());
         assertNull(created("https://github.com/acme/app/pull/7", null).getBranchUrl());
         assertNull(created("https://github.com/acme/app/pull/7", " ").getBranchUrl());
