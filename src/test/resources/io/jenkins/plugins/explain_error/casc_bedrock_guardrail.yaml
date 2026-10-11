@@ -1,0 +1,9 @@
+unclassified:
+  explainError:
+    aiProvider:
+      bedrock:
+        model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
+        region: "us-east-1"
+        guardrailIdentifier: "arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123"
+        guardrailVersion: "1"
+    enableExplanation: true

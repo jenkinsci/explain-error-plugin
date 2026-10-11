@@ -1,0 +1,13 @@
+<div>
+  Optional ID or ARN of an
+  <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html"
+     target="_blank" rel="noopener noreferrer">Amazon Bedrock guardrail</a>
+  to apply to every request, for example <code>abc123</code> or
+  <code>arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123</code>. Requires a Guardrail Version.
+  <br/>
+  The guardrail evaluates the build log sent to the model and the model's answer. When it blocks either one,
+  no explanation is produced and the guardrail's blocked message is reported as the error.
+  <br/>
+  The credentials Jenkins uses for Bedrock need the <code>bedrock:ApplyGuardrail</code> permission on the guardrail.
+  Leave empty to call the model without a guardrail.
+</div>
