@@ -242,7 +242,7 @@ public class ErrorExplanationAction implements RunAction2 {
 
     @Exported(visibility = 1)
     public String getFormattedTimestamp() {
-        return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date(timestamp));
+        return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new java.util.Date(timestamp));
     }
 
     @Exported(visibility = 1)

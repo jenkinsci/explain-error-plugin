@@ -306,7 +306,6 @@ public class AutoFixOrchestrator {
                     String diffError = UnifiedDiffApplier.validate(change.unifiedDiff());
                     if (diffError != null) {
                         String msg = "Invalid diff for " + change.filePath() + ": " + diffError;
-                        listener.getLogger().println("[AutoFix] Failed: " + msg);
                         return AutoFixResult.failed(msg);
                     }
                 }
@@ -361,7 +360,6 @@ public class AutoFixOrchestrator {
                     // modify
                     if (currentContent == null) {
                         String msg = "Cannot modify non-existent file: " + filePath;
-                        listener.getLogger().println("[AutoFix] Failed: " + msg);
                         rollbackBranch(client, branchName, listener);
                         return AutoFixResult.failed(msg);
                     }
@@ -369,7 +367,6 @@ public class AutoFixOrchestrator {
                         newContent = UnifiedDiffApplier.apply(currentContent, change.unifiedDiff());
                     } catch (IllegalArgumentException e) {
                         String msg = "Failed to apply diff to " + filePath + ": " + e.getMessage();
-                        listener.getLogger().println("[AutoFix] Failed: " + msg);
                         rollbackBranch(client, branchName, listener);
                         return AutoFixResult.failed(msg);
                     }
@@ -384,7 +381,6 @@ public class AutoFixOrchestrator {
             client.commitFiles(branchName, commitMessage, fileContents);
         } catch (IOException e) {
             String msg = "Failed to commit files: " + e.getMessage();
-            listener.getLogger().println("[AutoFix] Failed: " + msg);
             rollbackBranch(client, branchName, listener);
             return AutoFixResult.failed(msg);
         }
@@ -399,7 +395,6 @@ public class AutoFixOrchestrator {
             pr = client.createPullRequest(prTitle, prBody, branchName, defaultBranch, draftPr);
         } catch (IOException e) {
             String msg = "Failed to create pull request: " + e.getMessage();
-            listener.getLogger().println("[AutoFix] Failed: " + msg);
             rollbackBranch(client, branchName, listener);
             return AutoFixResult.failed(msg);
         }

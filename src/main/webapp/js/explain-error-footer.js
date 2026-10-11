@@ -58,18 +58,24 @@ function addExplainErrorButton(explanation) {
     return;
   }
 
-  // Try to find buttons by their text content
+  // The console page's own buttons. Its download link is the same in every language, so look
+  // for that first; the button texts are the fallback for a page laid out differently.
   let buttonContainer = null;
-  const downloadButtons = Array.from(document.querySelectorAll('a, button')).filter(el => 
-    el.textContent && (
-      el.textContent.includes('Download') || 
-      el.textContent.includes('Copy') || 
-      el.textContent.includes('View as plain text')
-    )
-  );
+  const downloadLink = document.querySelector('a[href="consoleText"][download]');
+  if (downloadLink) {
+    buttonContainer = downloadLink.parentElement;
+  } else {
+    const downloadButtons = Array.from(document.querySelectorAll('a, button')).filter(el =>
+      el.textContent && (
+        el.textContent.includes('Download') ||
+        el.textContent.includes('Copy') ||
+        el.textContent.includes('View as plain text')
+      )
+    );
 
-  if (downloadButtons.length > 0) {
-    buttonContainer = downloadButtons[0].parentElement;
+    if (downloadButtons.length > 0) {
+      buttonContainer = downloadButtons[0].parentElement;
+    }
   }
 
   // Fallback: find console output element
