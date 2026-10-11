@@ -16,6 +16,9 @@ import org.kohsuke.stapler.export.ExportedBean;
 @ExportedBean(defaultVisibility = 999)
 public class ErrorExplanationAction implements RunAction2 {
 
+    /** Longest summary shown whole on the build's own page. */
+    static final int PREVIEW_LENGTH = 320;
+
     /** Titles are asked for at 70 characters; anything much longer is not a title. */
     static final int MAX_TITLE_LENGTH = 90;
 
@@ -155,6 +158,36 @@ public class ErrorExplanationAction implements RunAction2 {
     @NonNull
     public List<String> getBestPracticesHtml() {
         return inlineAll(bestPractices);
+    }
+
+    /**
+     * The summary for the build's own page: all of it when it is short, otherwise cut at the end
+     * of a sentence, or failing that at a word. Escaped like {@link #getSummaryHtml()}.
+     */
+    @NonNull
+    public String getSummaryPreviewHtml() {
+        return ExplanationMarkup.inline(preview(errorSummary, PREVIEW_LENGTH));
+    }
+
+    @NonNull
+    static String preview(@CheckForNull String text, int maxLength) {
+        if (text == null) {
+            return "";
+        }
+        String paragraph = text.strip().replaceAll("\\s+", " ");
+        if (paragraph.length() <= maxLength) {
+            return paragraph;
+        }
+        String head = paragraph.substring(0, maxLength);
+        int sentenceEnd = -1;
+        for (String stop : new String[] {". ", "! ", "? ", "。", "！", "？"}) {
+            sentenceEnd = Math.max(sentenceEnd, head.lastIndexOf(stop));
+        }
+        if (sentenceEnd >= maxLength / 2) {
+            return head.substring(0, sentenceEnd + 1);
+        }
+        int space = head.lastIndexOf(' ');
+        return (space >= maxLength / 2 ? head.substring(0, space) : head) + "\u2026";
     }
 
     /** Provider and model for the line under the explanation, leaving out what is not known. */
