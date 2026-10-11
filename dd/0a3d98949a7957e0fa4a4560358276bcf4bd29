@@ -1,0 +1,46 @@
+src/test/java/io/jenkins/plugins/explain_error/autofix/AutoFixPageTest.java
+  s_e8b639792250d5::t_abb7a8b34b3b10 77
+  s_e8b639792250d5::t_8ca4b63c213654 1-76,78-124
+src/test/java/io/jenkins/plugins/explain_error/autofix/AutoFixSuggestionTest.java
+  s_e8b639792250d5::t_8ca4b63c213654 1-79,82-95,98-120,123-127
+  s_e8b639792250d5::t_35776bda43f1d5 80-81,96-97
+  s_e8b639792250d5::t_c21792029d3c29 121-122
+docs/auto-fix.md
+  s_e8b639792250d5::t_f9a11a62028889 21-22,221-223,230-235
+  s_e8b639792250d5::t_fbb935d1dbfb0f 236
+src/test/java/io/jenkins/plugins/explain_error/autofix/AutoFixOrchestratorFlowTest.java
+  s_e8b639792250d5::t_8ca4b63c213654 18
+  s_e8b639792250d5::t_98698f8be15689 62,262-267,319-321,400-463,465
+  s_e8b639792250d5::t_a22e33b36f8ea7 464
+src/main/java/io/jenkins/plugins/explain_error/autofix/AutoFixOrchestrator.java
+  s_e8b639792250d5::t_9201a5cdc5ec4a 43
+  s_e8b639792250d5::t_e35c9bd72c3f7e 142-191,200,258-259,273
+src/main/java/io/jenkins/plugins/explain_error/autofix/AutoFixAction.java
+  s_e8b639792250d5::t_9f64858f79212c 9,11-13,21-23,25,34-40,144-210,222-238,242-244,271-371
+  s_e8b639792250d5::t_c21792029d3c29 24,239-241
+src/main/resources/io/jenkins/plugins/explain_error/autofix/AutoFixAction/index.properties
+  s_e8b639792250d5::t_ac126c1e4d6e9f 2
+  s_e8b639792250d5::t_15642e71897598 1
+src/main/webapp/css/auto-fix.css
+  s_e8b639792250d5::t_ac126c1e4d6e9f 1-6,12-83
+  s_e8b639792250d5::t_84593b257e933d 7-11
+src/main/resources/io/jenkins/plugins/explain_error/autofix/AutoFixAction/index.jelly
+  s_e8b639792250d5::t_ac126c1e4d6e9f 8-38,44-75
+  s_e8b639792250d5::t_c4b54af683972d 39-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd0a3d98949a7957e0fa4a4560358276bcf4bd29",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
