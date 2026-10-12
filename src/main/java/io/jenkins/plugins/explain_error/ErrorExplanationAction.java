@@ -39,6 +39,10 @@ public class ErrorExplanationAction implements RunAction2 {
     private String title;
     /** The language the explanation was asked for in; null means English, as on older builds. */
     private String language;
+    /** Identifies the failure, so that a later build failing the same way can reuse this explanation. */
+    private String failureFingerprint;
+    /** Number of the build this explanation was taken over from, or 0 if it was generated for this build. */
+    private int reusedFromBuild;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this(explanation, urlString, originalErrorLogs, providerName, null,
@@ -47,9 +51,16 @@ public class ErrorExplanationAction implements RunAction2 {
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs,
                                   String providerName, String providerModel, int inputLogLineCount) {
+        this(explanation, urlString, originalErrorLogs, providerName, providerModel, inputLogLineCount,
+                System.currentTimeMillis());
+    }
+
+    private ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs,
+                                   String providerName, String providerModel, int inputLogLineCount,
+                                   long timestamp) {
         this.explanation = explanation;
         this.originalErrorLogs = originalErrorLogs;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
         this.providerName = providerName;
         this.providerModel = providerModel;
         this.urlString = urlString;
@@ -233,6 +244,60 @@ public class ErrorExplanationAction implements RunAction2 {
     @CheckForNull
     private static List<String> copyOf(@CheckForNull List<String> values) {
         return values == null ? null : new ArrayList<>(values);
+    }
+
+    @CheckForNull
+    String getFailureFingerprint() {
+        return failureFingerprint;
+    }
+
+    void setFailureFingerprint(@CheckForNull String failureFingerprint) {
+        this.failureFingerprint = failureFingerprint;
+    }
+
+    /**
+     * Returns the number of the earlier build whose explanation was reused for this build
+     * because it failed the same way, or {@code 0} if the explanation was generated for this build.
+     */
+    @Exported(visibility = 1)
+    public int getReusedFromBuild() {
+        return reusedFromBuild;
+    }
+
+    /**
+     * The address of the explanation this one was taken over from, relative to the Jenkins root,
+     * or {@code null} when it was not reused or that build no longer exists.
+     */
+    @CheckForNull
+    public String getReusedFromBuildUrl() {
+        if (reusedFromBuild <= 0 || run == null) {
+            return null;
+        }
+        Run<?, ?> source = run.getParent().getBuildByNumber(reusedFromBuild);
+        return source != null ? source.getUrl() + getUrlName() + "/" : null;
+    }
+
+    /**
+     * Creates an explanation for another build that failed the same way as the build of this action,
+     * without calling the AI provider again. The copy keeps the time this explanation was generated,
+     * and names the build it was first generated for, however many builds have passed it on since.
+     *
+     * @param sourceBuildNumber the number of the build this action belongs to
+     * @param urlString         the link to the failure output of the other build
+     * @param errorLogs         the failure log of the other build
+     */
+    ErrorExplanationAction reuseFor(int sourceBuildNumber, String urlString, String errorLogs) {
+        ErrorExplanationAction reused = new ErrorExplanationAction(explanation, urlString, errorLogs,
+                providerName, providerModel, inputLogLineCount, timestamp);
+        reused.errorSummary = errorSummary;
+        reused.resolutionSteps = copyOf(resolutionSteps);
+        reused.bestPractices = copyOf(bestPractices);
+        reused.errorSignature = errorSignature;
+        reused.title = title;
+        reused.language = language;
+        reused.failureFingerprint = failureFingerprint;
+        reused.reusedFromBuild = reusedFromBuild > 0 ? reusedFromBuild : sourceBuildNumber;
+        return reused;
     }
 
     @Exported(visibility = 1)

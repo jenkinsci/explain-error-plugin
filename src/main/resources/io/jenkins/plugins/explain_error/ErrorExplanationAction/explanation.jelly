@@ -5,6 +5,18 @@
   <code> elements, and the rest goes through Jelly's own escaping.
 -->
 <j:jelly xmlns:j="jelly:core">
+    <j:if test="${it.reusedFromBuild > 0}">
+        <!-- Taken over from an earlier build that failed the same way: the reader should know how old it is -->
+        <j:set var="reusedUrl" value="${it.reusedFromBuildUrl}"/>
+        <div class="eep-reused">
+            <j:choose>
+                <j:when test="${reusedUrl != null}">
+                    <a href="${rootURL}/${reusedUrl}">${it.labels.reusedFrom(it.reusedFromBuild)}</a>
+                </j:when>
+                <j:otherwise>${it.labels.reusedFrom(it.reusedFromBuild)}</j:otherwise>
+            </j:choose>
+        </div>
+    </j:if>
     <j:choose>
         <j:when test="${it.structured}">
             <j:set var="labels" value="${it.labels}"/>

@@ -16,6 +16,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import jenkins.model.Jenkins;
+import jenkins.util.SystemProperties;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
 
@@ -26,6 +27,7 @@ public class ErrorExplainer {
     static final String DOWNSTREAM_SECTION_START = "### Downstream Job: ";
     static final String DOWNSTREAM_SECTION_END = "### END OF DOWNSTREAM JOB: ";
     private static final String CONSOLE_PREFIX = "[explain-error] ";
+    static final String REUSE_LOOKBACK_PROPERTY = ErrorExplainer.class.getName() + ".reuseLookbackBuilds";
 
     private String providerName;
     private String urlString;
@@ -157,22 +159,11 @@ public class ErrorExplainer {
                 return null;
             }
 
-            // Check quota before making a real provider call (folder-level overrides global)
-            QuotaCheckResult quotaCheck = tryAcquireQuota(run);
-            if (!quotaCheck.allowed()) {
-                logToConsole(listener, quotaCheck.rejectionMessage());
-                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos, 0,
-                        collectDownstreamLogs);
-                return null;
-            }
-
             // Extract error logs
             logToConsole(listener, "Extracting failure logs.");
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
                     collectDownstreamLogs, downstreamJobPattern, authentication);
             String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
-            this.lastErrorLogs = errorLogs;
-            inputLogLineCount = countLines(errorLogs);
             logExtractionSummary(listener, extractionResult, maxLines);
 
             // Resolve language: step → folder → global → null (provider defaults to "English")
@@ -186,6 +177,35 @@ public class ErrorExplainer {
             // Resolve temperature: step → folder → global → null (provider defaults apply)
             Double effectiveTemperature = resolveEffectiveTemperature(run, stepTemperature);
             logToConsole(listener, "Temperature: " + (effectiveTemperature != null ? effectiveTemperature : "unset (provider default)") + ".");
+
+            String fingerprint = FailureFingerprint.of(errorLogs, effectiveLanguage, effectiveCustomContext,
+                    provider.getProviderName(), provider.getModel(),
+                    effectiveTemperature != null ? effectiveTemperature.toString() : null);
+
+            // An automatic explanation reuses the explanation of an earlier build that failed the same way.
+            // This comes before the quota: an explanation that is reused costs no provider call.
+            if (entryPoint == UsageEvent.EntryPoint.RUN_LISTENER && run != null) {
+                ErrorExplanationAction reused = reuseMatchingExplanation(run, fingerprint, errorLogs);
+                if (reused != null) {
+                    run.addOrReplaceAction(reused);
+                    logToConsole(listener, "Build #" + reused.getReusedFromBuild()
+                            + " failed the same way; reusing its explanation.");
+                    recordUsage(entryPoint, UsageEvent.Result.CACHE_HIT, provider, startTimeNanos,
+                            reused.getInputLogLineCount(), collectDownstreamLogs);
+                    return reused.getExplanation();
+                }
+            }
+
+            // Check quota before making a real provider call (folder-level overrides global)
+            QuotaCheckResult quotaCheck = tryAcquireQuota(run);
+            if (!quotaCheck.allowed()) {
+                logToConsole(listener, quotaCheck.rejectionMessage());
+                recordUsage(entryPoint, UsageEvent.Result.QUOTA_REJECTED, provider, startTimeNanos, 0,
+                        collectDownstreamLogs);
+                return null;
+            }
+            this.lastErrorLogs = errorLogs;
+            inputLogLineCount = countLines(errorLogs);
 
             // Get AI explanation
             try {
@@ -210,6 +230,7 @@ public class ErrorExplainer {
                         provider.getProviderName(), provider.getModel(), inputLogLineCount);
                 action.setStructuredData(analysis);
                 action.setLanguage(effectiveLanguage);
+                action.setFailureFingerprint(fingerprint);
                 run.addOrReplaceAction(action);
                 logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
@@ -242,6 +263,39 @@ public class ErrorExplainer {
         PipelineLogExtractor.ExtractionResult result = logExtractor.extractFailedStepLog();
         this.urlString = result.url();
         return result;
+    }
+
+    /**
+     * How many earlier builds are searched for an explanation that can be reused. Read on every
+     * request, so that {@code 0} switches reuse off without a restart.
+     */
+    static int reuseLookbackBuilds() {
+        return Math.max(0, SystemProperties.getInteger(REUSE_LOOKBACK_PROPERTY, 10));
+    }
+
+    /**
+     * Looks for the most recent earlier build of the same job that has an explanation and, if it
+     * failed the same way, returns a copy of that explanation for {@code run}.
+     *
+     * @return the reused explanation, or {@code null} if the most recent explained build failed
+     *         differently, was explained without a fingerprint (by hand, or by an older version
+     *         of the plugin), or none of the builds looked at was explained
+     */
+    @CheckForNull
+    private ErrorExplanationAction reuseMatchingExplanation(Run<?, ?> run, String fingerprint, String errorLogs) {
+        int lookback = reuseLookbackBuilds();
+        Run<?, ?> previous = run.getPreviousBuild();
+        for (int i = 0; previous != null && i < lookback; i++, previous = previous.getPreviousBuild()) {
+            ErrorExplanationAction action = previous.getAction(ErrorExplanationAction.class);
+            if (action == null) {
+                continue;
+            }
+            if (action.hasValidExplanation() && fingerprint.equals(action.getFailureFingerprint())) {
+                return action.reuseFor(previous.getNumber(), urlString, errorLogs);
+            }
+            return null;
+        }
+        return null;
     }
 
     String filterErrorLogs(List<String> logLines, String logPattern) {
