@@ -1,0 +1,74 @@
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_fr.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplanationAction.java
+  s_e8b639792250d5::t_58980453dc5729 42-45,54-60,63,249-301
+  s_e8b639792250d5::t_39c05495e415ce 302
+src/main/java/io/jenkins/plugins/explain_error/ExplanationLabels.java
+  s_e8b639792250d5::t_58980453dc5729 127-131
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+src/test/java/io/jenkins/plugins/explain_error/FailureFingerprintTest.java
+  s_e8b639792250d5::t_df79b752d8ed19 1-53,56-87,115-142
+  s_e8b639792250d5::t_a9db82812210b1 54-55
+  s_e8b639792250d5::t_a08c72aec76155 89-114
+  s_e8b639792250d5::t_4b96bc9ddeb5f9 88
+src/main/webapp/css/explain-error.css
+  s_e8b639792250d5::t_58980453dc5729 60-71
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_zh_CN.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_ja.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+src/main/java/io/jenkins/plugins/explain_error/ErrorExplainer.java
+  s_e8b639792250d5::t_227eb0ac582c89 19,30,185,189-210,234,269-300
+  s_e8b639792250d5::t_1a3d39677e0938 301
+  s_e8b639792250d5::t_a8df3f2a5c17a4 181-184,186-188
+src/main/java/io/jenkins/plugins/explain_error/ErrorRunListener.java
+  s_e8b639792250d5::t_227eb0ac582c89 208,230-241
+  s_e8b639792250d5::t_a968d8e973dd8b 242-244
+src/main/resources/io/jenkins/plugins/explain_error/GlobalConfigurationImpl/config.jelly
+  s_e8b639792250d5::t_cb61e3895af81e 37
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_es.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_de.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+docs/auto-explain.md
+  s_e8b639792250d5::t_cb61e3895af81e 18,34-35,112-124,126-137,139-143,172
+  s_e8b639792250d5::t_4ffae11ea967b7 138
+  s_e8b639792250d5::t_5a19d46f4c8764 125
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/summary.jelly
+  s_e8b639792250d5::t_58980453dc5729 17-19
+src/main/java/io/jenkins/plugins/explain_error/FailureFingerprint.java
+  s_e8b639792250d5::t_cb61e3895af81e 39-40
+  s_e8b639792250d5::t_df79b752d8ed19 1-18,22-38,41-79,81-93,104
+  s_e8b639792250d5::t_a08c72aec76155 19-21,80,94-102
+  s_e8b639792250d5::t_d6f9868676b2c6 103
+src/main/resources/io/jenkins/plugins/explain_error/ExplanationLabels_zh_TW.properties
+  s_e8b639792250d5::t_58980453dc5729 10
+README.md
+  s_e8b639792250d5::t_cb61e3895af81e 642
+src/main/resources/io/jenkins/plugins/explain_error/ErrorExplanationAction/explanation.jelly
+  s_e8b639792250d5::t_58980453dc5729 8-19
+src/test/java/io/jenkins/plugins/explain_error/ExplanationReuseTest.java
+  s_e8b639792250d5::t_9a467f7672a8ad 1-8,10,12-102,105-161,183-225,227-230,232-235,238-390,398,399-422
+  s_e8b639792250d5::t_cb61e3895af81e 103-104,396-397
+  s_e8b639792250d5::t_563ca77b8a3401 226,231,236-237
+  s_e8b639792250d5::t_a08c72aec76155 9,11,162-182,391-395
+src/main/java/io/jenkins/plugins/explain_error/PipelineLogExtractor.java
+  s_e8b639792250d5::t_a08c72aec76155 64-71,197,203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "48e6cc65ea27a62d37179807fcf2a0beff76f9f6",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
