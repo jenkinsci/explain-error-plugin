@@ -1,0 +1,23 @@
+.github/instructions/code-review.instructions.md
+  s_e8b639792250d5::t_48b6598bc830aa 5,7-8,10,12-21,23,25-28,30,32-35,37,39-41
+.agents/skills/review-pull-request/SKILL.md
+  s_e8b639792250d5::t_026e1770c3be7e 3,6,8-10,12-13,15-22,24-25,27,29-33
+AGENTS.md
+  s_e8b639792250d5::t_a73f2ea1ab98e9 3-4,6,8-10,14-16,18,20-27,29,31-33,35,37,39,41-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16d62cff7a602ca60c4616bd016448014a7d57f3",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
