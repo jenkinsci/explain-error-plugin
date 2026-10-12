@@ -122,8 +122,9 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             return;
         }
 
-        // Explanation is switched off globally or for the folder. A job can opt in to automatic
-        // explanation, but not past that switch: nothing to do, and nothing to say.
+        // Explanation is switched off, and no folder above the job has switched it on with a provider
+        // of its own. A job can opt in to automatic explanation, but not past that: nothing to do,
+        // and nothing to say.
         ErrorExplainer explainer = new ErrorExplainer();
         if (!explainer.isExplanationEnabled(run)) {
             return;

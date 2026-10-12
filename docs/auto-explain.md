@@ -81,7 +81,7 @@ The override only decides whether a failed build is explained *automatically*:
 
 - A job that opts out keeps its **Explain Error** button, and `explainError()` in its Pipeline still works.
 - A job that opts in is subject to the same [hourly limit](#hourly-limit) and [queue](#concurrency-and-queue-limits) as every other job, and to the request quota.
-- Opting in does not get past **Enable AI Error Explanation**: while that is off, globally or for the job's folder, nothing is explained.
+- Opting in does not get past the global **Enable AI Error Explanation**: while that is off, nothing is explained, unless the job's folder has an enabled AI provider of its own.
 - **Max Log Lines** and **Max Automatic Explanations per Hour** are global. They are shown in the global configuration only while **Automatically explain failed builds** is checked; with it unchecked, jobs that opt in use the values last saved there (or set through CasC).
 
 ---
