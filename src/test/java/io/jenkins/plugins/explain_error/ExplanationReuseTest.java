@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import hudson.Functions;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
@@ -155,6 +157,27 @@ class ExplanationReuseTest {
 
         assertEquals(1, provider.getCallCount());
         assertEquals(first.getNumber(), third.getAction(ErrorExplanationAction.class).getReusedFromBuild());
+    }
+
+    @Test
+    void aStepAddedEarlierInThePipelineDoesNotBreakTheMatch() throws Exception {
+        assumeFalse(Functions.isWindows(), "the failing step is a shell step");
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "load");
+        String failingStage = "stage('Load') { sh 'echo no space left on device; exit 1' }";
+        job.setDefinition(new CpsFlowDefinition("node { " + failingStage + " }", true));
+        WorkflowRun first = jenkins.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0));
+        settle(first);
+
+        // Every flow node after the new step gets another id, the failing one included
+        job.setDefinition(new CpsFlowDefinition(
+                "node { stage('Prepare') { echo \"run ${env.BUILD_NUMBER}\" }; " + failingStage + " }", true));
+        WorkflowRun second = jenkins.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0));
+        settle(second);
+
+        assertNotNull(first.getAction(ErrorExplanationAction.class));
+        assertNotNull(second.getAction(ErrorExplanationAction.class));
+        assertEquals(1, provider.getCallCount(), "the Load stage failed the same way");
+        assertEquals(first.getNumber(), second.getAction(ErrorExplanationAction.class).getReusedFromBuild());
     }
 
     // -----------------------------------------------------------------------
@@ -365,10 +388,14 @@ class ExplanationReuseTest {
     /** Fails a build and waits until the listener's background work for it is over. */
     private FreeStyleBuild failAndSettle(FreeStyleProject project) throws Exception {
         FreeStyleBuild build = jenkins.assertBuildStatus(Result.FAILURE, project.scheduleBuild2(0));
+        settle(build);
+        return build;
+    }
+
+    private void settle(Run<?, ?> build) throws InterruptedException {
         await(() -> !PendingExplanations.contains(build)
                 && pool.getActiveCount() == 0 && pool.getQueue().isEmpty());
         assertFalse(PendingExplanations.contains(build), "the automatic explanation should be over");
-        return build;
     }
 
     private static void await(BooleanSupplier condition) throws InterruptedException {

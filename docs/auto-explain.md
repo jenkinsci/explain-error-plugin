@@ -122,6 +122,7 @@ Two failures count as the same when their failure logs are equal once the parts 
 - build numbers written as `#42`
 - numbers of six or more digits, such as temporary file names and process ids
 - hexadecimal ids of eight or more characters, such as commit hashes and container ids
+- for a Pipeline, where the failing step sits in the flow: a step added earlier in the Jenkinsfile does not make the same failure a new one
 - extra spaces and blank lines
 
 Everything else has to be equal, including version numbers, line numbers, exit codes and expected values: `requests==2.99.0` and `requests==2.98.0`, or `App.java:21` and `App.java:57`, are different failures, and the old explanation would be wrong for the new one. The match is strict on purpose. A reuse that is missed costs one provider call; a wrong one shows an explanation of a failure the build does not have.

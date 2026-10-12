@@ -61,6 +61,14 @@ import java.util.regex.PatternSyntaxException;
  */
 public class PipelineLogExtractor {
 
+    /**
+     * The lines put around a step's log name the flow node it came from. The id is where the step
+     * sits in the Pipeline, not part of what failed, so {@link FailureFingerprint} leaves it out.
+     */
+    static final String NODE_HEADER_PREFIX = "### Node ID: ";
+    static final String NODE_FOOTER_PREFIX = "### END OF LOG ";
+    static final String NODE_MARKER_SUFFIX = " ###";
+
     private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
     public static final String URL_NAME = "stages";
     /**
@@ -186,13 +194,13 @@ public class PipelineLogExtractor {
         }
 
         List<String> header = Arrays.asList(
-            "### Node ID: " + node.getId() + " ###",
+            NODE_HEADER_PREFIX + node.getId() + NODE_MARKER_SUFFIX,
             "Node Name: " + node.getDisplayName(),
             "Start Time: " + formattedStart,
             "--- LOG CONTENT ---");
 
         logs.addAll(0, header);
-        logs.add("### END OF LOG " + node.getId() + " ###");
+        logs.add(NODE_FOOTER_PREFIX + node.getId() + NODE_MARKER_SUFFIX);
     }
 
     /**

@@ -16,7 +16,9 @@ import java.util.regex.Pattern;
  * not hide an otherwise identical failure: dates and times, durations, transfer sizes and rates,
  * build numbers, long numeric ids (temporary file names, process ids) and hexadecimal ids of
  * eight or more characters (commit hashes, container ids). Runs of spaces and tabs are collapsed
- * and blank lines dropped.
+ * and blank lines dropped. So is the flow node id in the lines {@link PipelineLogExtractor} puts
+ * around a step's log: it changes when a step is added earlier in the Pipeline, and says nothing
+ * about the failure.
  *
  * <p>Every other number is kept. A version, a line number or an expected value that differs
  * means a different failure, and an explanation that names the old one would be wrong for it.
@@ -75,7 +77,7 @@ final class FailureFingerprint {
         }
         StringBuilder normalized = new StringBuilder(errorLogs.length());
         for (String line : errorLogs.split("\\R")) {
-            String value = TIMESTAMP.matcher(line).replaceAll("<time>");
+            String value = TIMESTAMP.matcher(withoutNodeId(line)).replaceAll("<time>");
             value = TIME_OF_DAY.matcher(value).replaceAll("<time>");
             value = DURATION.matcher(value).replaceAll("<duration>");
             value = SIZE.matcher(value).replaceAll("<size>");
@@ -88,5 +90,15 @@ final class FailureFingerprint {
             }
         }
         return normalized.toString();
+    }
+
+    private static String withoutNodeId(String line) {
+        for (String prefix : new String[] {
+                PipelineLogExtractor.NODE_HEADER_PREFIX, PipelineLogExtractor.NODE_FOOTER_PREFIX}) {
+            if (line.startsWith(prefix) && line.endsWith(PipelineLogExtractor.NODE_MARKER_SUFFIX)) {
+                return prefix + "<node>" + PipelineLogExtractor.NODE_MARKER_SUFFIX;
+            }
+        }
+        return line;
     }
 }

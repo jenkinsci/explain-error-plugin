@@ -86,6 +86,33 @@ class FailureFingerprintTest {
     }
 
     @Test
+    void whereTheFailingStepSitsInThePipelineIsLeftOut() {
+        String first = """
+                ### Node ID: 12 ###
+                Node Name: Shell Script
+                Start Time: 2026-10-12T15:20:33.123+0300
+                --- LOG CONTENT ---
+                + python -m etl.run
+                psycopg.OperationalError: port 5432 failed
+                ### END OF LOG 12 ###
+                """;
+        String withAStepAddedBefore = first.replace(" 12 ###", " 13 ###").replace("15:20:33.123", "16:01:07.456");
+
+        assertEquals(fingerprint(first), fingerprint(withAStepAddedBefore));
+        assertEquals("""
+                ### Node ID: <node> ###
+                Node Name: Shell Script
+                Start Time: <time>
+                --- LOG CONTENT ---
+                + python -m etl.run
+                psycopg.OperationalError: port 5432 failed
+                ### END OF LOG <node> ###
+                """, FailureFingerprint.normalize(first));
+        // Only in those two lines: a log line that happens to carry a small number keeps it
+        assertNotEquals(fingerprint("retry 12 of 20"), fingerprint("retry 13 of 20"));
+    }
+
+    @Test
     void aDifferentFailureHasADifferentFingerprint() {
         assertNotEquals(fingerprint("error: cannot find symbol StringUtils"),
                 fingerprint("error: cannot find symbol ObjectUtils"));
