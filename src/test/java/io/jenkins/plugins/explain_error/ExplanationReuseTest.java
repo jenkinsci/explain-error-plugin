@@ -200,16 +200,18 @@ class ExplanationReuseTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void theStepAlwaysAsksTheProvider() throws Exception {
+    void theStepAlwaysAsksTheProviderAndLeavesNothingToMatch() throws Exception {
         config.setEnableAutoExplainOnFailure(false);
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "step-no-reuse");
         job.setDefinition(new CpsFlowDefinition("node { explainError() }", true));
 
-        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+        WorkflowRun first = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
         WorkflowRun second = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
 
         assertEquals(2, provider.getCallCount());
         assertEquals(0, second.getAction(ErrorExplanationAction.class).getReusedFromBuild());
+        assertNull(first.getAction(ErrorExplanationAction.class).getFailureFingerprint());
+        assertNull(second.getAction(ErrorExplanationAction.class).getFailureFingerprint());
     }
 
     @Test

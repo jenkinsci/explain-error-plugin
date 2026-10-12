@@ -134,7 +134,7 @@ What a reused explanation costs:
 - It does not count toward the [hourly limit](#hourly-limit) or the [request quota](usage-quota.md).
 - It still waits its turn in the [queue](#concurrency-and-queue-limits), and a build that the hourly limit or a full queue has already skipped is not looked at: the match can only be made from the finished log, after that decision.
 
-To get a fresh explanation for a build with a reused one, open its console output, click **Show explanation** and then the re-explain icon of the card. An explanation requested that way, or with the **Explain Error** button, is not passed on to later builds.
+To get a fresh explanation for a build with a reused one, open its console output, click **Show explanation** and then the re-explain icon of the card. An explanation requested that way, with the **Explain Error** button or by the `explainError()` step is not passed on to later builds: only automatic explanations are.
 
 Reuse can be switched off with the system property `io.jenkins.plugins.explain_error.ErrorExplainer.reuseLookbackBuilds=0`; any other value is the number of earlier builds to look back through. It is read on every request, so it can also be set from the script console without a restart.
 

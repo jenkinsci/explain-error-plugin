@@ -178,13 +178,14 @@ public class ErrorExplainer {
             Double effectiveTemperature = resolveEffectiveTemperature(run, stepTemperature);
             logToConsole(listener, "Temperature: " + (effectiveTemperature != null ? effectiveTemperature : "unset (provider default)") + ".");
 
-            String fingerprint = FailureFingerprint.of(errorLogs, effectiveLanguage, effectiveCustomContext,
-                    provider.getProviderName(), provider.getModel(),
-                    effectiveTemperature != null ? effectiveTemperature.toString() : null);
-
-            // An automatic explanation reuses the explanation of an earlier build that failed the same way.
-            // This comes before the quota: an explanation that is reused costs no provider call.
+            // An automatic explanation reuses the automatic explanation of an earlier build that failed
+            // the same way. This comes before the quota: an explanation that is reused costs no provider
+            // call. The step and the console button neither reuse nor leave a fingerprint to be matched.
+            String fingerprint = null;
             if (entryPoint == UsageEvent.EntryPoint.RUN_LISTENER && run != null) {
+                fingerprint = FailureFingerprint.of(errorLogs, effectiveLanguage, effectiveCustomContext,
+                        provider.getProviderName(), provider.getModel(),
+                        effectiveTemperature != null ? effectiveTemperature.toString() : null);
                 ErrorExplanationAction reused = reuseMatchingExplanation(run, fingerprint, errorLogs);
                 if (reused != null) {
                     run.addOrReplaceAction(reused);
