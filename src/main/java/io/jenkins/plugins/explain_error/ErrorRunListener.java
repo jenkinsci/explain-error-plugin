@@ -23,7 +23,8 @@ import org.springframework.security.core.Authentication;
 
 /**
  * {@link RunListener} that automatically triggers AI error explanation
- * when a build fails and the global "auto explain on failure" toggle is enabled.
+ * when a build fails and the global "auto explain on failure" toggle is enabled,
+ * or when the job opts in through {@link ExplainErrorJobProperty}.
  *
  * Builds that already carry an {@link ErrorExplanationAction} are skipped to
  * avoid duplicate explanations when the pipeline already calls
@@ -89,11 +90,23 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
         return previous;
     }
 
+    /**
+     * Returns whether failed builds of the job of {@code run} are explained automatically:
+     * the job-level {@link ExplainErrorJobProperty} wins over the global setting.
+     */
+    static boolean isAutoExplainEnabled(Run<?, ?> run, GlobalConfigurationImpl config) {
+        ExplainErrorJobProperty property = run.getParent().getProperty(ExplainErrorJobProperty.class);
+        if (property != null) {
+            return property.isAutoExplainOnFailure();
+        }
+        return config.isEnableAutoExplainOnFailure();
+    }
+
     @Override
     public void onCompleted(Run<?, ?> run, @NonNull TaskListener listener) {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
 
-        if (!config.isEnableAutoExplainOnFailure()) {
+        if (!isAutoExplainEnabled(run, config)) {
             return;
         }
 
@@ -109,12 +122,19 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             return;
         }
 
+        // Explanation is switched off, and no folder above the job has switched it on with a provider
+        // of its own. A job can opt in to automatic explanation, but not past that: nothing to do,
+        // and nothing to say.
+        ErrorExplainer explainer = new ErrorExplainer();
+        if (!explainer.isExplanationEnabled(run)) {
+            return;
+        }
+
         // Verify the provider is valid before printing an optimistic message.
         // The pipeline step (explainError()) may have already run and failed silently
         // due to misconfiguration, so we resolve the provider here and check validity.
         // If the provider is null or invalid, we warn the user and skip — there is no
         // point saying "AI explanation will appear" when it cannot.
-        ErrorExplainer explainer = new ErrorExplainer();
         BaseAIProvider provider = explainer.getResolvedProvider(run);
         if (provider == null) {
             listener.getLogger().println("[explain-error] Build failed, but no AI provider is configured."

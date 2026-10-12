@@ -389,7 +389,7 @@ public class ErrorExplainer {
      * @param run the build run to check
      * @return true if explanation is enabled, false otherwise
      */
-    private boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
+    boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
         if (run != null) {
             // Check if there's an explicit folder-level property with configured provider
             ExplainErrorFolderProperty folderProperty = findFolderPropertyWithProvider(run.getParent().getParent());
