@@ -1,0 +1,49 @@
+src/main/java/io/jenkins/plugins/explain_error/PipelineGraphViewDecorator.java
+  s_e8b639792250d5::t_89afef6c21560f 11-12,15,18-20,22,31-33
+  s_e8b639792250d5::t_4927e37411b098 35,38-43
+src/main/webapp/js/explain-error-graph-view.js
+  s_e8b639792250d5::t_bb77cffa624878 2,4-10,15-17,19-22,24-26,29-31,33,35-41,44-51,54,57-62,64-65,68-71,74-81,83,85-90,92-105,108-111,116-118,120,125-129,131-150,153-155
+  s_e8b639792250d5::t_a591ac7606eeef 121
+src/main/java/io/jenkins/plugins/explain_error/GraphViewExplainErrorAction.java
+  s_e8b639792250d5::t_34f0a43f09c3b7 152-153,155,163-179
+  s_e8b639792250d5::t_a591ac7606eeef 4,106-107,123,162,200-201,203-204,340-352,355-365,374-379
+src/main/resources/io/jenkins/plugins/explain_error/PipelineGraphViewDecorator/footer.jelly
+  s_e8b639792250d5::t_ae260dc810f438 2,6-7,9-11
+src/main/resources/lib/explain-error/card.properties
+  s_e8b639792250d5::t_fed2ddc341be90 1
+src/main/resources/io/jenkins/plugins/explain_error/ConsolePageDecorator/footer.jelly
+  s_e8b639792250d5::t_ae260dc810f438 2,7,9-10
+src/main/webapp/css/explain-error.css
+  s_e8b639792250d5::t_03a5bdb0a3656f 110-114
+src/main/webapp/js/explain-error-footer.js
+  s_e8b639792250d5::t_762d33a8ddb6b2 1-3,6-9,219-221,224,228,234-241,248,252-254,265-267,271-274,278-282,349,353,355,358-365,368-370,377,386,393
+  s_e8b639792250d5::t_fed2ddc341be90 385,387
+  s_e8b639792250d5::t_0650be4e1bbf13 275-277
+src/test/java/io/jenkins/plugins/explain_error/PipelineGraphViewDecoratorTest.java
+  s_e8b639792250d5::t_4927e37411b098 1-49
+src/test/java/io/jenkins/plugins/explain_error/GraphViewExplainErrorActionTest.java
+  s_e8b639792250d5::t_9afe90e77086dc 463-464,466,468-479,481,483-486,488-503,505-517,519-530,532-542,544-565
+  s_e8b639792250d5::t_72abb79d13ac73 465,467,480,482,487,504,518,531,543
+README.md
+  s_e8b639792250d5::t_ee03127e262751 25,616-626
+  s_e8b639792250d5::t_5933e54e56954b 627
+src/main/resources/lib/explain-error/card.jelly
+  s_e8b639792250d5::t_ac7dc178b4128c 55-56,74-75
+  s_e8b639792250d5::t_1240d3fcb38354 1-54,57-73,76-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4d040619bf8c951202f913d1aa9d4aac49bfa82",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
