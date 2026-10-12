@@ -1,0 +1,83 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
+  <st:documentation>
+    The card an explanation is requested from and shown in: spinner, failure with a way to try again,
+    the explanation itself and the controls to re-explain or close. explain-error-footer.js drives it;
+    the page that includes it adds the button that opens it.
+    <st:attribute name="surface" use="required">
+      The page the card is on: "console" or "graph-view". The script uses it to tell which page it serves.
+    </st:attribute>
+    <st:attribute name="runUrl" use="required">
+      URL of the build, relative to the Jenkins root.
+    </st:attribute>
+    <st:attribute name="explainPath" use="required">
+      The endpoint that returns the explanation, relative to the build.
+    </st:attribute>
+    <st:attribute name="providerName">
+      Name of the AI provider a new explanation would come from.
+    </st:attribute>
+    <st:attribute name="enabled">
+      Whether a new explanation can be requested.
+    </st:attribute>
+    <st:attribute name="explanation">
+      The explanation the build already has, to render it with the page. Leave it out when the page
+      decides later which explanation applies.
+    </st:attribute>
+    <st:attribute name="logLink">
+      false leaves out the link to the failure output, for a page that already shows it.
+    </st:attribute>
+  </st:documentation>
+  <j:set var="existingExplanation" value="${attrs.explanation}" />
+  <j:set var="hasExplanation" value="${existingExplanation != null}" />
+  <j:set var="controls">
+    <j:if test="${attrs.enabled}">
+      <a href="#" tooltip="${%reexplain(attrs.providerName)}" class="jenkins-card__reveal eep-generate-new-button">
+        <l:icon src="symbol-reload" />
+      </a>
+    </j:if>
+    <a href="#" tooltip="${%Close}" class="jenkins-card__reveal eep-close-button">
+      <l:icon src="symbol-close" />
+    </a>
+  </j:set>
+  <div id="explain-error-container" class="jenkins-hidden" data-surface="${attrs.surface}"
+       data-run-url="${attrs.runUrl}" data-explain-path="${attrs.explainPath}"
+       data-provider-name="${attrs.providerName}"
+       data-has-explanation="${hasExplanation}" data-plugin-enabled="${attrs.enabled}"
+       data-label-explain="${%Explain Error}" data-label-show="${%Show explanation}"
+       data-label-pending="${%Explaining…}"
+       data-failure-headline="${%The explanation could not be generated.}">
+    <l:card title="${hasExplanation ? existingExplanation.heading : 'AI Error Explanation'}" controls="${controls}">
+      <div id="explain-error-spinner" class="jenkins-hidden">
+        <l:spinner text="${%Analyzing error logs...}"/>
+      </div>
+      <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/explain-error.css" type="text/css"/>
+      <!-- A request that failed stays here, with what went wrong and a way to try again -->
+      <div id="explain-error-failure" class="jenkins-alert jenkins-alert-danger eep-failure jenkins-hidden"
+           role="alert">
+        <div id="explain-error-failure-headline" class="eep-failure__headline"/>
+        <details id="explain-error-failure-details" class="eep-details jenkins-hidden">
+          <summary>${%Details}</summary>
+          <pre id="explain-error-failure-detail" class="eep-snippet"/>
+        </details>
+        <div class="eep-failure__actions">
+          <button type="button" id="explain-error-retry" class="jenkins-button">${%Try again}</button>
+        </div>
+      </div>
+      <div id="explain-error-content" class="${hasExplanation?'':'jenkins-hidden'}">
+        <j:if test="${hasExplanation}">
+          <j:set var="showGenerated" value="${true}"/>
+          <st:include it="${existingExplanation}" page="explanation.jelly"/>
+        </j:if>
+      </div>
+      <j:if test="${attrs.logLink != 'false'}">
+        <div class="jenkins-!-margin-top-3">
+          <a id="explain-error-url" href="${hasExplanation ? existingExplanation.urlString: ''}"
+             class="jenkins-button ${hasExplanation?'':'jenkins-hidden'}" target="_self">
+            <l:icon src="symbol-terminal" class="icon-md" />
+            ${%View failure output}
+          </a>
+        </div>
+      </j:if>
+    </l:card>
+  </div>
+</j:jelly>

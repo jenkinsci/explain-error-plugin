@@ -460,6 +460,109 @@ class GraphViewExplainErrorActionTest {
                 "selecting the enclosing stage must not trigger a second, redundant AI call");
     }
 
+    @Test
+    void nodeStatusSaysWhatTheBuildHasForTheNode() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("node-status");
+        String failedStepId = findStepNode(pipelineRun, true).getId();
+        String passedStageId = findStageNode(pipelineRun, "A").getId();
+
+        JSONObject before = post(pipelineRun, "checkNodeStatus", failedStepId, false);
+        assertTrue(before.getBoolean("isFailed"));
+        assertEquals("none", before.getString("explanation"));
+
+        post(pipelineRun, "explainNodeError", failedStepId, false);
+
+        assertEquals("ready", post(pipelineRun, "checkNodeStatus", failedStepId, false).getString("explanation"));
+        assertEquals("ready",
+                post(pipelineRun, "checkNodeStatus", findStageNode(pipelineRun, "B").getId(), false)
+                        .getString("explanation"),
+                "the stage around the explained step has that explanation too");
+        JSONObject passed = post(pipelineRun, "checkNodeStatus", passedStageId, false);
+        assertFalse(passed.getBoolean("isFailed"));
+        assertEquals("none", passed.getString("explanation"), "an explanation of another stage is not this one's");
+    }
+
+    @Test
+    void nodeStatusSaysWhenAnAutomaticExplanationIsOnItsWay() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("node-status-pending");
+        String failedStepId = findStepNode(pipelineRun, true).getId();
+
+        PendingExplanations.add(pipelineRun);
+        try {
+            assertEquals("pending",
+                    post(pipelineRun, "checkNodeStatus", failedStepId, false).getString("explanation"));
+        } finally {
+            PendingExplanations.remove(pipelineRun);
+        }
+        assertEquals("none", post(pipelineRun, "checkNodeStatus", failedStepId, false).getString("explanation"));
+    }
+
+    @Test
+    void anExplanationComesWithItsTitle() throws Exception {
+        provider.setAnswer(new JenkinsLogAnalysis("The build step called error().", List.of("Remove the call."),
+                null, "boom", "Stage B calls error()"));
+        WorkflowRun pipelineRun = buildMultiStagePipeline("with-title");
+        String failedStepId = findStepNode(pipelineRun, true).getId();
+
+        JSONObject fresh = post(pipelineRun, "explainNodeError", failedStepId, false);
+        assertEquals("success", fresh.getString("status"));
+        assertEquals("Stage B calls error()", fresh.getString("title"));
+
+        JSONObject cached = post(pipelineRun, "explainNodeError", failedStepId, false);
+        assertEquals("Stage B calls error()", cached.getString("title"), "the stored explanation keeps its title");
+        assertEquals(1, provider.getCallCount());
+    }
+
+    @Test
+    void aFailedRequestIsAnsweredLikeOnTheConsolePage() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("provider-fails");
+        provider.setThrowError(true);
+
+        JSONObject response = post(pipelineRun, "explainNodeError", findStepNode(pipelineRun, true).getId(), false);
+
+        assertEquals("error", response.getString("status"));
+        assertTrue(response.getString("message").contains("API request failed: Request failed."));
+        assertFalse(response.has("title"));
+        assertNull(pipelineRun.getAction(ErrorExplanationAction.class));
+    }
+
+    @Test
+    void anExplanationTheBuildHasIsShownWhileExplanationIsSwitchedOff() throws Exception {
+        WorkflowRun pipelineRun = buildMultiStagePipeline("switched-off");
+        String failedStepId = findStepNode(pipelineRun, true).getId();
+        post(pipelineRun, "explainNodeError", failedStepId, false);
+        GlobalConfigurationImpl.get().setEnableExplanation(false);
+        try {
+            JSONObject stored = post(pipelineRun, "explainNodeError", failedStepId, false);
+            assertEquals("success", stored.getString("status"));
+            assertTrue(stored.getString("message").contains("Request was successful"));
+
+            JSONObject forced = post(pipelineRun, "explainNodeError", failedStepId, true);
+            assertEquals("warning", forced.getString("status"), "a new explanation is still refused");
+
+            JSONObject other = post(pipelineRun, "explainNodeError", findStageNode(pipelineRun, "A").getId(), false);
+            assertEquals("warning", other.getString("status"), "and so is one for a node that has none");
+            assertEquals(1, provider.getCallCount());
+        } finally {
+            GlobalConfigurationImpl.get().setEnableExplanation(true);
+        }
+    }
+
+    private JSONObject post(WorkflowRun pipelineRun, String endpoint, String nodeId, boolean forceNew)
+            throws IOException {
+        try (JenkinsRule.WebClient client = rule.createWebClient()) {
+            WebRequest request = new WebRequest(new URL(rule.jenkins.getRootUrl() + pipelineRun.getUrl()
+                    + "graph-explain-error/" + endpoint), HttpMethod.POST);
+            List<org.htmlunit.util.NameValuePair> parameters = new java.util.ArrayList<>();
+            parameters.add(new org.htmlunit.util.NameValuePair("nodeId", nodeId));
+            if (forceNew) {
+                parameters.add(new org.htmlunit.util.NameValuePair("forceNew", "true"));
+            }
+            request.setRequestParameters(parameters);
+            return JSONObject.fromObject(client.getPage(request).getWebResponse().getContentAsString());
+        }
+    }
+
     private static String extractSelectedNodeIdFromUrl(String url) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("[?&]selected-node=([^&]+)").matcher(url);
         assertTrue(m.find(), "URL must carry a selected-node parameter: " + url);

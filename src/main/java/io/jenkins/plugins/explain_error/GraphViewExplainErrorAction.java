@@ -1,6 +1,7 @@
 package io.jenkins.plugins.explain_error;
 
 import com.google.common.annotations.VisibleForTesting;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.model.Result;
 import hudson.model.Run;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
@@ -102,7 +103,8 @@ public class GraphViewExplainErrorAction implements RunAction2 {
      * AJAX endpoint to check whether a specific flow node is a failed node.
      * Returns {@code isFailed: true} if the node (or any of its descendants)
      * has an {@link ErrorAction} or a {@link WarningAction} with result
-     * {@link Result#FAILURE}.
+     * {@link Result#FAILURE}. It also carries {@code explanation}, which says what the build has
+     * for that node: see {@link #getExplanationState(String)}.
      */
     @RequirePOST
     public void doCheckNodeStatus(StaplerRequest2 req, StaplerResponse2 rsp) {
@@ -118,6 +120,7 @@ public class GraphViewExplainErrorAction implements RunAction2 {
 
             JSONObject json = new JSONObject();
             json.put("isFailed", isFailed);
+            json.put("explanation", getExplanationState(nodeId));
             writer.write(json.toString());
             writer.flush();
         } catch (Exception e) {
@@ -138,6 +141,28 @@ public class GraphViewExplainErrorAction implements RunAction2 {
         try {
             run.checkPermission(hudson.model.Item.READ);
 
+            String nodeId = req.getParameter("nodeId");
+            // Check if user wants to force a new explanation
+            boolean forceNew = "true".equals(req.getParameter("forceNew"));
+
+            // Check if an explanation already exists for THIS node. ErrorExplanationAction is a
+            // single action per run (shared with the Console integration), so a pipeline with
+            // multiple independently-failed nodes (e.g. parallel branches) must not reuse an
+            // explanation that was generated for a different node than the one currently selected.
+            // An explanation the build has is shown even while new ones are switched off, as on
+            // the console page: showing it does not call the provider.
+            ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
+            if (!forceNew && nodeId != null && existingAction != null && existingAction.hasValidExplanation()
+                    && cachedExplanationMatchesNode(existingAction, nodeId)) {
+                this.urlString = existingAction.getUrlString();
+                recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
+                        existingAction.getProviderModel(), startTimeNanos,
+                        existingAction.getInputLogLineCount());
+                writeJsonResponse(rsp, "success", existingAction.getProviderName(),
+                        createCachedResponse(existingAction.getExplanation()), existingAction.getTitle(), null);
+                return;
+            }
+
             GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
             if (!config.isEnableExplanation()) {
                 BaseAIProvider provider = config.getAiProvider();
@@ -150,28 +175,8 @@ public class GraphViewExplainErrorAction implements RunAction2 {
                 return;
             }
 
-            String nodeId = req.getParameter("nodeId");
             if (nodeId == null || nodeId.isBlank()) {
                 writeJsonResponse(rsp, "error", "Unknown", "No node selected.");
-                return;
-            }
-
-            // Check if user wants to force a new explanation
-            boolean forceNew = "true".equals(req.getParameter("forceNew"));
-
-            // Check if an explanation already exists for THIS node. ErrorExplanationAction is a
-            // single action per run (shared with the Console integration), so a pipeline with
-            // multiple independently-failed nodes (e.g. parallel branches) must not reuse an
-            // explanation that was generated for a different node than the one currently selected.
-            ErrorExplanationAction existingAction = run.getAction(ErrorExplanationAction.class);
-            if (!forceNew && existingAction != null && existingAction.hasValidExplanation()
-                    && cachedExplanationMatchesNode(existingAction, nodeId)) {
-                this.urlString = existingAction.getUrlString();
-                recordUsage(UsageEvent.Result.CACHE_HIT, existingAction.getProviderName(),
-                        existingAction.getProviderModel(), startTimeNanos,
-                        existingAction.getInputLogLineCount());
-                writeJsonResponse(rsp, "success", existingAction.getProviderName(),
-                        createCachedResponse(existingAction.getExplanation()));
                 return;
             }
 
@@ -192,9 +197,11 @@ public class GraphViewExplainErrorAction implements RunAction2 {
             ErrorExplainer explainer = new ErrorExplainer();
             try {
                 ErrorExplanationAction action = explainer.explainErrorText(errorText, urlString, run);
-                writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation());
+                writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
+                        action.getTitle(), null);
             } catch (ExplanationException ee) {
-                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage());
+                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage(), null,
+                        ProviderFailure.describe(ee));
             }
         } catch (Exception e) {
             LOGGER.severe("Error explaining node error: " + e.getMessage());
@@ -330,8 +337,32 @@ public class GraphViewExplainErrorAction implements RunAction2 {
         return isEnclosedBy(cachedNode, nodeId) || isEnclosedBy(requestedNode, cachedNodeId);
     }
 
+    /**
+     * What the build has for a node: "ready" (an explanation that covers it), "pending" (an
+     * automatic explanation has been requested and has not come back yet) or "none".
+     */
+    @VisibleForTesting
+    String getExplanationState(String nodeId) {
+        ErrorExplanationAction existing = run.getAction(ErrorExplanationAction.class);
+        if (existing != null && existing.hasValidExplanation() && cachedExplanationMatchesNode(existing, nodeId)) {
+            return "ready";
+        }
+        return PendingExplanations.contains(run) ? "pending" : "none";
+    }
+
     private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName,
                                    String message) throws IOException {
+        writeJsonResponse(rsp, status, providerName, message, null, null);
+    }
+
+    /**
+     * The same answer the console page gets, so that both pages can show it with the same card.
+     *
+     * @param title  what the explanation is about, when it has a title
+     * @param reason a failure in plain words when it is known; {@code message} is then its detail
+     */
+    private void writeJsonResponse(StaplerResponse2 rsp, String status, String providerName, String message,
+                                   @CheckForNull String title, @CheckForNull String reason) throws IOException {
         rsp.setContentType("application/json");
         rsp.setCharacterEncoding("UTF-8");
         PrintWriter writer = rsp.getWriter();
@@ -340,6 +371,12 @@ public class GraphViewExplainErrorAction implements RunAction2 {
         json.put("status", status);
         json.put("providerName", providerName);
         json.put("message", message);
+        if (title != null) {
+            json.put("title", title);
+        }
+        if (reason != null) {
+            json.put("reason", reason);
+        }
         json.put("url", urlString);
         writer.write(json.toString());
         writer.flush();

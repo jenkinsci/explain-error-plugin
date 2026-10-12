@@ -1,57 +1,13 @@
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
+<j:jelly xmlns:j="jelly:core" xmlns:ee="/lib/explain-error">
     <j:set var="active" value="${it.pluginActive}" />
     <j:if test="${active}">
       <j:set var="enabled" value="${it.explainErrorEnabled}" />
       <j:set var="existingExplanation" value="${it.existingExplanation}" />
-      <j:set var="hasExplanation" value="${existingExplanation != null}" />
-      <j:if test="${enabled or hasExplanation}">
+      <j:if test="${enabled or existingExplanation != null}">
         <script src="${rootURL}/plugin/explain-error/js/explain-error-footer.js" type="text/javascript"/>
-        <j:set var="controls">
-          <j:if test="${enabled}">
-            <a href="#" tooltip="${%reexplain(it.providerName)}" class="jenkins-card__reveal eep-generate-new-button">
-              <l:icon src="symbol-reload" />
-            </a>
-          </j:if>
-          <a href="#" tooltip="${%Close}" class="jenkins-card__reveal eep-close-button">
-            <l:icon src="symbol-close" />
-          </a>
-        </j:set>
-        <div id="explain-error-container" class="jenkins-hidden" data-run-url="${it.runUrl}" data-provider-name="${it.providerName}"
-             data-has-explanation="${hasExplanation}" data-plugin-enabled="${enabled}"
-             data-label-explain="${%Explain Error}" data-label-show="${%Show explanation}"
-             data-label-pending="${%Explaining…}"
-             data-failure-headline="${%The explanation could not be generated.}">
-          <l:card title="${hasExplanation ? existingExplanation.heading : 'AI Error Explanation'}" controls="${controls}">
-            <div id="explain-error-spinner" class="jenkins-hidden">
-              <l:spinner text="${%Analyzing error logs...}"/>
-            </div>
-            <link rel="stylesheet" href="${resURL}/plugin/explain-error/css/explain-error.css" type="text/css"/>
-            <!-- A request that failed stays here, with what went wrong and a way to try again -->
-            <div id="explain-error-failure" class="jenkins-alert jenkins-alert-danger eep-failure jenkins-hidden" role="alert">
-              <div id="explain-error-failure-headline" class="eep-failure__headline"/>
-              <details id="explain-error-failure-details" class="eep-details jenkins-hidden">
-                <summary>${%Details}</summary>
-                <pre id="explain-error-failure-detail" class="eep-snippet"/>
-              </details>
-              <div class="eep-failure__actions">
-                <button type="button" id="explain-error-retry" class="jenkins-button">${%Try again}</button>
-              </div>
-            </div>
-            <div id="explain-error-content" class="${hasExplanation?'':'jenkins-hidden'}">
-              <j:if test="${hasExplanation}">
-                <j:set var="showGenerated" value="${true}"/>
-                <st:include it="${existingExplanation}" page="explanation.jelly"/>
-              </j:if>
-            </div>
-            <div class="jenkins-!-margin-top-3">
-              <a id="explain-error-url" href="${hasExplanation ? existingExplanation.urlString: ''}" class="jenkins-button ${hasExplanation?'':'jenkins-hidden'}" target="_self" >
-                <l:icon src="symbol-terminal" class="icon-md" />
-                ${%View failure output}
-              </a>
-            </div>
-          </l:card>
-        </div>
+        <ee:card surface="console" runUrl="${it.runUrl}" explainPath="console-explain-error/explainConsoleError"
+                 providerName="${it.providerName}" enabled="${enabled}" explanation="${existingExplanation}"/>
       </j:if>
     </j:if>
 </j:jelly>

@@ -1,488 +1,158 @@
 /**
- * Pipeline Graph View integration for the Explain Error plugin.
+ * The Explain Error button and card on the "Stages" page of the Pipeline Graph View plugin.
  *
- * Injects an "Explain Error" button into the Pipeline Graph View page
- * and monitors node selection to enable/disable it based on whether
- * the selected node represents a failed step.
+ * The card, and everything it does once the button is clicked, is the console page's: see
+ * explain-error-footer.js. This file only decides when the button is there and where the card
+ * goes. Both follow the stage or step selected in the graph.
+ *
+ * Graph View offers no extension point for this, so the selection is read from its page: the
+ * selected-node URL parameter and the tree item it marks active. If that markup changes, the
+ * button does not show; nothing else on the page depends on it.
  */
 (function () {
   'use strict';
 
+  const CHECK_SELECTION_MS = 300;
+  const CHECK_BUILD_MS = 5000;
+  const CHECK_PENDING_MS = 3000;
+
+  let container = null;
+  let button = null;
+  // The flow node the button and the card are about, as a string, or null
+  let selectedNode = null;
+
   document.addEventListener('DOMContentLoaded', function () {
-    var container = document.getElementById('explain-error-graph-container');
-    if (!container) {
+    container = document.getElementById('explain-error-container');
+    if (!container || container.dataset.surface !== 'graph-view') {
       return;
     }
-    initGraphViewExplain(container);
+    whenBuildHasFailed(function () {
+      followSelection();
+      setInterval(followSelection, CHECK_SELECTION_MS);
+    });
   });
 
-  function initGraphViewExplain(container) {
-    checkGraphBuildStatus(function (buildingStatus) {
-      // Status 0 = SUCCESS, 1 = RUNNING, 2 = FAILURE/UNSTABLE
-      if (buildingStatus === 2) {
-        // Build completed with failure — inject button and start monitoring
-        injectExplainButton();
-        startNodeSelectionMonitor();
-      } else if (buildingStatus === 1) {
-        // Still running — retry after a delay
-        setTimeout(function () {
-          initGraphViewExplain(container);
-        }, 5000);
-      }
-      // Status 0 (SUCCESS) — do nothing
-    });
-  }
-
-  // ---- Build status check ----
-
-  function checkGraphBuildStatus(callback) {
-    var container = document.getElementById('explain-error-graph-container');
-    var basePath = container.dataset.runUrl;
-    var rootURL = document.head.getAttribute('data-rooturl');
-    var url = rootURL + '/' + basePath + 'graph-explain-error/checkBuildStatus';
-
-    var headers = crumb.wrap({
-      'Content-Type': 'application/x-www-form-urlencoded'
-    });
-
-    fetch(url, {
+  function post(path, body) {
+    const rootURL = document.head.getAttribute('data-rooturl');
+    return fetch(rootURL + '/' + container.dataset.runUrl + 'graph-explain-error/' + path, {
       method: 'POST',
-      headers: headers,
-      body: ''
-    })
-      .then(function (response) { return response.json(); })
-      .then(function (data) {
-        callback(data.buildingStatus);
-      })
-      .catch(function (error) {
-        console.warn('Error checking build status:', error);
-        callback(2); // Assume failed on error
-      });
-  }
-
-  // ---- Button injection ----
-
-  var explainBtn = null;
-  var currentSelectedNode = null;
-
-  function injectExplainButton() {
-    if (document.querySelector('.explain-error-graph-btn')) {
-      return; // Already injected
-    }
-
-    // Try to find the top-right action bar (contains Run, Replay, etc.)
-    var actionBar = findActionBar();
-    if (!actionBar) {
-      setTimeout(injectExplainButton, 1000);
-      return;
-    }
-
-    var container = document.getElementById('explain-error-graph-container');
-    var providerName = container.dataset.providerName || 'Unknown';
-
-    var btn = document.createElement('button');
-    btn.textContent = 'Explain Error';
-    btn.className = 'jenkins-button explain-error-graph-btn jenkins-hidden';
-    btn.setAttribute('type', 'button');
-    btn.setAttribute('tooltip', 'Provider: ' + providerName);
-    btn.onclick = function () {
-      handleExplainClick();
-    };
-
-    actionBar.appendChild(btn);
-    if (typeof Behaviour !== 'undefined') {
-      Behaviour.applySubtree(actionBar, true);
-    }
-    explainBtn = btn;
-  }
-
-  function findActionBar() {
-    var selectors = [
-      '.jenkins-app-bar__controls',
-      '.jenkins-app-bar .jenkins-app-bar__controls',
-      '#layout-header .page-header__controls'
-    ];
-    for (var i = 0; i < selectors.length; i++) {
-      var el = document.querySelector(selectors[i]);
-      if (el) {
-        return el;
-      }
-    }
-    // Fallback: find or create a container in the app bar
-    var appBar = document.querySelector('.jenkins-app-bar');
-    if (appBar) {
-      var controls = appBar.querySelector('.jenkins-app-bar__controls');
-      if (controls) return controls;
-      var div = document.createElement('div');
-      div.className = 'jenkins-app-bar__controls';
-      appBar.appendChild(div);
-      return div;
-    }
-    return null;
-  }
-
-  // ---- Node selection monitoring ----
-
-  /**
-   * Intercept history.pushState and history.replaceState to detect URL changes
-   * that don't fire popstate events (used by Pipeline Graph View for node
-   * selection).
-   */
-  function patchHistory() {
-    var pushState = history.pushState;
-    var replaceState = history.replaceState;
-
-    function onUrlChange() {
-      window.dispatchEvent(new Event('urlchange'));
-    }
-
-    history.pushState = function () {
-      pushState.apply(history, arguments);
-      onUrlChange();
-    };
-    history.replaceState = function () {
-      replaceState.apply(history, arguments);
-      onUrlChange();
-    };
-  }
-
-  function startNodeSelectionMonitor() {
-    patchHistory();
-
-    // Check initial selection
-    checkCurrentSelection();
-
-    // Listen for browser back/forward
-    window.addEventListener('popstate', function () {
-      checkCurrentSelection();
-    });
-
-    // Listen for history.pushState / replaceState
-    window.addEventListener('urlchange', function () {
-      checkCurrentSelection();
-    });
-
-    // Low-frequency polling fallback (in case other mechanisms change the URL)
-    setInterval(function () {
-      var params = new URLSearchParams(window.location.search);
-      var nodeId = params.get('selected-node');
-      if (nodeId !== currentSelectedNode) {
-        checkCurrentSelection();
-      }
-    }, 500);
-  }
-
-  function checkCurrentSelection() {
-    var params = new URLSearchParams(window.location.search);
-    var nodeId = params.get('selected-node');
-
-    if (!nodeId || nodeId === currentSelectedNode) {
-      if (!nodeId) {
-        hideButton();
-        currentSelectedNode = null;
-      }
-      return;
-    }
-    currentSelectedNode = nodeId;
-    // A previously rendered explanation belongs to the node that was selected before —
-    // discard it so a stale explanation is never shown for the newly selected node.
-    resetExplanationPanel();
-    checkNodeFailedStatus(nodeId);
-  }
-
-  function resetExplanationPanel() {
-    clearExplanationContent();
-    hideExplanationPanel();
-    var urlLink = document.getElementById('explain-error-graph-url');
-    if (urlLink) {
-      urlLink.classList.add('jenkins-hidden');
-    }
-  }
-
-  function checkNodeFailedStatus(nodeId) {
-    var container = document.getElementById('explain-error-graph-container');
-    var basePath = container.dataset.runUrl;
-    var rootURL = document.head.getAttribute('data-rooturl');
-    var url = rootURL + '/' + basePath + 'graph-explain-error/checkNodeStatus';
-
-    var headers = crumb.wrap({
-      'Content-Type': 'application/x-www-form-urlencoded'
-    });
-
-    fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: 'nodeId=' + encodeURIComponent(nodeId)
-    })
-      .then(function (response) { return response.json(); })
-      .then(function (data) {
-        if (data.isFailed) {
-          showButton();
-        } else {
-          hideButton();
-        }
-      })
-      .catch(function (error) {
-        console.warn('Error checking node status:', error);
-        hideButton();
-      });
-  }
-
-  function showButton() {
-    if (explainBtn) {
-      explainBtn.classList.remove('jenkins-hidden');
-    }
-  }
-
-  function hideButton() {
-    if (explainBtn) {
-      explainBtn.classList.add('jenkins-hidden');
-    }
-  }
-
-  // ---- Explain flow ----
-
-  function handleExplainClick() {
-    showExplanationPanel();
-  }
-
-  function sendExplainRequest(forceNew) {
-    var container = document.getElementById('explain-error-graph-container');
-    var basePath = container.dataset.runUrl;
-    var rootURL = document.head.getAttribute('data-rooturl');
-    var url = rootURL + '/' + basePath + 'graph-explain-error/explainNodeError';
-    var nodeId = currentSelectedNode;
-
-    if (!nodeId) {
-      if (typeof notificationBar !== 'undefined') {
-        notificationBar.show('No failed node selected.', notificationBar.WARNING);
-      }
-      return;
-    }
-
-    var body = 'nodeId=' + encodeURIComponent(nodeId);
-    if (forceNew) {
-      body += '&forceNew=true';
-    }
-
-    var headers = crumb.wrap({
-      'Content-Type': 'application/x-www-form-urlencoded'
-    });
-
-    showSpinner();
-
-    fetch(url, {
-      method: 'POST',
-      headers: headers,
+      headers: crumb.wrap({ 'Content-Type': 'application/x-www-form-urlencoded' }),
       body: body
-    })
-      .then(function (response) { return response.text(); })
-      .then(function (text) {
-        var json;
-        try {
-          json = JSON.parse(text);
-        } catch (e) {
-          throw new Error('Explain failed: Jenkins returned an invalid response.');
-        }
+    }).then(response => response.json());
+  }
 
-        if (json.status === 'success') {
-          showExplanationResult(json.message, json.providerName, json.url);
-        } else {
-          if (typeof notificationBar !== 'undefined') {
-            var level = json.status === 'warning'
-              ? notificationBar.WARNING
-              : notificationBar.ERROR;
-            notificationBar.show(json.message, level);
-          }
-          hideExplanationPanel();
+  // 0 = succeeded, 1 = still running, 2 = finished without success
+  function whenBuildHasFailed(callback) {
+    post('checkBuildStatus', '')
+      .then(data => {
+        if (data.buildingStatus === 2) {
+          callback();
+        } else if (data.buildingStatus === 1) {
+          setTimeout(() => whenBuildHasFailed(callback), CHECK_BUILD_MS);
         }
       })
-      .catch(function (error) {
-        if (typeof notificationBar !== 'undefined') {
-          notificationBar.show('Error: ' + error.message, notificationBar.ERROR);
+      .catch(error => console.warn('Explain Error: could not check the build status', error));
+  }
+
+  // Graph View puts the selection in the URL once something has been clicked. Until then it picks
+  // a stage itself, the failed one if there is one, and only marks it in the tree.
+  function currentNode() {
+    const fromUrl = new URLSearchParams(window.location.search).get('selected-node');
+    if (fromUrl) {
+      return fromUrl;
+    }
+    const active = document.querySelector('a.pgv-tree-item--active[href*="selected-node="]');
+    return active ? new URL(active.href).searchParams.get('selected-node') : null;
+  }
+
+  function followSelection() {
+    const node = currentNode();
+    if (node === selectedNode) {
+      placeCard();
+      return;
+    }
+    selectedNode = node;
+    container.dataset.requestParams = node ? 'nodeId=' + encodeURIComponent(node) : '';
+    // What the card shows belongs to the node that was selected before
+    resetExplanationCard();
+    setButtonVisible(false);
+    placeCard();
+    if (node) {
+      checkNode(node);
+    }
+  }
+
+  // The button is for a failed node only. Its label says what the build already has for it.
+  function checkNode(node) {
+    post('checkNodeStatus', 'nodeId=' + encodeURIComponent(node))
+      .then(data => {
+        if (node !== selectedNode) {
+          return;
         }
-        hideExplanationPanel();
+        const enabled = container.dataset.pluginEnabled === 'true';
+        if (!data.isFailed || (!enabled && data.explanation !== 'ready')) {
+          setButtonVisible(false);
+          return;
+        }
+        setButtonVisible(true);
+        setButtonState(data.explanation);
+        if (data.explanation === 'pending') {
+          // An automatic explanation is on its way: look again rather than ask for a second one
+          setTimeout(() => {
+            if (node === selectedNode) {
+              checkNode(node);
+            }
+          }, CHECK_PENDING_MS);
+        }
+      })
+      .catch(error => {
+        console.warn('Explain Error: could not check the selected node', error);
+        if (node === selectedNode) {
+          setButtonVisible(false);
+        }
       });
   }
 
-  // ---- Explanation panel ----
+  function setButtonVisible(visible) {
+    if (visible && !button) {
+      button = addButton();
+    }
+    if (button) {
+      setClass(button, 'jenkins-hidden', !visible);
+    }
+  }
 
-  /**
-   * Clones an icon that was rendered server-side via the real Jenkins
-   * Symbols mechanism (<l:icon src="symbol-..."/> in footer.jelly — the
-   * same one behind ErrorExplanationAction#getIconFileName), rather than
-   * hard-coding SVG markup of our own. The source nodes are hidden markers
-   * with a known ID; this just clones whatever Jenkins actually rendered
-   * into them, so upgrades to Jenkins core / ionicons-api are picked up
-   * for free and there is no risk of hand-drawn markup drifting from the
-   * real icon.
-   */
-  function cloneServerRenderedIcon(sourceId) {
-    var source = document.getElementById(sourceId);
-    if (!source || !source.firstElementChild) {
+  // Next to the page's own actions, in front of them so that Rerun and the settings stay put
+  function addButton() {
+    const controls = document.querySelector('.jenkins-app-bar__controls');
+    if (!controls) {
       return null;
     }
-    var icon = source.firstElementChild.cloneNode(true);
-    icon.classList.remove('jenkins-hidden');
-    return icon;
+    const btn = createButton(container.dataset.labelExplain,
+      'jenkins-button explain-error-btn explain-error-graph-btn', openExplanation,
+      container.dataset.providerName);
+    btn.type = 'button';
+    const first = Array.from(controls.children).find(child => child.tagName !== 'SCRIPT');
+    controls.insertBefore(btn, first || null);
+    Behaviour.applySubtree(btn, true);
+    return btn;
   }
 
-  /**
-   * Aligns the explanation panel's left/right edges with the graph view's
-   * stage/step detail column (#stage-view-pane), which is offset to the
-   * right of the stage tree sidebar. The panel is appended to #main-panel
-   * (spans the full content width, tree included) rather than into the
-   * pipeline-graph-view React tree, so it survives node-selection re-renders
-   * — but that means its horizontal position has to be computed to match,
-   * not inherited via normal document flow.
-   */
-  function alignPanelToStageColumn(panel) {
-    var mainPanel = document.querySelector('#main-panel') || document.body;
-    var stagePane = document.getElementById('stage-view-pane')
-      || document.querySelector('.pgv-stage-steps');
-    if (stagePane) {
-      var mainRect = mainPanel.getBoundingClientRect();
-      var paneRect = stagePane.getBoundingClientRect();
-      // margin is applied inside #main-panel's own padding box, so that
-      // padding has to be subtracted out or it stacks on top of it.
-      var mainStyle = window.getComputedStyle(mainPanel);
-      var mainPaddingLeft = parseFloat(mainStyle.paddingLeft) || 0;
-      var mainPaddingRight = parseFloat(mainStyle.paddingRight) || 0;
-      panel.style.marginLeft = Math.max(0, paneRect.left - mainRect.left - mainPaddingLeft) + 'px';
-      panel.style.marginRight = Math.max(0, mainRect.right - paneRect.right - mainPaddingRight) + 'px';
-    } else {
-      panel.style.marginLeft = '20px';
-      panel.style.marginRight = '20px';
-    }
-  }
-
-  function ensureExplanationPanel() {
-    var panel = document.getElementById('explain-error-graph-panel');
-    if (panel) {
-      alignPanelToStageColumn(panel);
-      return panel;
-    }
-
-    var mainPanel = document.querySelector('#main-panel') || document.body;
-
-    panel = document.createElement('div');
-    panel.id = 'explain-error-graph-panel';
-    panel.className = 'jenkins-hidden';
-    panel.style.marginTop = '20px';
-    panel.style.marginBottom = '20px';
-
-    panel.innerHTML =
-      '<div class="jenkins-card">' +
-      '  <div class="jenkins-card__title">' +
-      '    <span id="explain-error-graph-provider">AI Error Explanation</span>' +
-      '    <div class="jenkins-card__controls">' +
-      '      <a href="#" class="jenkins-card__reveal eep-graph-generate-new" tooltip="Generate new explanation"></a>' +
-      '      <a href="#" class="jenkins-card__reveal eep-graph-close" tooltip="Close"></a>' +
-      '    </div>' +
-      '  </div>' +
-      '  <div class="jenkins-card__content">' +
-      '    <div id="explain-error-graph-spinner" class="jenkins-hidden" style="text-align:center;padding:20px">' +
-      '      Analyzing error logs...' +
-      '    </div>' +
-      '    <pre id="explain-error-graph-content" class="jenkins-hidden" style="white-space:pre-wrap;word-wrap:break-word;margin-bottom:0"></pre>' +
-      '    <div class="jenkins-!-margin-top-3">' +
-      '      <a id="explain-error-graph-url" href="#" class="jenkins-button jenkins-!-destructive-color jenkins-hidden" target="_self">' +
-      '        View failure output' +
-      '      </a>' +
-      '    </div>' +
-      '  </div>' +
-      '</div>';
-
-    mainPanel.appendChild(panel);
-    alignPanelToStageColumn(panel);
-
-    var reloadIcon = cloneServerRenderedIcon('explain-error-graph-icon-reload');
-    if (reloadIcon) {
-      panel.querySelector('.eep-graph-generate-new').appendChild(reloadIcon);
-    }
-    var closeIcon = cloneServerRenderedIcon('explain-error-graph-icon-close');
-    if (closeIcon) {
-      panel.querySelector('.eep-graph-close').appendChild(closeIcon);
-    }
-
-    // Wire up controls
-    panel.querySelector('.eep-graph-generate-new').addEventListener('click', function (e) {
-      e.preventDefault();
-      clearExplanationContent();
-      sendExplainRequest(true);
-    });
-    panel.querySelector('.eep-graph-close').addEventListener('click', function (e) {
-      e.preventDefault();
-      hideExplanationPanel();
-    });
-
-    window.addEventListener('resize', function () {
-      alignPanelToStageColumn(panel);
-    });
-
-    return panel;
-  }
-
-  function showExplanationPanel() {
-    var content = document.getElementById('explain-error-graph-content');
-    if (!content || !content.textContent) {
-      // Nothing rendered yet — fetch from the server, which returns the
-      // cached explanation when one exists and generates one otherwise.
-      sendExplainRequest();
+  // Under the header of the selected stage, above its steps, so the explanation is read next to
+  // the log it is about. Graph View redraws that pane; the card is put back if it has moved.
+  // Without the pane the card goes to the end of the page content.
+  function placeCard() {
+    const pane = document.getElementById('stage-view-pane');
+    const header = pane && pane.querySelector('.pgv-stage-details');
+    if (header) {
+      if (header.nextElementSibling !== container) {
+        header.after(container);
+      }
       return;
     }
-    var panel = ensureExplanationPanel();
-    panel.classList.remove('jenkins-hidden');
-  }
-
-  function hideExplanationPanel() {
-    var panel = document.getElementById('explain-error-graph-panel');
-    if (panel) {
-      panel.classList.add('jenkins-hidden');
+    const mainPanel = document.getElementById('main-panel');
+    if (mainPanel && container.parentElement !== mainPanel) {
+      mainPanel.appendChild(container);
     }
   }
-
-  function showSpinner() {
-    var panel = ensureExplanationPanel();
-    panel.classList.remove('jenkins-hidden');
-    document.getElementById('explain-error-graph-spinner').classList.remove('jenkins-hidden');
-    document.getElementById('explain-error-graph-content').classList.add('jenkins-hidden');
-    document.getElementById('explain-error-graph-url').classList.add('jenkins-hidden');
-  }
-
-  function showExplanationResult(message, providerName, url) {
-    var panel = ensureExplanationPanel();
-    panel.classList.remove('jenkins-hidden');
-
-    var spinner = document.getElementById('explain-error-graph-spinner');
-    var content = document.getElementById('explain-error-graph-content');
-    var urlLink = document.getElementById('explain-error-graph-url');
-    var providerSpan = document.getElementById('explain-error-graph-provider');
-
-    spinner.classList.add('jenkins-hidden');
-    content.textContent = message;
-    content.classList.remove('jenkins-hidden');
-
-    if (url) {
-      urlLink.href = url;
-      urlLink.classList.remove('jenkins-hidden');
-    }
-
-    if (providerName) {
-      providerSpan.textContent = 'AI Error Explanation (' + providerName + ')';
-    }
-
-    // Update container cache flag
-    var container = document.getElementById('explain-error-graph-container');
-    container.dataset.hasExplanation = 'true';
-  }
-
-  function clearExplanationContent() {
-    var content = document.getElementById('explain-error-graph-content');
-    if (content) {
-      content.classList.add('jenkins-hidden');
-      content.textContent = '';
-    }
-  }
-
 })();

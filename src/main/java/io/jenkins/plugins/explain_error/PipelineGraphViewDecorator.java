@@ -1,7 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
 import hudson.Extension;
-import hudson.model.PageDecorator;
 import hudson.model.Run;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.Ancestor;
@@ -9,47 +8,18 @@ import org.kohsuke.stapler.Stapler;
 import org.kohsuke.stapler.StaplerRequest2;
 
 /**
- * Page decorator to add "Explain Error" functionality to Pipeline Graph View pages.
- * Injects JavaScript that monitors node selection and provides an
- * "Explain Error" button for failed nodes.
+ * Adds the "Explain Error" card and its scripts to the "Stages" page of the Pipeline Graph View
+ * plugin. What the card needs to know about the build is the same as on the console page.
  */
 @Extension
-public class PipelineGraphViewDecorator extends PageDecorator {
-
-    public PipelineGraphViewDecorator() {
-        super();
-    }
+public class PipelineGraphViewDecorator extends ConsolePageDecorator {
 
     /**
-     * Returns {@code true} when the explain-error plugin is configured
-     * and enabled.
+     * Whether the current request is for the "Stages" page of a build. The page is looked for
+     * right under the build, so that a job or folder that happens to be called "stages" does not
+     * count.
      */
-    public boolean isExplainErrorEnabled() {
-        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-
-        if (!config.isEnableExplanation()) {
-            return false;
-        }
-
-        if (config.getAiProvider() == null) {
-            return false;
-        }
-
-        return !config.getAiProvider().isNotValid(null);
-    }
-
-    public String getProviderName() {
-        if (GlobalConfigurationImpl.get().getAiProvider() == null) {
-            return null;
-        }
-        return GlobalConfigurationImpl.get().getAiProvider().getProviderName();
-    }
-
-    /**
-     * Checks whether the current request is on a Pipeline Graph View page.
-     * Only active when the {@code pipeline-graph-view} plugin is installed
-     * and the URL matches the graph view pattern.
-     */
+    @Override
     public boolean isPluginActive() {
         if (Jenkins.get().getPlugin("pipeline-graph-view") == null) {
             return false;
@@ -58,27 +28,18 @@ public class PipelineGraphViewDecorator extends PageDecorator {
         if (req == null) {
             return false;
         }
-        String uri = req.getRequestURI();
-        // Pipeline Graph View renders as a Tab at e.g. /job/xxx/1/stages/
-        // The trailing slash is part of the URL; also handle query params
-        return uri.matches(".*/stages(/.*)?(\\?.*)?$");
+        Ancestor ancestor = req.findAncestor(Run.class);
+        if (ancestor == null) {
+            return false;
+        }
+        return isStagesPage(ancestor.getRestOfUrl());
     }
 
-    public String getRunUrl() {
-        Ancestor ancestor = Stapler.getCurrentRequest2().findAncestor(Run.class);
-        if (ancestor != null && ancestor.getObject() instanceof Run<?, ?> run) {
-            return run.getUrl();
-        } else {
-            return null;
-        }
-    }
-
-    public ErrorExplanationAction getExistingExplanation() {
-        Ancestor ancestor = Stapler.getCurrentRequest2().findAncestor(Run.class);
-        if (ancestor != null && ancestor.getObject() instanceof Run<?, ?> run) {
-            return run.getAction(ErrorExplanationAction.class);
-        } else {
-            return null;
-        }
+    /**
+     * @param restOfUrl what follows the build in the request URL, without a leading slash
+     */
+    static boolean isStagesPage(String restOfUrl) {
+        return restOfUrl.equals(PipelineLogExtractor.URL_NAME)
+                || restOfUrl.startsWith(PipelineLogExtractor.URL_NAME + "/");
     }
 }

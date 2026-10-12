@@ -22,7 +22,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 
 ## Key Features
 
-* **One-click error analysis** on any console output
+* **One-click error analysis** on any console output, and per stage on the Stages page of [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/)
 * **Pipeline-ready** with a simple `explainError()` step
 * **Structured output** *(opt-in)* — `returnStructured: true` returns a `Map` of the analysis fields for notifications and routing
 * **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled, within hourly and concurrency limits, and a job can opt out or in
@@ -612,6 +612,18 @@ Works with Freestyle, Declarative, or any job type.
 
 If the request fails, the card stays open with what went wrong and a **Try again** button. Once a build
 has an explanation the button reads **Show explanation**, and the card says when it was generated.
+
+#### On the Stages page of a Pipeline
+
+With the [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/) plugin, the same button is
+on the **Stages** page of a failed Pipeline build. It explains the stage, parallel branch or step selected in
+the graph, from that node's log only, and shows the explanation above the node's steps. A node that passed
+has no button.
+
+![AI Error Explanation on the Stages page](docs/images/graph-view.png)
+
+A build keeps one explanation. Explaining another node replaces it, also on the build page and the console
+page; coming back to a node the explanation covers shows it again without asking the provider.
 
 ### Method 3: Automatic (RunListener)
 
