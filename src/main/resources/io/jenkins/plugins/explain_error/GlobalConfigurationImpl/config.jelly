@@ -28,7 +28,7 @@
         </f:optionalBlock>
         <f:optionalBlock field="enableAutoExplainOnFailure" title="Automatically explain failed builds"
                          checked="${it.enableAutoExplainOnFailure}" inline="true"
-                         help="When enabled, all failed builds will automatically trigger AI explanation. Requires 'Enable AI Error Explanation' to be active. Builds already explained via explainError() step are skipped.">
+                         help="When enabled, all failed builds will automatically trigger AI explanation. Requires 'Enable AI Error Explanation' to be active. Builds already explained via explainError() step are skipped. A job can override this setting with 'Override automatic AI error explanation' in its configuration.">
           <f:entry title="Max Log Lines" field="autoExplainMaxLogLines"
                    description="Number of log lines to read from the build console for auto-explanation. Increase this for models with larger context windows (e.g. DeepSeek, Kimi).">
             <f:number clazz="setting-input" min="1" default="100" />

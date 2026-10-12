@@ -25,7 +25,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 * **One-click error analysis** on any console output
 * **Pipeline-ready** with a simple `explainError()` step
 * **Structured output** *(opt-in)* — `returnStructured: true` returns a `Map` of the analysis fields for notifications and routing
-* **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled
+* **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled, within hourly and concurrency limits, and a job can opt out or in
 * **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
 * **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
 * **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI GPT models, OpenAI-compatible gateways (LiteLLM, OpenWebUI, self-hosted proxies), Qwen, or generic Okta-authenticated company AI gateways
@@ -70,7 +70,7 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 | **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
 | **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. The section labels around the explanation follow it for English, Chinese (Simplified and Traditional), Japanese, Spanish, French and German; other languages get English labels. | `English` |
 | **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). Explanations are short by default (a summary of one or two sentences, up to four resolution steps, up to two best practices); ask here for more or less detail. | *Optional*. Can be overridden at folder and step level. |
-| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. | Disabled |
+| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. A job can override it; see [Automatic Explanation](docs/auto-explain.md#per-job-override). | Disabled |
 | **Max Log Lines** *(auto-explain)* | Number of console log lines read per build for automatic explanation. Increase this for models with large context windows (e.g. DeepSeek, Kimi). Only visible when **Automatically explain failed builds** is enabled. | `100` |
 | **Max Automatic Explanations per Hour** *(auto-explain)* | Maximum number of AI provider calls for automatic explanations per hour, in addition to the request quota. Failed builds beyond it are not explained automatically and say so in their console. See [Automatic Explanation](docs/auto-explain.md). | `30` |
 
@@ -642,6 +642,13 @@ Limits keep a burst of failures, for example during an outage, from turning into
 
 A failed build that is skipped because of either limit says so in its console, and can still be explained
 with the **Explain Error** button.
+
+A job can opt out, for example a flaky test job, or opt in while the global toggle is off, with
+**"Override automatic AI error explanation"** in its configuration or in a Pipeline:
+
+```groovy
+properties([explainErrorJob(autoExplainOnFailure: false)])
+```
 
 All existing configuration (provider, model, language, custom context, quota limits) applies
 to auto-explained builds in the same way as pipeline-step and console-action requests.

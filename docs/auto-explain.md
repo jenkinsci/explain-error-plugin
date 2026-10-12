@@ -11,6 +11,7 @@ Because one toggle covers every job on the controller, automatic explanation has
 | Feature | Details |
 |---|---|
 | **Zero-change rollout** | One global toggle covers all jobs: Freestyle, Pipeline, Multibranch |
+| **Per-job override** | A job can opt out while the toggle is on, or opt in while it is off |
 | **Hourly limit** | At most **30** provider calls per hour for automatic explanations by default, independent of the request quota |
 | **Bounded background work** | At most **2** explanations run at the same time and at most **50** failed builds wait for one; further failures are skipped |
 | **Says when it skips** | A build that is not explained because of a limit says so in its console |
@@ -25,7 +26,7 @@ Because one toggle covers every job on the controller, automatic explanation has
 | Limitation | Notes |
 |---|---|
 | **Results other than `FAILURE`** | `UNSTABLE`, `ABORTED` and `NOT_BUILT` builds are never explained automatically |
-| **Per-job or per-folder toggle** | The toggle is global. Folders can set their own provider and quota, which automatic explanations use |
+| **Per-folder toggle** | The toggle is global with a per-job override. Folders can set their own provider and quota, which automatic explanations use |
 | **Console feedback after the build** | The console is written while the build ends. A provider error or a request-quota rejection that happens afterwards is written to the Jenkins log, not to the build console |
 | **Persistence of limits** | The hourly counter resets when Jenkins restarts |
 | **Limits for the step or the button** | `explainError()` and the **Explain Error** button are not subject to these limits; use the [request quota](usage-quota.md) for them |
@@ -56,6 +57,32 @@ unclassified:
     autoExplainMaxLogLines: 100
     autoExplainMaxPerHour: 30
 ```
+
+---
+
+## Per-Job Override
+
+A job can override the global toggle:
+
+- **Opt out** a job that fails often, such as a flaky test job, while automatic explanation is enabled.
+- **Opt in** a single job while automatic explanation is disabled globally, for example to try it on one team's jobs first.
+
+In the job configuration, check **Override automatic AI error explanation** in the **General** section and choose **Explain automatically** or **Do not explain automatically**. Leave it unchecked to follow the global setting.
+
+In a Pipeline, use the `properties` step:
+
+```groovy
+properties([explainErrorJob(autoExplainOnFailure: false)])
+```
+
+The `properties` step replaces all job properties that the Jenkinsfile manages, so list `explainErrorJob` together with the other properties you set there. It takes effect from the build that runs it.
+
+The override only decides whether a failed build is explained *automatically*:
+
+- A job that opts out keeps its **Explain Error** button, and `explainError()` in its Pipeline still works.
+- A job that opts in is subject to the same [hourly limit](#hourly-limit) and [queue](#concurrency-and-queue-limits) as every other job, and to the request quota.
+- Opting in does not get past **Enable AI Error Explanation**: while that is off, globally or for the job's folder, nothing is explained.
+- **Max Log Lines** and **Max Automatic Explanations per Hour** are global. They are shown in the global configuration only while **Automatically explain failed builds** is checked; with it unchecked, jobs that opt in use the values last saved there (or set through CasC).
 
 ---
 
@@ -104,7 +131,7 @@ With the defaults, a burst of failures costs at most 2 provider calls at a time 
 
 | Symptom | Check |
 |---|---|
-| Nothing happens when a build fails | The build result must be `FAILURE`, and both **Enable AI Error Explanation** and **Automatically explain failed builds** must be on |
+| Nothing happens when a build fails | The build result must be `FAILURE`, **Enable AI Error Explanation** must be on, and automatic explanation must be on for the job: globally, or through the job's override. A job that opted out is never explained automatically |
 | Console says auto-explain was skipped | The hourly limit or the queue was full; the line names which. Use the **Explain Error** button for that build, or raise the limit |
 | Console says the explanation will appear, but it never does | Look in **Manage Jenkins → System Log** for `io.jenkins.plugins.explain_error`: the provider may have failed, or the request quota may have been reached |
 | Explanations arrive late during a burst of failures | Builds wait their turn: two at a time by default. Raise the concurrency limit with the system property above if the provider can take more |
