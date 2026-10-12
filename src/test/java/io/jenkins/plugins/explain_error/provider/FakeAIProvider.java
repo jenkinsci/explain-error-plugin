@@ -43,7 +43,7 @@ public class FakeAIProvider extends OpenAIProvider {
                 lastLanguage = language;
                 lastCustomContext = customContext;
                 lastTemperature = temperature;
-                callCount++;
+                countCall();
                 return answerMessage;
             }
         };
@@ -69,8 +69,13 @@ public class FakeAIProvider extends OpenAIProvider {
         this.answerMessage = answer;
     }
 
-    public int getCallCount() {
+    public synchronized int getCallCount() {
         return callCount;
+    }
+
+    /** Several automatic explanations can be with the provider at once, so the count must not lose any. */
+    private synchronized void countCall() {
+        callCount++;
     }
     
     public String getLastErrorLogs() {
