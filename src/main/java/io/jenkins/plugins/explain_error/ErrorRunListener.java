@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
+import com.google.common.annotations.VisibleForTesting;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.Run;
@@ -10,11 +11,14 @@ import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.util.LogTaskListener;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import jenkins.model.Jenkins;
+import jenkins.util.SystemProperties;
 import org.springframework.security.core.Authentication;
 
 /**
@@ -38,22 +42,51 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
 
     private static final Logger LOGGER = Logger.getLogger(ErrorRunListener.class.getName());
 
+    /** Maximum number of automatic explanations requested from the AI provider at the same time. */
+    static final int MAX_CONCURRENT_REQUESTS = Math.max(1, SystemProperties.getInteger(
+            ErrorRunListener.class.getName() + ".maxConcurrentRequests", 2));
+
+    /** Maximum number of failed builds waiting for an automatic explanation; further failures are skipped. */
+    static final int MAX_QUEUED_REQUESTS = Math.max(1, SystemProperties.getInteger(
+            ErrorRunListener.class.getName() + ".maxQueuedRequests", 50));
+
     /**
      * Dedicated daemon thread pool for auto-explain work. {@code onCompleted} runs
      * on the build's own thread, so making the (potentially slow) AI provider call
-     * inline would hold the executor until the provider responds. Offloading keeps
-     * the build completion flow non-blocking. Daemon threads do not prevent JVM
-     * shutdown and avoid polluting {@code ForkJoinPool.commonPool()}.
+     * inline would hold the executor until the provider responds. The pool and its
+     * queue are bounded, so a burst of failures (for example during an outage)
+     * cannot start an unbounded number of threads and provider calls. Daemon threads
+     * do not prevent JVM shutdown and avoid polluting {@code ForkJoinPool.commonPool()}.
      */
-    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "explain-error-run-listener");
-        t.setDaemon(true);
-        return t;
-    });
+    private static volatile ThreadPoolExecutor executor = newExecutor(MAX_CONCURRENT_REQUESTS, MAX_QUEUED_REQUESTS);
 
     @SuppressWarnings("rawtypes")
     public ErrorRunListener() {
         super((Class) Run.class);
+    }
+
+    @VisibleForTesting
+    static ThreadPoolExecutor newExecutor(int maxConcurrentRequests, int maxQueuedRequests) {
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(maxConcurrentRequests, maxConcurrentRequests,
+                60L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(maxQueuedRequests), r -> {
+                    Thread t = new Thread(r, "explain-error-run-listener");
+                    t.setDaemon(true);
+                    return t;
+                });
+        pool.allowCoreThreadTimeOut(true);
+        return pool;
+    }
+
+    /**
+     * Replaces the executor that runs automatic explanations.
+     *
+     * @return the executor that was replaced
+     */
+    @VisibleForTesting
+    static ThreadPoolExecutor setExecutor(ThreadPoolExecutor replacement) {
+        ThreadPoolExecutor previous = executor;
+        executor = replacement;
+        return previous;
     }
 
     @Override
@@ -94,17 +127,45 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             return;
         }
 
-        // Write a single summary line while the stream is guaranteed open.
-        // The background thread writes no further console output; verbose
-        // setup messages from ErrorExplainer go to the plugin log instead.
-        listener.getLogger().println("[explain-error] Build failed. Auto-explain triggered"
-                + " \u2014 AI explanation will appear on the build page shortly.");
+        // The hourly limit is taken here rather than in the background task, so that a build
+        // over the limit can say so while its console is still open instead of promising an
+        // explanation that never comes. A slot that ends up unused is given back.
+        if (!config.tryAcquireAutoExplainQuota()) {
+            listener.getLogger().println("[explain-error] Build failed, but auto-explain was skipped because the"
+                    + " limit of " + config.getAutoExplainMaxPerHour()
+                    + " automatic explanations per hour has been reached.");
+            LOGGER.info("[" + fullName(run) + "] Auto-explain skipped: the hourly limit has been reached.");
+            recordSkipped(provider, UsageEvent.Result.QUOTA_REJECTED);
+            return;
+        }
 
         // Capture the security context on the build thread; the background thread
         // starts with no authentication of its own.
         Authentication authentication = Jenkins.getAuthentication2();
         PendingExplanations.add(run);
-        EXECUTOR.submit(() -> explainAsync(run, authentication));
+        try {
+            executor.execute(() -> explainAsync(run, authentication));
+        } catch (RejectedExecutionException e) {
+            PendingExplanations.remove(run);
+            config.releaseAutoExplainQuota();
+            listener.getLogger().println("[explain-error] Build failed, but auto-explain was skipped because too many"
+                    + " failed builds are already waiting for an explanation.");
+            LOGGER.info("[" + fullName(run) + "] Auto-explain skipped: the queue of pending explanations is full.");
+            recordSkipped(provider, UsageEvent.Result.THROTTLED);
+            return;
+        }
+
+        // Write a single summary line while the stream is guaranteed open.
+        // The background thread writes no further console output; verbose
+        // setup messages from ErrorExplainer go to the plugin log instead.
+        listener.getLogger().println("[explain-error] Build failed. Auto-explain triggered"
+                + " \u2014 AI explanation will appear on the build page shortly.");
+    }
+
+    private static void recordSkipped(BaseAIProvider provider, UsageEvent.Result result) {
+        UsageRecorders.get().record(new UsageEvent(System.currentTimeMillis(),
+                UsageEvent.EntryPoint.RUN_LISTENER, result,
+                provider.getProviderName(), provider.getModel(), 0L, 0, false));
     }
 
     /**
@@ -117,9 +178,14 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
      * {@link #onCompleted} where the stream was guaranteed open.
      */
     private void explainAsync(Run<?, ?> run, Authentication authentication) {
+        ErrorExplainer explainer = new ErrorExplainer();
         try (ACLContext ignored = ACL.as2(authentication)) {
+            // The task may have waited in the queue; someone can have asked by hand in the meantime
+            if (run.getAction(ErrorExplanationAction.class) != null) {
+                LOGGER.fine("[" + fullName(run) + "] Skipping auto-explain: the build was explained while it waited.");
+                return;
+            }
             LOGGER.fine("[" + fullName(run) + "] Build failed; automatically requesting AI explanation.");
-            ErrorExplainer explainer = new ErrorExplainer();
             int maxLogLines = GlobalConfigurationImpl.get().getAutoExplainMaxLogLines();
             explainer.explainError(run, new LogTaskListener(LOGGER, Level.FINE),
                     "", maxLogLines, null, null, false,
@@ -133,6 +199,10 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
             LOGGER.log(Level.WARNING, "[" + fullName(run) + "] Auto-explain on failure failed unexpectedly.", e);
         } finally {
             PendingExplanations.remove(run);
+            if (!explainer.wasProviderCalled()) {
+                // The hourly limit counts provider calls, and this build did not make one
+                GlobalConfigurationImpl.get().releaseAutoExplainQuota();
+            }
         }
     }
 

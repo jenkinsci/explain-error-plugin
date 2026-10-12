@@ -46,6 +46,16 @@ public class QuotaEnforcer {
     }
 
     /**
+     * Gives back a slot taken with {@link #tryAcquire(QuotaWindow, int)} for a call that was
+     * not made after all.
+     */
+    public synchronized void release() {
+        if (count > 0) {
+            count--;
+        }
+    }
+
+    /**
      * Resets the quota counter and starts a fresh window.
      * Intended for testing and for manual admin resets.
      */
