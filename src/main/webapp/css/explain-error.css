@@ -57,6 +57,18 @@
   font-size: 0.8125rem;
 }
 
+/* An explanation taken over from an earlier build that failed the same way. */
+
+.eep-reused,
+.eep-build-summary__reused {
+  color: var(--text-color-secondary);
+  font-size: 0.8125rem;
+}
+
+.eep-reused {
+  margin: 0 0 0.75rem;
+}
+
 /* The conclusion on the build's own page. */
 
 .eep-build-summary__heading {

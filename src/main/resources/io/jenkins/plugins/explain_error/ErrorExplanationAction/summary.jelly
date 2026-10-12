@@ -14,6 +14,9 @@
                 <j:if test="${it.structured}">
                     <div class="eep-build-summary__text"><j:out value="${it.summaryPreviewHtml}"/></div>
                 </j:if>
+                <j:if test="${it.reusedFromBuild > 0}">
+                    <div class="eep-build-summary__reused">${it.labels.reusedFrom(it.reusedFromBuild)}</div>
+                </j:if>
                 <div><a class="eep-build-summary__more" href="${explanationUrl}">${%View full explanation}</a></div>
             </div>
         </t:summary>

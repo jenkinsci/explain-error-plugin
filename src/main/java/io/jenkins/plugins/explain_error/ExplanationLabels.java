@@ -124,6 +124,11 @@ public final class ExplanationLabels {
         return MessageFormat.format(bundle.getString("linesAnalysed"), String.valueOf(count));
     }
 
+    /** Says which earlier build an explanation was taken over from. */
+    public String reusedFrom(int buildNumber) {
+        return MessageFormat.format(bundle.getString("reusedFrom"), String.valueOf(buildNumber));
+    }
+
     /** "Generated on ...", for the line under the explanation where the time is not shown elsewhere. */
     public String generatedOn(String time) {
         return MessageFormat.format(bundle.getString("generatedOn"), time);

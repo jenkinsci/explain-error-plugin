@@ -205,6 +205,7 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
                 LOGGER.fine("[" + fullName(run) + "] Skipping auto-explain: the build was explained while it waited.");
                 return;
             }
+            awaitLogCompletion(run);
             LOGGER.fine("[" + fullName(run) + "] Build failed; automatically requesting AI explanation.");
             int maxLogLines = GlobalConfigurationImpl.get().getAutoExplainMaxLogLines();
             explainer.explainError(run, new LogTaskListener(LOGGER, Level.FINE),
@@ -223,6 +224,21 @@ public class ErrorRunListener extends RunListener<Run<?, ?>> {
                 // The hourly limit counts provider calls, and this build did not make one
                 GlobalConfigurationImpl.get().releaseAutoExplainQuota();
             }
+        }
+    }
+
+    /**
+     * {@code onCompleted} fires before the build log is closed, so its last lines may still be
+     * written when the background task starts. Waiting briefly keeps the extracted log, and so
+     * the failure fingerprint used to reuse explanations, the same for identical failures.
+     */
+    private static void awaitLogCompletion(Run<?, ?> run) {
+        try {
+            for (int i = 0; i < 50 && run.isLogUpdated(); i++) {
+                Thread.sleep(100);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

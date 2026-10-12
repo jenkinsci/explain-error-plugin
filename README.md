@@ -639,6 +639,7 @@ Limits keep a burst of failures, for example during an outage, from turning into
 
 * **Hourly limit** — at most 30 provider calls per hour for automatic explanations by default (**"Max Automatic Explanations per Hour"**)
 * **Bounded background work** — at most 2 explanations run at the same time and 50 wait
+* **Reuse of identical failures** — a build that fails the same way as the last explained build of the job takes over that explanation instead of calling the provider, and says which build it came from
 
 A failed build that is skipped because of either limit says so in its console, and can still be explained
 with the **Explain Error** button.
