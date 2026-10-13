@@ -1,7 +1,12 @@
+// The card is also shown on the Pipeline Graph View page, which has a script of its own for the
+// button and for where the card goes (explain-error-graph-view.js). Everything below the console
+// page's set-up is shared by both.
 document.addEventListener('DOMContentLoaded', function () {
-  checkBuildStatusAndAddButton();
-  // Moved from the second DOMContentLoaded listener
   const container = document.getElementById('explain-error-container');
+  if (!container || container.dataset.surface !== 'console') {
+    return;
+  }
+  checkBuildStatusAndAddButton();
   const consoleOutput =
     document.querySelector('#out') ||
     document.querySelector('pre.console-output') ||
@@ -211,29 +216,42 @@ function cancelExplanation() {
 // What "Try again" repeats
 let lastRequestForcedNew = false;
 
+// Counts requests, so an answer that arrives after the card has moved on is not shown
+let explainRequestId = 0;
+
 function sendExplainRequest(forceNew = false) {
   lastRequestForcedNew = forceNew;
+  const requestId = ++explainRequestId;
   const container = document.getElementById('explain-error-container');
   const basePath = container.dataset.runUrl
   const rootURL = document.head.getAttribute("data-rooturl");
-  const url = rootURL + '/' + basePath + 'console-explain-error/explainConsoleError';
+  const url = rootURL + '/' + basePath + container.dataset.explainPath;
 
   const headers = crumb.wrap({
     "Content-Type": "application/x-www-form-urlencoded",
   });
 
-  // Add forceNew parameter if needed
-  const body = forceNew ? "forceNew=true" : "";
+  // requestParams is what the page adds, such as the stage selected in the Graph View
+  const params = [];
+  if (forceNew) {
+    params.push("forceNew=true");
+  }
+  if (container.dataset.requestParams) {
+    params.push(container.dataset.requestParams);
+  }
 
   showSpinner();
 
   fetch(url, {
     method: "POST",
     headers: headers,
-    body: body
+    body: params.join("&")
   })
   .then(parseJsonResponse)
   .then(json => {
+    if (requestId !== explainRequestId) {
+      return;
+    }
     if (json.status == "success") {
       showErrorExplanation(json.message, json.providerName, json.url, json.title);
     } else if (json.reason) {
@@ -244,8 +262,22 @@ function sendExplainRequest(forceNew = false) {
     }
   })
   .catch(error => {
-    showFailure(error.message, null, false);
+    if (requestId === explainRequestId) {
+      showFailure(error.message, null, false);
+    }
   });
+}
+
+// Empties and hides the card, and drops the answer to a request still on its way. For a page
+// where the card has to follow something, like the stage selected in the Graph View.
+function resetExplanationCard() {
+  explainRequestId++;
+  const container = document.getElementById('explain-error-container');
+  container.classList.add('jenkins-hidden');
+  container.querySelector('.jenkins-card__title').firstChild.textContent = 'AI Error Explanation';
+  document.getElementById('explain-error-spinner').classList.add('jenkins-hidden');
+  document.getElementById('explain-error-failure').classList.add('jenkins-hidden');
+  document.getElementById('explain-error-content').replaceChildren();
 }
 
 // A failed request stays in the card, where it can be read and tried again.
@@ -314,25 +346,35 @@ function decodeHtml(text) {
 }
 
 function showErrorExplanation(message, providerName, url, title) {
+  const requestId = explainRequestId;
   const container = document.getElementById('explain-error-container');
   const spinner = document.getElementById('explain-error-spinner');
   const content = document.getElementById('explain-error-content');
+  // Not every page has the link: the Graph View already shows the failure output
   const urlString = document.getElementById('explain-error-url');
-  const cardTitle = document.querySelector('.jenkins-card__title');
+  const cardTitle = container.querySelector('.jenkins-card__title');
   cardTitle.firstChild.textContent = `${title || 'AI Error Explanation'} (${providerName})`;
   container.classList.remove('jenkins-hidden');
-  urlString.href = url;
-  renderExplanation(content, message).then(() => {
+  if (urlString) {
+    urlString.href = url;
+  }
+  renderExplanation(message).then(rendered => {
+    if (requestId !== explainRequestId) {
+      return;
+    }
+    content.replaceChildren(rendered);
     spinner.classList.add('jenkins-hidden');
     content.classList.remove('jenkins-hidden');
-    urlString.classList.remove('jenkins-hidden');
+    if (urlString) {
+      urlString.classList.remove('jenkins-hidden');
+    }
     setButtonState('ready');
   });
 }
 
 // The explanation has just been stored on the build, so ask the server for it rendered
 // (summary, steps, log excerpt) rather than building markup here. The plain text is the fallback.
-function renderExplanation(content, message) {
+function renderExplanation(message) {
   const container = document.getElementById('explain-error-container');
   const rootURL = document.head.getAttribute("data-rooturl");
   const url = rootURL + '/' + container.dataset.runUrl + 'error-explanation/panel';
@@ -340,13 +382,15 @@ function renderExplanation(content, message) {
   return fetch(url)
     .then(response => response.ok ? response.text() : Promise.reject(new Error(`HTTP ${response.status}`)))
     .then(html => {
-      content.innerHTML = html;
+      const rendered = document.createElement('template');
+      rendered.innerHTML = html;
+      return rendered.content;
     })
     .catch(() => {
       const plain = document.createElement('pre');
       plain.className = 'eep-plain';
       plain.textContent = message;
-      content.replaceChildren(plain);
+      return plain;
     });
 }
 

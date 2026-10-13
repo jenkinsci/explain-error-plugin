@@ -107,3 +107,8 @@
 .eep-failure__actions {
   margin-top: 0.75rem;
 }
+
+/* On the Graph View page the card sits between a stage's header and its steps */
+#explain-error-container[data-surface="graph-view"] {
+  margin-bottom: 0.75rem;
+}
