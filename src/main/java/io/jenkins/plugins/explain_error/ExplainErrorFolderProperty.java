@@ -25,6 +25,10 @@ import org.kohsuke.stapler.verb.POST;
 /**
  * Folder property for folder-level AI provider configuration.
  * Allows teams to configure their own AI provider settings at the folder level.
+ *
+ * <p>{@code enableExplanation} is the box that opens the folder's section on its Configure page: when it is
+ * off, the folder sets nothing and its jobs follow the parent folder or the global configuration. Turning
+ * explanation off for a folder is {@code disableExplanation}.
  */
 public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractFolder<?>> {
 
@@ -33,6 +37,7 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     private BaseAIProvider aiProvider;
     private boolean enableExplanation = true;
+    private boolean disableExplanation;
     private String language;
     private String customContext;
     private Double temperature;
@@ -65,17 +70,18 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
     }
 
     /**
-     * Check if error explanation is enabled for this folder.
-     * @return true if enabled, false otherwise
+     * Whether this folder uses its section of settings. Despite the name, {@code false} does not turn
+     * explanation off: the folder then sets nothing, see {@link #isDisableExplanation()}.
+     * @return true if the folder's settings apply
      */
     public boolean isEnableExplanation() {
         return enableExplanation;
     }
 
     /**
-     * Set whether error explanation is enabled for this folder.
-     * When disabled, also clears the AI provider to ensure fallback to global configuration.
-     * @param enableExplanation true to enable, false to disable
+     * Set whether this folder uses its section of settings.
+     * When false, also clears the AI provider so that the parent folder or the global provider applies.
+     * @param enableExplanation true to use the folder's settings
      */
     @DataBoundSetter
     public void setEnableExplanation(boolean enableExplanation) {
@@ -84,6 +90,21 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         if (!enableExplanation) {
             this.aiProvider = null;
         }
+    }
+
+    /**
+     * Whether explanation is turned off for the jobs in this folder and its subfolders: no Explain Error
+     * button, no automatic explanation, and the {@code explainError()} step does nothing. A subfolder can
+     * turn it on again with a provider of its own.
+     * @return true if explanation is turned off here
+     */
+    public boolean isDisableExplanation() {
+        return disableExplanation;
+    }
+
+    @DataBoundSetter
+    public void setDisableExplanation(boolean disableExplanation) {
+        this.disableExplanation = disableExplanation;
     }
 
     public String getLanguage() {
@@ -142,7 +163,8 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     /** True when this property would change nothing for the jobs in its folder. */
     boolean hasNoSettings() {
-        return aiProvider == null
+        return !disableExplanation
+                && aiProvider == null
                 && Util.fixEmptyAndTrim(language) == null
                 && Util.fixEmptyAndTrim(customContext) == null
                 && temperature == null
@@ -194,8 +216,9 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
 
     /**
      * Recursively search for folder-level AI provider configuration.
-     * Walks up the folder hierarchy until a configuration is found.
-     * 
+     * Walks up the folder hierarchy until a folder with a provider of its own is found. A folder whose
+     * section is not in use ({@code enableExplanation} false) is passed over, provider or not.
+     *
      * @param itemGroup the item group to search from
      * @return the AI provider if found at folder level, null otherwise
      */
@@ -204,32 +227,47 @@ public class ExplainErrorFolderProperty extends AbstractFolderProperty<AbstractF
         if (itemGroup == null) {
             return null;
         }
-
-        // Check if this item group is a folder with our property
         if (itemGroup instanceof AbstractFolder) {
             AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
             ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
-
-            if (property != null) {
-                BaseAIProvider provider = property.getAiProvider();
-                
-                // If provider is configured, respect the enableExplanation flag
-                if (provider != null) {
-                    // Provider configured and enabled: use it
-                    if (property.isEnableExplanation()) {
-                        return provider;
-                    }
-                    // Provider configured but disabled: explicitly disable (return null and stop searching)
-                    return null;
-                }
-                // No provider configured at this level, continue to parent/global even if enableExplanation is false
+            if (property != null && property.providesOwnProvider()) {
+                return property.getAiProvider();
             }
-
-            // Recursively check parent folder
             return findFolderProvider(folder.getParent());
         }
-
         return null;
+    }
+
+    /**
+     * Whether a folder decides that its jobs are explained or not. The nearest folder that decides wins:
+     * one that turns explanation off says no, one with a provider of its own says yes. Folders that do
+     * neither are passed over.
+     *
+     * @param itemGroup the item group to search from
+     * @return {@code false} if the nearest deciding folder turns explanation off, {@code true} if it has a
+     *         provider of its own, {@code null} if no folder decides and the global configuration applies
+     */
+    @CheckForNull
+    public static Boolean findFolderDecision(@CheckForNull ItemGroup<?> itemGroup) {
+        if (itemGroup == null) {
+            return null;
+        }
+        if (itemGroup instanceof AbstractFolder) {
+            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
+            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
+            if (property != null && property.isDisableExplanation()) {
+                return Boolean.FALSE;
+            }
+            if (property != null && property.providesOwnProvider()) {
+                return Boolean.TRUE;
+            }
+            return findFolderDecision(folder.getParent());
+        }
+        return null;
+    }
+
+    private boolean providesOwnProvider() {
+        return aiProvider != null && enableExplanation && !disableExplanation;
     }
 
     /**

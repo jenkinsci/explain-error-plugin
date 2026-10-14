@@ -86,13 +86,16 @@ Whether it’s a compilation error, test failure, or deployment hiccup, this plu
 Support for folder-level overrides allows different teams to use their own AI providers, models, language, temperature, and custom context.
 
 1. Click **Configure** on any folder
-2. Under **Properties**, check **"Enable AI Error Explanation"** and set:
-   - **Use a different AI provider for this folder** — check it to override the global provider; leave it unchecked to keep the provider of the parent folder or the global configuration
+2. Under **Properties**, check **"Set AI error explanation for this folder"** and set:
+   - **Turn off AI error explanation for jobs in this folder** — no Explain Error button, no automatic explanation, and `explainError()` does nothing, whatever the global setting says
+   - **Use a different AI provider for this folder** — check it to override the global provider; leave it unchecked to keep the provider of the parent folder or the global configuration. A folder with a provider of its own has explanation on even while the global **Enable AI Error Explanation** is off
    - **Temperature** — overrides the global temperature
    - **Language** — overrides the global language
    - **Custom Context** — overrides the global custom context
 
-*All folder settings inherit from parent folders and override global defaults. Step-level settings take precedence over both.*
+*All folder settings inherit from parent folders and override global defaults. Step-level settings take precedence over both. Whether a job is explained at all is decided by the nearest folder that turns explanation off or has a provider of its own, otherwise by the global setting.*
+
+In Configuration as Code, the folder property is `explainErrorFolder`; `disableExplanation: true` turns explanation off for the folder.
 
 ### Quota and Metrics
 
