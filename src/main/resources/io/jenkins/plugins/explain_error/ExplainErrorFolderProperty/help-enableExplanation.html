@@ -1,10 +1,7 @@
 <div>
-    Enable or disable AI error explanation for jobs in this folder and its subfolders.
-    When enabled with a configured AI provider, build errors will be automatically explained using AI.
+    Tick it to give jobs in this folder and its subfolders settings of their own: turn explanation off,
+    use another AI provider, or set the language, custom context, temperature or a request quota.
     <br/><br/>
-    <strong>Configuration Precedence:</strong>
-    <ul>
-        <li>Folder-level configuration (if defined) takes priority</li>
-        <li>Falls back to global configuration if not defined at folder level</li>
-    </ul>
+    Left unticked, the folder sets nothing: its jobs follow the parent folder, or the global configuration
+    when no parent folder sets anything.
 </div>

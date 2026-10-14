@@ -1,6 +1,10 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
-    <f:optionalBlock field="enableExplanation" title="Enable AI Error Explanation" checked="${instance.enableExplanation}" inline="true">
+    <f:optionalBlock field="enableExplanation" title="Set AI error explanation for this folder"
+                     checked="${instance.enableExplanation}" inline="true">
+        <f:entry field="disableExplanation">
+            <f:checkbox title="Turn off AI error explanation for jobs in this folder"/>
+        </f:entry>
         <f:optionalBlock name="providerOverride" title="Use a different AI provider for this folder"
                          checked="${instance.aiProvider != null}"
                          help="${descriptor.getHelpFile('providerOverride')}">
@@ -30,8 +34,9 @@
         </f:optionalBlock>
         <f:block>
             <p class="jenkins-!-margin-top-3">
-                <strong>Note:</strong> Folder-level configuration takes precedence over global configuration.
-                If not configured here, the plugin will use the global configuration.
+                <strong>Note:</strong> Settings made here apply to this folder and its subfolders, and take
+                precedence over the global configuration. What is not set here comes from the parent folder or
+                the global configuration.
             </p>
         </f:block>
     </f:optionalBlock>

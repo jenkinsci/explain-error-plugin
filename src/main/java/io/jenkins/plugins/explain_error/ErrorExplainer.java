@@ -1,10 +1,8 @@
 package io.jenkins.plugins.explain_error;
 
-import com.cloudbees.hudson.plugins.folder.AbstractFolder;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.console.HyperlinkNote;
-import hudson.model.ItemGroup;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.util.LogTaskListener;
@@ -37,6 +35,9 @@ public class ErrorExplainer {
     private final UsageRecorder usageRecorder;
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
+
+    /** What the Explain Error button gets back when explanation is turned off for the job. */
+    static final String TURNED_OFF = "AI error explanation is turned off for this job.";
 
     public ErrorExplainer() {
         this(UsageRecorders.get());
@@ -437,74 +438,50 @@ public class ErrorExplainer {
     }
 
     /**
-     * Check if error explanation is enabled.
-     * Folder-level configuration takes precedence over global configuration.
-     * If no folder-level configuration exists, falls back to global configuration.
-     * 
+     * Check if error explanation is enabled for a build.
+     * The nearest folder that decides wins: one that turns explanation off disables it, one with a
+     * provider of its own enables it, even while the global switch is off. When no folder decides, the
+     * global configuration applies.
+     *
      * @param run the build run to check
      * @return true if explanation is enabled, false otherwise
      */
     boolean isExplanationEnabled(@CheckForNull Run<?, ?> run) {
         if (run != null) {
-            // Check if there's an explicit folder-level property with configured provider
-            ExplainErrorFolderProperty folderProperty = findFolderPropertyWithProvider(run.getParent().getParent());
-            if (folderProperty != null) {
-                // Folder-level provider is configured, use its enableExplanation setting
-                boolean folderEnabled = folderProperty.isEnableExplanation();
-                if (!folderEnabled) {
-                    LOGGER.fine("Error explanation explicitly disabled at folder level for " + run.getParent().getFullName());
-                } else {
-                    LOGGER.fine("Error explanation enabled at folder level for " + run.getParent().getFullName());
-                }
-                return folderEnabled;
-            } else {
-                LOGGER.fine("No folder-level provider found for " + run.getParent().getFullName() + ", falling back to global configuration");
+            Boolean folderDecision = ExplainErrorFolderProperty.findFolderDecision(run.getParent().getParent());
+            if (folderDecision != null) {
+                LOGGER.fine("Error explanation " + (folderDecision ? "enabled" : "turned off")
+                        + " at folder level for " + run.getParent().getFullName());
+                return folderDecision;
             }
         }
-
-        // No folder-level provider configured, fall back to global
-        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-        boolean globalEnabled = config.isEnableExplanation();
+        boolean globalEnabled = GlobalConfigurationImpl.get().isEnableExplanation();
         LOGGER.fine("Global configuration enabled: " + globalEnabled);
         return globalEnabled;
     }
 
     /**
-     * Find folder property with configured provider by walking up the folder hierarchy.
-     * Only returns a property if it has an AI provider configured AND explanation is enabled.
-     * If a folder has a provider but explanation is disabled, it continues searching parent folders.
-     * 
-     * @param itemGroup the item group to search from
-     * @return the folder property with provider if found and enabled, null otherwise
+     * Whether a new explanation can be asked for: explanation is enabled for the build and the provider
+     * that would answer, folder or global, is configured.
+     *
+     * @param run the build to explain
+     * @return true if the Explain Error button should be offered
+     */
+    boolean canExplain(@NonNull Run<?, ?> run) {
+        if (!isExplanationEnabled(run)) {
+            return false;
+        }
+        BaseAIProvider provider = providerFor(run);
+        return provider != null && !provider.isNotValid(null, run.getParent(), null);
+    }
+
+    /**
+     * @param run the build to explain
+     * @return the provider an explanation of the build would come from, folder or global
      */
     @CheckForNull
-    private ExplainErrorFolderProperty findFolderPropertyWithProvider(@CheckForNull ItemGroup<?> itemGroup) {
-        if (itemGroup == null) {
-            return null;
-        }
-
-        if (itemGroup instanceof AbstractFolder) {
-            AbstractFolder<?> folder = (AbstractFolder<?>) itemGroup;
-            ExplainErrorFolderProperty property = folder.getProperties().get(ExplainErrorFolderProperty.class);
-            
-            if (property != null) {
-                LOGGER.fine("Found folder property for " + folder.getFullName() + 
-                           ", enableExplanation=" + property.isEnableExplanation() + 
-                           ", hasProvider=" + (property.getAiProvider() != null));
-            }
-            
-            // Only return property if it has a provider configured AND is enabled
-            // If disabled at folder level, continue searching parent folders or fallback to global
-            if (property != null && property.getAiProvider() != null && property.isEnableExplanation()) {
-                LOGGER.fine("Using folder-level provider from " + folder.getFullName());
-                return property;
-            }
-            
-            // Recursively check parent folder
-            return findFolderPropertyWithProvider(folder.getParent());
-        }
-
-        return null;
+    BaseAIProvider providerFor(@CheckForNull Run<?, ?> run) {
+        return resolveProvider(run).provider();
     }
 
     private void logToConsole(TaskListener listener, String message) {

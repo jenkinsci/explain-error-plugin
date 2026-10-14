@@ -163,15 +163,15 @@ public class GraphViewExplainErrorAction implements RunAction2 {
                 return;
             }
 
-            GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-            if (!config.isEnableExplanation()) {
-                BaseAIProvider provider = config.getAiProvider();
+            // Folder settings count: a folder can turn explanation off, or on with a provider of its own
+            ErrorExplainer switchCheck = new ErrorExplainer();
+            if (!switchCheck.isExplanationEnabled(run)) {
+                BaseAIProvider provider = switchCheck.providerFor(run);
                 recordUsage(UsageEvent.Result.DISABLED,
                         provider != null ? provider.getProviderName() : null,
                         provider != null ? provider.getModel() : null,
                         startTimeNanos, 0);
-                writeJsonResponse(rsp, "warning", "Unknown",
-                        "AI error explanation is disabled in global configuration.");
+                writeJsonResponse(rsp, "warning", "Unknown", ErrorExplainer.TURNED_OFF);
                 return;
             }
 

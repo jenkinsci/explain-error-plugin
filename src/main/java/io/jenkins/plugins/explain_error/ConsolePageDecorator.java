@@ -1,10 +1,13 @@
 package io.jenkins.plugins.explain_error;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
 import hudson.model.PageDecorator;
 import hudson.model.Run;
+import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import org.kohsuke.stapler.Ancestor;
 import org.kohsuke.stapler.Stapler;
+import org.kohsuke.stapler.StaplerRequest2;
 
 /**
  * Page decorator to add "Explain Error" functionality to console output pages.
@@ -16,26 +19,30 @@ public class ConsolePageDecorator extends PageDecorator {
         super();
     }
 
+    /**
+     * Whether the page offers to explain the build: explanation is enabled for it and its provider is
+     * configured. Folder settings count, so a folder with a provider of its own gets the button while the
+     * global switch is off, and a folder that turns explanation off does not get it.
+     */
     public boolean isExplainErrorEnabled() {
+        Run<?, ?> run = currentRun();
+        if (run != null) {
+            return new ErrorExplainer().canExplain(run);
+        }
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
-
-        // Must have explanation enabled. API key required for providers other than OLLAMA.
-        if (!config.isEnableExplanation()) {
-            return false;
-        }
-
-        if (config.getAiProvider() == null) {
-            return false;
-        }
-
-        return !config.getAiProvider().isNotValid(null);
+        return config.isEnableExplanation() && config.getAiProvider() != null
+                && !config.getAiProvider().isNotValid(null);
     }
 
+    /**
+     * @return the name of the provider a new explanation of the build would come from, folder or global
+     */
     public String getProviderName() {
-        if (GlobalConfigurationImpl.get().getAiProvider() == null) {
-            return null;
-        }
-        return GlobalConfigurationImpl.get().getAiProvider().getProviderName();
+        Run<?, ?> run = currentRun();
+        BaseAIProvider provider = run != null
+                ? new ErrorExplainer().providerFor(run)
+                : GlobalConfigurationImpl.get().getAiProvider();
+        return provider != null ? provider.getProviderName() : null;
     }
 
     /**
@@ -47,20 +54,20 @@ public class ConsolePageDecorator extends PageDecorator {
     }
 
     public String getRunUrl() {
-        Ancestor ancestor = Stapler.getCurrentRequest2().findAncestor(Run.class);
-        if (ancestor != null && ancestor.getObject() instanceof Run<?, ?> run) {
-            return run.getUrl();
-        } else {
-            return null;
-        }
+        Run<?, ?> run = currentRun();
+        return run != null ? run.getUrl() : null;
     }
 
     public ErrorExplanationAction getExistingExplanation() {
-        Ancestor ancestor = Stapler.getCurrentRequest2().findAncestor(Run.class);
-        if (ancestor != null && ancestor.getObject() instanceof Run<?, ?> run) {
-            return run.getAction(ErrorExplanationAction.class);
-        } else {
-            return null;
-        }
+        Run<?, ?> run = currentRun();
+        return run != null ? run.getAction(ErrorExplanationAction.class) : null;
+    }
+
+    /** The build the current page belongs to, if any. */
+    @CheckForNull
+    private static Run<?, ?> currentRun() {
+        StaplerRequest2 req = Stapler.getCurrentRequest2();
+        Ancestor ancestor = req != null ? req.findAncestor(Run.class) : null;
+        return ancestor != null && ancestor.getObject() instanceof Run<?, ?> run ? run : null;
     }
 }
