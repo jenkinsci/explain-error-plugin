@@ -1,0 +1,23 @@
+src/test/java/io/jenkins/plugins/explain_error/FailureOutputLinkTest.java
+  s_e8b639792250d5::t_ac7221effa95f2 60-63
+  s_e8b639792250d5::t_f240da4084ca4a 55-56,68-70
+  s_e8b639792250d5::t_a24d5b9c294aee 1-54,57-59,64-67,71-124
+src/main/java/io/jenkins/plugins/explain_error/PipelineLogExtractor.java
+  s_e8b639792250d5::t_439540c3d97b3e 5,75-78,80-82,548,552,590-595,598-600,606-623,628
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cccaf43d1b8700c04d80584fe48b3666a3113364",
+  "prompts": {},
+  "sessions": {
+    "s_e8b639792250d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3fb4cb11-914b-4982-bae3-afb99eaf43ab",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
