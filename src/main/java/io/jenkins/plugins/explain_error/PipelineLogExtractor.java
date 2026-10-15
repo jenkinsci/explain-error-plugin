@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import com.google.common.annotations.VisibleForTesting;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import hudson.model.Action;
 import hudson.model.Item;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
@@ -71,7 +72,14 @@ public class PipelineLogExtractor {
     static final String NODE_MARKER_SUFFIX = " ###";
 
     private static final Logger LOGGER = Logger.getLogger(PipelineLogExtractor.class.getName());
+    /**
+     * The Graph View page the Explain Error card is added to, see {@link PipelineGraphViewDecorator}. It has
+     * this name in current versions of Graph View only; links ask the build for the page it actually has.
+     */
     public static final String URL_NAME = "stages";
+    /** The Graph View action behind the page that shows a build's stages and can select one of its nodes. */
+    private static final String GRAPH_VIEW_ACTION =
+            "io.jenkins.plugins.pipelinegraphview.consoleview.PipelineConsoleViewAction";
     /**
      * Pattern to detect error-related content in build logs.
      * Matches common error indicators: error(s), exception(s), failed, fatal (case-insensitive).
@@ -537,11 +545,11 @@ public class PipelineLogExtractor {
         }
 
         if (!accumulated.isEmpty()) {
-            setUrl(primaryNodeId != null ? primaryNodeId : "0");
+            setUrl(primaryNodeId);
         } else {
             // Final fallback: last N lines of the full build console log
             fallbackToBuildLog = true;
-            setUrl("0");
+            setUrl(null);
             accumulated.addAll(run.getLog(maxLines));
         }
 
@@ -579,21 +587,45 @@ public class PipelineLogExtractor {
         return ErrorAction.findOrigin(error, execution);
     }
 
-    private void setUrl(String node)
+    /**
+     * Points "View failure output" at the failing node on the build's Graph View page, or at the console
+     * when there is no node to point at or no such page: a Freestyle build, a Pipeline whose failing step
+     * was not found, or Graph View not installed.
+     */
+    private void setUrl(@CheckForNull String node)
     {
         String rootUrl = Jenkins.get().getRootUrl();
-        if (isGraphViewPluginAvailable) {
-            url = rootUrl + run.getUrl() + URL_NAME + "?selected-node=" + node;
+        String graphViewPage = node != null ? graphViewPage() : null;
+        if (graphViewPage != null) {
+            url = rootUrl + run.getUrl() + graphViewPage + "?selected-node=" + node;
         } else {
             url = rootUrl + run.getUrl() + "console";
         }
     }
 
     /**
+     * The URL name of the build's Graph View page that selects a node, or {@code null} when the build has
+     * none. Current versions of Graph View call it {@code stages}, older ones {@code pipeline-overview}, so
+     * the page is asked for rather than assumed.
+     */
+    @CheckForNull
+    private String graphViewPage() {
+        if (!isGraphViewPluginAvailable) {
+            return null;
+        }
+        for (Action action : run.getAllActions()) {
+            if (GRAPH_VIEW_ACTION.equals(action.getClass().getName())) {
+                return action.getUrlName();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Returns the URL associated with the extracted log.
      * <p>
      * When {@link #getFailedStepLog()} finds a failed pipeline step with an attached log and the
-     * {@code pipeline-graph-view} plugin is available, this will point to the pipeline overview page with the
+     * {@code pipeline-graph-view} plugin is available, this will point to the build's Graph View page with the
      * failing node preselected. Otherwise, it falls back to the build's console output URL.
      * </p>
      *
