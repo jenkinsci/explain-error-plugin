@@ -1,9 +1,11 @@
 package io.jenkins.plugins.explain_error;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.langchain4j.model.output.structured.Description;
 import java.util.List;
 
 public record JenkinsLogAnalysis(
+    @JsonProperty(required = true)
     @Description("What failed and why, in one or two sentences")
     String errorSummary,
 
