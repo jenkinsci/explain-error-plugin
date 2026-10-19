@@ -168,6 +168,6 @@ With the defaults, a burst of failures costs at most 2 provider calls at a time 
 |---|---|
 | Nothing happens when a build fails | The build result must be `FAILURE`, **Enable AI Error Explanation** must be on, and automatic explanation must be on for the job: globally, or through the job's override. A job that opted out is never explained automatically |
 | Console says auto-explain was skipped | The hourly limit or the queue was full; the line names which. Use the **Explain Error** button for that build, or raise the limit |
-| Console says the explanation will appear, but it never does | Look in **Manage Jenkins → System Log** for `io.jenkins.plugins.explain_error`: the provider may have failed, or the request quota may have been reached |
+| Console says the explanation will appear, but it never does | Add a log recorder for `io.jenkins.plugins.explain_error` at level `FINE` under **Manage Jenkins → System Log**: the provider may have failed, or the request quota may have been reached |
 | An explanation looks like it belongs to an earlier failure | It may have been reused; the note above it names the build it came from. Use the re-explain icon in the console's explanation card for a fresh one |
 | Explanations arrive late during a burst of failures | Builds wait their turn: two at a time by default. Raise the concurrency limit with the system property above if the provider can take more |
