@@ -1,0 +1,33 @@
+src/test/java/io/jenkins/plugins/explain_error/ExplanationPermissionTest.java
+  s_eff5fe0d14ae02::t_9658c6c9d6a13c 1-144,147-212
+  s_eff5fe0d14ae02::t_8eb2764fc1f202 145-146
+src/main/java/io/jenkins/plugins/explain_error/GraphViewExplainErrorAction.java
+  s_eff5fe0d14ae02::t_1fd23d1b143497 5,27,80,114,144,185-190,193-204,206,208-218,220-222
+src/main/java/io/jenkins/plugins/explain_error/PendingExplanations.java
+  s_eff5fe0d14ae02::t_0605f6d3726129 10-12
+  s_eff5fe0d14ae02::t_25689b2e90f10e 36-49
+  s_eff5fe0d14ae02::t_ecb59d1495b2f2 50-51
+src/main/java/io/jenkins/plugins/explain_error/ConsoleExplainErrorAction.java
+  s_eff5fe0d14ae02::t_9a2e39a52d54f9 5,20,30-38,79,108-114,117-137,139-141,149-163,173
+src/main/java/io/jenkins/plugins/explain_error/ConsolePageDecorator.java
+  s_eff5fe0d14ae02::t_adcc5c36e4e173 5
+  s_eff5fe0d14ae02::t_8f910abb0cd664 24-28,33
+README.md
+  s_eff5fe0d14ae02::t_3f38854c988094 616-618,683
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3c8d02396b4f43f35e6ff8af0497111c20497007",
+  "prompts": {},
+  "sessions": {
+    "s_eff5fe0d14ae02": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b268068-f708-434c-931c-5b32a8bd9f9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
