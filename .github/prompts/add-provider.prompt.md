@@ -96,7 +96,8 @@ Create `src/test/java/io/jenkins/plugins/explain_error/provider/AnthropicProvide
 
 ## Step 5 — Update Documentation
 
-- Add provider to `README.md` feature list and CasC YAML example
+- Add the provider to the feature list in `README.md`
+- Add a row to the table and a section with its fields and CasC YAML example to `docs/providers.md`
 
 ## Implementation Notes
 

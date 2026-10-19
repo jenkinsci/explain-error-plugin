@@ -1,6 +1,6 @@
 # AI Provider Call Quotas
 
-Usage quotas let administrators cap the number of real AI provider calls the plugin makes within a rolling time window. This prevents unexpected API cost spikes and gives you predictable spend control — both at the Jenkins controller level and at the folder level.
+Usage quotas let administrators cap the number of real AI provider calls the plugin makes within a fixed time window: an hour or a day that starts again with the first call after it ends. This prevents unexpected API cost spikes and gives you predictable spend control — both at the Jenkins controller level and at the folder level.
 
 ---
 
@@ -38,7 +38,7 @@ Usage quotas let administrators cap the number of real AI provider calls the plu
 
 ### Controller-level quota (global)
 
-1. Go to **Manage Jenkins → Configure System**.
+1. Go to **Manage Jenkins → System**.
 2. Scroll to the **Explain Error Plugin Configuration** section.
 3. Make sure **Enable AI Error Explanation** is checked.
 4. Check **Enable Request Quota**.
@@ -74,11 +74,10 @@ unclassified:
 Folder-level quotas override the global quota for every job inside that folder (including nested subfolders). Use this when different teams have different cost budgets or SLA requirements.
 
 1. Open the folder you want to configure and click **Configure**.
-2. Scroll to the **Explain Error Configuration** section.
-3. Check **Enable AI Error Explanation**.
-4. Check **Enable Request Quota**.
-5. Choose a **Quota Window** and set **Max Provider Calls per Window**.
-6. Save.
+2. Under **Properties**, check **Set AI error explanation for this folder**.
+3. Check **Enable Request Quota**.
+4. Choose a **Quota Window** and set **Max Provider Calls per Window**.
+5. Save.
 
 When the folder-level quota is exceeded, the console message is:
 
@@ -86,7 +85,7 @@ When the folder-level quota is exceeded, the console message is:
 [explain-error] Provider call quota exceeded (folder level). Limit: <N> calls per <window> window.
 ```
 
-#### CasC example (folder)
+#### CasC example (folder, created with Job DSL)
 
 ```yaml
 jobs:

@@ -34,7 +34,8 @@ and `docs/` for how it works. This file only holds what they do not tell you.
 
 ## Documentation
 
-- A feature with a page under `docs/` keeps that page in sync. The README lists providers in alphabetical order.
+- A feature with a page under `docs/` keeps that page in sync. `README.md` and `docs/providers.md` list providers in
+  alphabetical order.
 
 ## Git
 
