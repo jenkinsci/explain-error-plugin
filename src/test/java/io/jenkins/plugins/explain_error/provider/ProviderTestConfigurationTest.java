@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.cloudbees.hudson.plugins.folder.Folder;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.sun.net.httpserver.HttpExchange;
@@ -70,6 +71,10 @@ class ProviderTestConfigurationTest {
                 "{\"access_token\":\"okta-access-token\"}"));
         server.createContext("/okta/chat", exchange -> respond(exchange, "okta-chat", 200,
                 "{\"choices\":[{\"message\":{\"content\":\"%s\"}}]}".formatted(ANALYSIS)));
+        server.createContext("/azure", exchange -> respond(exchange, "azure", 200, """
+                {"id":"chatcmpl-1","object":"chat.completion","created":0,"model":"m",
+                 "choices":[{"index":0,"message":{"role":"assistant","content":"%s"},"finish_reason":"stop"}],
+                 "usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}""".formatted(ANALYSIS)));
         server.createContext("/broken", exchange -> respond(exchange, "broken", 500, "{\"error\":\"down\"}"));
         server.start();
     }
@@ -150,6 +155,37 @@ class ProviderTestConfigurationTest {
                     out.toString(StandardCharsets.UTF_8));
         }
         assertFalse(anthropic.isNotValid(null, job, null));
+    }
+
+    @Test
+    void aFolderFormIsTestedWithTheCredentialsTheFolderCanUse(JenkinsRule jenkins) throws Exception {
+        SystemCredentialsProvider.getInstance().getCredentials().add(new StringCredentialsImpl(
+                CredentialsScope.SYSTEM, "jenkins-only", "Jenkins only", Secret.fromString("jenkins-only-key")));
+        SystemCredentialsProvider.getInstance().getCredentials().add(new StringCredentialsImpl(
+                CredentialsScope.GLOBAL, "shared", "Shared", Secret.fromString("shared-key")));
+        SystemCredentialsProvider.getInstance().save();
+        Folder folder = jenkins.jenkins.createProject(Folder.class, "team");
+        AnthropicProvider.DescriptorImpl anthropic = descriptor(jenkins, AnthropicProvider.DescriptorImpl.class);
+        QwenProvider.DescriptorImpl qwen = descriptor(jenkins, QwenProvider.DescriptorImpl.class);
+        AzureOpenAIProvider.DescriptorImpl azure = descriptor(jenkins, AzureOpenAIProvider.DescriptorImpl.class);
+
+        // A credential only Jenkins itself may use is not available to the folder, so it is not sent
+        assertEquals(FormValidation.Kind.ERROR, anthropic.doTestConfiguration(folder, null, "jenkins-only",
+                url("/anthropic"), "claude-sonnet-4-6", 256).kind);
+        assertEquals(FormValidation.Kind.ERROR,
+                qwen.doTestConfiguration(folder, null, "jenkins-only", url("/openai"), "qwen-test").kind);
+        assertEquals(FormValidation.Kind.ERROR, azure.doTestConfiguration(folder, url("/azure"), "gpt",
+                "2025-01-01-preview", "jenkins-only", "CHAT_COMPLETIONS").kind);
+        assertTrue(lastAuthorization.isEmpty(), "no request may carry the credential: " + lastAuthorization);
+
+        // One the folder can use is, as a build in the folder would send it
+        assertOk(anthropic.doTestConfiguration(folder, null, "shared", url("/anthropic"), "claude-sonnet-4-6", 256));
+        assertEquals("shared-key", lastAuthorization.get("anthropic"));
+        assertOk(qwen.doTestConfiguration(folder, null, "shared", url("/openai"), "qwen-test"));
+        assertEquals("Bearer shared-key", lastAuthorization.get("openai"));
+        assertOk(azure.doTestConfiguration(folder, url("/azure"), "gpt", "2025-01-01-preview", "shared",
+                "CHAT_COMPLETIONS"));
+        assertEquals("shared-key", lastAuthorization.get("azure"));
     }
 
     private String url(String path) {
