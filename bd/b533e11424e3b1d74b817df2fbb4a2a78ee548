@@ -1,0 +1,37 @@
+.github/prompts/add-provider.prompt.md
+  s_3ed2e74921cd38::t_6508b7c945a482 99-100
+README.md
+  s_3ed2e74921cd38::t_6508b7c945a482 9-11,13,15,17,19-29,31,33,35-40,42,44,50-52,56-57,59,61,63-65,67-69,71-73,75,77-80,82,84-85,87,89,96,102-103,105,107-111,113,115-116,118,120,122,124-127,129,131-138,142-146,148-149,151,155-157
+docs/auto-fix.md
+  s_3ed2e74921cd38::t_6508b7c945a482 32
+docs/configuration.md
+  s_3ed2e74921cd38::t_6508b7c945a482 1-79
+AGENTS.md
+  s_3ed2e74921cd38::t_6508b7c945a482 37-38
+CONTRIBUTING.md
+  s_3ed2e74921cd38::t_6508b7c945a482 192
+docs/providers.md
+  s_3ed2e74921cd38::t_6508b7c945a482 1-301
+docs/usage-quota.md
+  s_3ed2e74921cd38::t_6508b7c945a482 3,41,77-80,88
+docs/pipeline-step.md
+  s_3ed2e74921cd38::t_6508b7c945a482 1-141
+docs/auto-explain.md
+  s_3ed2e74921cd38::t_6508b7c945a482 171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bdb533e11424e3b1d74b817df2fbb4a2a78ee548",
+  "prompts": {},
+  "sessions": {
+    "s_3ed2e74921cd38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4dc3c578-1eb0-4ab1-81cf-4d42f46680c3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
