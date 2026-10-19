@@ -613,6 +613,9 @@ Works with Freestyle, Declarative, or any job type.
 
 ![AI Error Explanation](docs/images/console-output.png)
 
+Asking for a new explanation needs the **Job/Build** permission, because it calls the AI provider. Users who can
+only read the job see the explanation a build already has, and no button when it has none.
+
 If the request fails, the card stays open with what went wrong and a **Try again** button. Once a build
 has an explanation the button reads **Show explanation**, and the card says when it was generated.
 
@@ -677,7 +680,7 @@ See [Automatic Explanation of Failed Builds](docs/auto-explain.md) for details a
 |-------|----------|
 |API key not set	| Add your key in Jenkins global config |
 |Auth or rate limit error| Check key validity, quota, and provider plan. See [AI Provider Call Quotas](docs/usage-quota.md) |
-|Button not visible	| Ensure Jenkins version ≥ 2.528.3, restart Jenkins after installation |
+|Button not visible	| Ensure Jenkins version ≥ 2.528.3, restart Jenkins after installation. Requesting an explanation needs the Job/Build permission |
 |Test Configuration fails| The error now includes a **connection diagnostics report** (proxy decision, DNS, TCP, HTTP probe). Read it bottom-up to find the failing layer, and paste it when reporting issues |
 
 Enable debug logs:

@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import com.google.common.annotations.VisibleForTesting;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import hudson.model.Item;
 import hudson.model.Result;
 import hudson.model.Run;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
@@ -23,6 +24,7 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Action for the Pipeline Graph View integration.
@@ -75,7 +77,7 @@ public class GraphViewExplainErrorAction implements RunAction2 {
     @RequirePOST
     public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) {
         try {
-            run.checkPermission(hudson.model.Item.READ);
+            run.checkPermission(Item.READ);
 
             int buildingStatus = run.isBuilding() ? 1 : 0;
 
@@ -109,7 +111,7 @@ public class GraphViewExplainErrorAction implements RunAction2 {
     @RequirePOST
     public void doCheckNodeStatus(StaplerRequest2 req, StaplerResponse2 rsp) {
         try {
-            run.checkPermission(hudson.model.Item.READ);
+            run.checkPermission(Item.READ);
 
             String nodeId = req.getParameter("nodeId");
             boolean isFailed = isFailedNode(nodeId);
@@ -139,7 +141,7 @@ public class GraphViewExplainErrorAction implements RunAction2 {
     public void doExplainNodeError(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
         long startTimeNanos = System.nanoTime();
         try {
-            run.checkPermission(hudson.model.Item.READ);
+            run.checkPermission(Item.READ);
 
             String nodeId = req.getParameter("nodeId");
             // Check if user wants to force a new explanation
@@ -180,29 +182,44 @@ public class GraphViewExplainErrorAction implements RunAction2 {
                 return;
             }
 
-            // Extract logs from the selected node
-            PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, 200,
-                    Jenkins.getAuthentication2(), false, null);
-            List<String> logLines = logExtractor.extractNodeLog(nodeId);
-            this.urlString = logExtractor.getUrl();
-
-            if (logLines.isEmpty()) {
-                writeJsonResponse(rsp, "error", "Unknown",
-                        "No log output found for the selected node.");
+            // A new explanation calls the provider, which costs money, and replaces the one the build has
+            run.checkPermission(Item.BUILD);
+            if (!PendingExplanations.tryAdd(run)) {
+                BaseAIProvider provider = switchCheck.providerFor(run);
+                writeJsonResponse(rsp, "warning", provider != null ? provider.getProviderName() : "Unknown",
+                        ConsoleExplainErrorAction.ALREADY_PENDING);
                 return;
             }
-
-            String errorText = String.join("\n", logLines);
-
-            ErrorExplainer explainer = new ErrorExplainer();
             try {
-                ErrorExplanationAction action = explainer.explainErrorText(errorText, urlString, run);
-                writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
-                        action.getTitle(), null);
-            } catch (ExplanationException ee) {
-                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage(), null,
-                        ProviderFailure.describe(ee));
+                // Extract logs from the selected node
+                PipelineLogExtractor logExtractor = new PipelineLogExtractor(run,
+                        ConsoleExplainErrorAction.DEFAULT_MAX_LINES, Jenkins.getAuthentication2(), false, null);
+                List<String> logLines = logExtractor.extractNodeLog(nodeId);
+                this.urlString = logExtractor.getUrl();
+
+                if (logLines.isEmpty()) {
+                    writeJsonResponse(rsp, "error", "Unknown",
+                            "No log output found for the selected node.");
+                    return;
+                }
+
+                String errorText = String.join("\n", logLines);
+
+                ErrorExplainer explainer = new ErrorExplainer();
+                try {
+                    ErrorExplanationAction action = explainer.explainErrorText(errorText, urlString, run);
+                    writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
+                            action.getTitle(), null);
+                } catch (ExplanationException ee) {
+                    writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage(), null,
+                            ProviderFailure.describe(ee));
+                }
+            } finally {
+                PendingExplanations.remove(run);
             }
+        } catch (AccessDeniedException e) {
+            rsp.setStatus(403);
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
         } catch (Exception e) {
             LOGGER.severe("Error explaining node error: " + e.getMessage());
             writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());

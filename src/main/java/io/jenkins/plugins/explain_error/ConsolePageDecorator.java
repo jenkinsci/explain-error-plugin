@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
+import hudson.model.Item;
 import hudson.model.PageDecorator;
 import hudson.model.Run;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
@@ -20,14 +21,16 @@ public class ConsolePageDecorator extends PageDecorator {
     }
 
     /**
-     * Whether the page offers to explain the build: explanation is enabled for it and its provider is
-     * configured. Folder settings count, so a folder with a provider of its own gets the button while the
-     * global switch is off, and a folder that turns explanation off does not get it.
+     * Whether the page offers to explain the build: explanation is enabled for it, its provider is
+     * configured and the user may build the job, which a new explanation requires. Folder settings count,
+     * so a folder with a provider of its own gets the button while the global switch is off, and a folder
+     * that turns explanation off does not get it. An explanation the build has is shown to anyone who can
+     * read the build.
      */
     public boolean isExplainErrorEnabled() {
         Run<?, ?> run = currentRun();
         if (run != null) {
-            return new ErrorExplainer().canExplain(run);
+            return run.hasPermission(Item.BUILD) && new ErrorExplainer().canExplain(run);
         }
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         return config.isEnableExplanation() && config.getAiProvider() != null

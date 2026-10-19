@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import com.google.common.annotations.VisibleForTesting;
+import hudson.model.Item;
 import hudson.model.Result;
 import hudson.model.Run;
 import jenkins.model.RunAction2;
@@ -16,6 +17,7 @@ import net.sf.json.JSONObject;
 import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.StaplerResponse2;
 import org.kohsuke.stapler.interceptor.RequirePOST;
+import org.springframework.security.access.AccessDeniedException;
 
 /**
  * Action to add "Explain Error" functionality to console output pages.
@@ -24,6 +26,15 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 public class ConsoleExplainErrorAction implements RunAction2 {
 
     private static final Logger LOGGER = Logger.getLogger(ConsoleExplainErrorAction.class.getName());
+
+    /** Log lines a new explanation reads when the request does not say. */
+    static final int DEFAULT_MAX_LINES = 200;
+
+    /** The most log lines a request may ask for: every line is sent to the provider. */
+    static final int MAX_LINES_LIMIT = 1000;
+
+    static final String ALREADY_PENDING = "An explanation of this build is already being generated."
+            + " It will be shown when it is ready.";
 
     private transient Run<?, ?> run;
     private String urlString;
@@ -65,7 +76,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     public void doExplainConsoleError(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
         long startTimeNanos = System.nanoTime();
         try {
-            run.checkPermission(hudson.model.Item.READ);
+            run.checkPermission(Item.READ);
 
             // Folder settings count: a folder can turn explanation off, or on with a provider of its own
             ErrorExplainer switchCheck = new ErrorExplainer();
@@ -94,34 +105,59 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                 return;
             }
 
-            // Optionally allow maxLines as a parameter, default to 200
-            int maxLines = 200;
-            String maxLinesParam = req.getParameter("maxLines");
-            if (maxLinesParam != null) {
-                try { maxLines = Integer.parseInt(maxLinesParam); } catch (NumberFormatException ignore) {}
+            // A new explanation calls the provider, which costs money, and replaces the one the build has
+            run.checkPermission(Item.BUILD);
+            if (!PendingExplanations.tryAdd(run)) {
+                BaseAIProvider provider = switchCheck.providerFor(run);
+                writeJsonResponse(rsp, "warning", provider != null ? provider.getProviderName() : "Unknown",
+                        ALREADY_PENDING);
+                return;
             }
-
-            // Fetch the last N lines of the log
-            PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
-                    false, null);
-            List<String> logLines = logExtractor.getFailedStepLog();
-            this.urlString = logExtractor.getUrl();
-
-            String errorText = String.join("\n", logLines);
-
-            ErrorExplainer explainer = new ErrorExplainer();
             try {
-                ErrorExplanationAction action = explainer.explainErrorText(errorText, urlString, run);
-                writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
-                        action.getTitle());
-            } catch (ExplanationException ee) {
-                writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage(), null,
-                        ProviderFailure.describe(ee));
+                int maxLines = maxLines(req.getParameter("maxLines"));
+
+                // Fetch the last N lines of the log
+                PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines,
+                        Jenkins.getAuthentication2(), false, null);
+                List<String> logLines = logExtractor.getFailedStepLog();
+                this.urlString = logExtractor.getUrl();
+
+                String errorText = String.join("\n", logLines);
+
+                ErrorExplainer explainer = new ErrorExplainer();
+                try {
+                    ErrorExplanationAction action = explainer.explainErrorText(errorText, urlString, run);
+                    writeJsonResponse(rsp, "success", action.getProviderName(), action.getExplanation(),
+                            action.getTitle());
+                } catch (ExplanationException ee) {
+                    writeJsonResponse(rsp, ee.getLevel(), explainer.getProviderName(), ee.getMessage(), null,
+                            ProviderFailure.describe(ee));
+                }
+            } finally {
+                PendingExplanations.remove(run);
             }
+        } catch (AccessDeniedException e) {
+            rsp.setStatus(403);
+            writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
         } catch (Exception e) {
             LOGGER.severe("=== EXPLAIN ERROR REQUEST FAILED ===");
             LOGGER.severe("Error explaining console error: " + e.getMessage());
             writeJsonResponse(rsp, "error", "Unknown", "Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The number of log lines asked for, within {@link #MAX_LINES_LIMIT}; the default when the request does
+     * not say or says something that is not a number.
+     */
+    static int maxLines(@CheckForNull String requested) {
+        if (requested == null) {
+            return DEFAULT_MAX_LINES;
+        }
+        try {
+            return Math.min(Math.max(1, Integer.parseInt(requested.trim())), MAX_LINES_LIMIT);
+        } catch (NumberFormatException e) {
+            return DEFAULT_MAX_LINES;
         }
     }
 
@@ -134,7 +170,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     @RequirePOST
     public void doCheckBuildStatus(StaplerRequest2 req, StaplerResponse2 rsp) {
         try {
-            run.checkPermission(hudson.model.Item.READ);
+            run.checkPermission(Item.READ);
 
             Integer buildingStatus = run.isBuilding() ? 1 : 0;
 

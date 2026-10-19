@@ -7,8 +7,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The builds whose automatic explanation has been requested and has not come back yet, so that
- * their pages can say one is on its way instead of offering to request another.
+ * The builds whose explanation has been requested and has not come back yet, so that their pages
+ * can say one is on its way instead of offering to request another. Automatic explanations are
+ * added when they are queued; one requested from a page is added for as long as it runs.
  *
  * Kept in memory only: the request itself does not survive a restart, and a stored marker
  * would then claim an explanation is being generated forever. For the same reason a request
@@ -30,6 +31,22 @@ final class PendingExplanations {
 
     static void add(@NonNull Run<?, ?> run, long requestedAtMillis) {
         PENDING.put(run.getExternalizableId(), requestedAtMillis);
+    }
+
+    /**
+     * Marks the build as pending unless it already is, in one step, so that two requests at the
+     * same time cannot both go on to call the provider.
+     *
+     * @return whether the build was marked; {@code false} when an explanation is already on its way
+     */
+    static boolean tryAdd(@NonNull Run<?, ?> run) {
+        String id = run.getExternalizableId();
+        long now = System.currentTimeMillis();
+        Long requestedAt = PENDING.putIfAbsent(id, now);
+        if (requestedAt == null) {
+            return true;
+        }
+        return now - requestedAt > MAX_AGE_MILLIS && PENDING.replace(id, requestedAt, now);
     }
 
     static void remove(@NonNull Run<?, ?> run) {
