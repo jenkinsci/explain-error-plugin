@@ -1,0 +1,25 @@
+src/test/java/io/jenkins/plugins/explain_error/provider/ProviderTestConfigurationTest.java
+  s_eff5fe0d14ae02::t_07886487234913 7,74-77,160-188
+  s_eff5fe0d14ae02::t_ad628ee145d213 189-190
+src/main/java/io/jenkins/plugins/explain_error/provider/AzureOpenAIProvider.java
+  s_eff5fe0d14ae02::t_0f79281efc95d4 201,206,687
+src/main/java/io/jenkins/plugins/explain_error/provider/BaseAIProvider.java
+  s_eff5fe0d14ae02::t_0f79281efc95d4 464-472,503-504
+  s_eff5fe0d14ae02::t_159ac0c441c698 463
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0013ba65cce59df37c9c4f83b7b17e4dfa4c05e8",
+  "prompts": {},
+  "sessions": {
+    "s_eff5fe0d14ae02": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b268068-f708-434c-931c-5b32a8bd9f9b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
