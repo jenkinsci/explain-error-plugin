@@ -68,6 +68,10 @@ Once a build has an explanation, the button reads **Show explanation**, and the 
 generated; the re-explain icon asks the provider again. If a request fails, the card stays open with what went wrong
 and a **Try again** button.
 
+Asking for a new explanation needs the **Job/Build** permission, because it calls the AI provider. Users who can only
+read the job see the explanation a build already has, and no button when it has none. The same applies on the Stages
+page.
+
 ### On the Stages page
 
 With [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/) 777 or newer (Jenkins 2.534 or newer), the
@@ -137,7 +141,7 @@ the supported SCM services and the files it may change.
 
 | Issue | What to check |
 |---|---|
-| No **Explain Error** button | The button appears on finished builds that did not succeed. Check that explanation is on, globally and for the job's folder, and that **Test Configuration** succeeds. On the Stages page it needs Pipeline Graph View 777 or newer |
+| No **Explain Error** button | The button appears on finished builds that did not succeed. Check that explanation is on, globally and for the job's folder, and that **Test Configuration** succeeds. On the Stages page it needs Pipeline Graph View 777 or newer. Asking for a new explanation needs the Job/Build permission |
 | Authentication or rate limit errors | The key, the provider's quota and plan, and the plugin's own [request quota](docs/usage-quota.md) |
 | **Test Configuration** fails | The connection diagnostics report under the error shows the proxy decision, DNS, TCP and HTTP probe; read it bottom-up to find the layer that fails, and include it when you report an issue |
 

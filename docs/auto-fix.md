@@ -256,10 +256,31 @@ When no pull request was created, **Copy diff** puts that file's diff on the cli
 
 ```
 pom.xml, build.gradle, build.gradle.kts, *.properties, *.yml, *.yaml,
-Jenkinsfile, Dockerfile, package.json, requirements.txt, go.mod
+Dockerfile, package.json, requirements.txt, go.mod
 ```
 
-Files outside this list are never modified, regardless of what the AI suggests.
+Files outside this list are never modified, regardless of what the AI suggests. A pattern without a `/`, such as
+`pom.xml`, matches that file name in any directory. An empty `autoFixAllowedPaths` allows no file at all.
+
+### CI and pipeline definitions
+
+The fix branch is pushed to your repository, and a CI system that builds branches runs it before anyone reviews
+the pull request. A CI or pipeline definition decides what that build runs and with which credentials, so auto-fix
+changes one only when a pattern spells out its path: the pattern matches the whole path and does not start with a
+wildcard. These count as definitions:
+
+- `Jenkinsfile`, `Jenkinsfile.*` and `*.jenkinsfile`, in any directory
+- `.gitlab-ci.yml`, `bitbucket-pipelines.yml`, `azure-pipelines.yml`, `.travis.yml`, `.drone.yml`
+- files under `.github/workflows/`, `.github/actions/`, `.circleci/` and `.buildkite/`
+
+`*.yml` therefore covers neither `.gitlab-ci.yml` nor `.github/workflows/release.yml`, and `**/Jenkinsfile` covers no
+Jenkinsfile. `Jenkinsfile`, `ci/Jenkinsfile` or `.github/workflows/*.yml` do. To let auto-fix change the Jenkinsfile
+at the root of the repository:
+
+```groovy
+explainError(autoFix: true, autoFixCredentialsId: 'github-pat',
+             autoFixAllowedPaths: 'pom.xml,Jenkinsfile')
+```
 
 ---
 
@@ -325,7 +346,7 @@ Auto-fix works best for failures where the root cause is **specific and mechanic
 | Outdated/missing dependency version in `pom.xml` or `build.gradle` | Failing unit tests with logic errors |
 | Missing or wrong property in `*.properties` / `*.yml` | Complex refactoring required |
 | Wrong Java/Python/Node version in `Dockerfile` or CI config | Environment-specific issues (missing secrets, network) |
-| Syntax error in `Jenkinsfile` or `*.yaml` | Flaky tests |
+| Syntax error in `*.yaml`, or in a `Jenkinsfile` you [allowed](#ci-and-pipeline-definitions) | Flaky tests |
 | Missing `package.json` dependency | Multi-file architectural changes |
 
 The AI sets a `confidence` level (`high`, `medium`, `low`). The plugin only proceeds when
@@ -342,8 +363,9 @@ guaranteed fix.
   rest is the build number and a time-based suffix
 - The pull request title and commit subject carry that same AI-written title as plain text, on one
   line and at most 72 characters
-- File paths are validated against: absolute-path check, path-traversal check (`../`), and the
-  allow-list globs — in that order — before any branch is created
+- File paths are validated against: absolute-path check, backslash and path-traversal check (`../`), and the
+  allow-list globs — in that order — before any branch is created. CI and pipeline definitions need a glob that
+  spells out their path (see [CI and pipeline definitions](#ci-and-pipeline-definitions))
 - The diff is parsed and validated before it is applied; malformed diffs abort the workflow
 - The token has the minimum scope needed: write access to the single repository
 

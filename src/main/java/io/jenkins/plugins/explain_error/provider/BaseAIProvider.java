@@ -461,6 +461,16 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
         public abstract String getDefaultModel();
 
         /**
+         * The item whose credentials a "Test Configuration" of its form may use: the folder or job the form
+         * belongs to, as a build of it would use, or none for the global configuration. Credentials that only
+         * Jenkins itself may use are not available to an item, so a folder's form cannot send them.
+         */
+        @CheckForNull
+        protected static Item credentialsContext(@CheckForNull AccessControlled context) {
+            return context instanceof Item item ? item : null;
+        }
+
+        /**
          * Check that the user has permission to configure the plugin.
          * When called from an item context (folder, job), checks {@link Item#CONFIGURE}.
          * When called from a global context, checks {@link Jenkins#ADMINISTER}.
@@ -490,7 +500,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
                                                             BaseAIProvider provider) {
             checkConfigurePermission(context);
             try {
-                provider.explainError("Send 'Configuration test successful' to me.", null);
+                provider.explainError("Send 'Configuration test successful' to me.", null, null, null,
+                        credentialsContext(context), null);
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
                 return testConfigurationFailed(provider, e);

@@ -414,6 +414,80 @@ class AutoFixOrchestratorTest {
                 orchestrator.resolveCloudBitbucketBaseUrl("https://bitbucket.internal.example"));
     }
 
+    // -----------------------------------------------------------------------
+    // validateFilePath — CI and pipeline definitions, empty lists, odd paths
+    // -----------------------------------------------------------------------
+
+    private static final List<String> DEFAULT_GLOBS =
+            List.of(io.jenkins.plugins.explain_error.ExplainErrorStep.DEFAULT_AUTO_FIX_ALLOWED_PATHS.split(","));
+
+    @Test
+    void validateFilePath_defaultListCoversBuildFilesInAnyModule() {
+        for (String path : List.of("pom.xml", "core/pom.xml", "config/application.yml", "Dockerfile",
+                "web/package.json")) {
+            assertNull(orchestrator.validateFilePath(path, DEFAULT_GLOBS), path);
+        }
+    }
+
+    @Test
+    void validateFilePath_defaultListLeavesPipelineDefinitionsAlone() {
+        for (String path : List.of("Jenkinsfile", "ci/Jenkinsfile", "Jenkinsfile.release", "build.jenkinsfile",
+                ".github/workflows/release.yml", ".github/actions/setup/action.yml", ".gitlab-ci.yml",
+                "bitbucket-pipelines.yml", "azure-pipelines.yml", ".circleci/config.yml", ".travis.yml",
+                ".buildkite/pipeline.yml", ".drone.yml")) {
+            String error = orchestrator.validateFilePath(path, DEFAULT_GLOBS);
+            assertNotNull(error, path);
+            assertTrue(error.contains("CI or pipeline definition"), error);
+        }
+    }
+
+    @Test
+    void validateFilePath_aPipelineDefinitionNeedsAGlobThatSpellsOutItsPath() {
+        assertNull(orchestrator.validateFilePath("Jenkinsfile", List.of("pom.xml", "Jenkinsfile")));
+        assertNull(orchestrator.validateFilePath("ci/Jenkinsfile", List.of("ci/Jenkinsfile")));
+        assertNull(orchestrator.validateFilePath(".github/workflows/ci.yml", List.of(".github/workflows/*.yml")));
+        assertNull(orchestrator.validateFilePath(".gitlab-ci.yml", List.of(".gitlab-ci.yml")));
+        // A glob that only matches the file name does not reach it
+        assertNotNull(orchestrator.validateFilePath("ci/Jenkinsfile", List.of("Jenkinsfile")));
+        assertNotNull(orchestrator.validateFilePath(".github/workflows/ci.yml", List.of("ci.yml")));
+        // Nor does one that starts with a wildcard, even where it matches the whole path
+        for (String glob : List.of("*.yml", "**", "**/Jenkinsfile", "?enkinsfile", "{Jenkinsfile,pom.xml}")) {
+            assertNotNull(orchestrator.validateFilePath(".gitlab-ci.yml", List.of(glob)), glob);
+            assertNotNull(orchestrator.validateFilePath("Jenkinsfile", List.of(glob)), glob);
+            assertNotNull(orchestrator.validateFilePath("ci/Jenkinsfile", List.of(glob)), glob);
+        }
+    }
+
+    @Test
+    void validateFilePath_aPipelineDefinitionIsRefusedWithoutAnAllowList() {
+        assertNull(orchestrator.validateFilePath("pom.xml", null));
+        assertNotNull(orchestrator.validateFilePath("Jenkinsfile", null));
+        assertNotNull(orchestrator.validateFilePath(".github/workflows/ci.yml", null));
+    }
+
+    @Test
+    void validateFilePath_anEmptyAllowListAllowsNothing() {
+        String error = orchestrator.validateFilePath("pom.xml", List.of());
+        assertNotNull(error);
+        assertTrue(error.contains("not allowed by configured path patterns"), error);
+    }
+
+    @Test
+    void validateFilePath_globsAreMatchedAgainstTheFileReallyChanged() {
+        // "src/.." leads out of src/, so src/** does not cover these files
+        assertNotNull(orchestrator.validateFilePath("src/../secrets.env", List.of("src/**")));
+        assertNotNull(orchestrator.validateFilePath("src/../Jenkinsfile", List.of("src/**")));
+        assertNull(orchestrator.validateFilePath("src/main/../Main.java", List.of("src/**")));
+    }
+
+    @Test
+    void validateFilePath_refusesBackslashes() {
+        String error = orchestrator.validateFilePath("..\\outside.txt", null);
+        assertNotNull(error);
+        assertTrue(error.contains("Backslashes"), error);
+        assertNotNull(orchestrator.validateFilePath(".github\\workflows\\ci.yml", DEFAULT_GLOBS));
+    }
+
     private static final class FakeGitScm extends NullSCM {
 
         private final List<FakeRemoteConfig> repositories;

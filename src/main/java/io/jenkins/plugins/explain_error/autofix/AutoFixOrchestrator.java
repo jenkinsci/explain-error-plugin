@@ -33,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -458,43 +459,91 @@ public class AutoFixOrchestrator {
     }
 
     /**
+     * File names of CI and pipeline definitions. A change to one decides what a build of the pushed fix branch
+     * runs and with which credentials, so it is made only when the allow-list names its path.
+     */
+    private static final Set<String> PIPELINE_DEFINITION_NAMES = Set.of(
+            "Jenkinsfile", ".gitlab-ci.yml", ".gitlab-ci.yaml", "bitbucket-pipelines.yml", "azure-pipelines.yml",
+            "azure-pipelines.yaml", ".travis.yml", ".drone.yml");
+
+    /** Directories whose files are CI definitions, such as GitHub Actions workflows. */
+    private static final List<String> PIPELINE_DEFINITION_DIRS = List.of(
+            ".github/workflows/", ".github/actions/", ".circleci/", ".buildkite/");
+
+    /**
      * Validates a file path against security constraints and the allowed-path globs.
+     * <p>
+     * A glob may match the whole path or, for patterns such as {@code pom.xml}, only the file name, so that it
+     * covers every module. A CI or pipeline definition is the exception: only a glob that spells out its path,
+     * one that matches the whole path and does not start with a wildcard, allows it. So {@code *.yml} reaches
+     * neither {@code .gitlab-ci.yml} nor {@code .github/workflows/release.yml}, while {@code Jenkinsfile} and
+     * {@code .github/workflows/*.yml} do. An empty list allows nothing; {@code null} sets no allow-list.
      *
      * @return null if path is valid, or a description of why it was rejected
      */
-    private String validateFilePath(String filePath, List<String> allowedPathGlobs) {
+    String validateFilePath(String filePath, @CheckForNull List<String> allowedPathGlobs) {
         if (filePath == null || filePath.isBlank()) {
             return "File path is null or blank";
         }
         if (filePath.startsWith("/")) {
             return "Absolute paths are not allowed: " + filePath;
         }
-        // Normalize to catch trailing ".." segments (e.g. "src/main/..") that would
-        // bypass a simple string-contains check. Also catches Windows-style "..\".
+        // On Linux a backslash is part of a name, so a Windows-style ..\ would get past the traversal check
+        if (filePath.contains("\\")) {
+            return "Backslashes are not allowed in file paths: " + filePath;
+        }
+        // Normalize to catch ".." segments (e.g. "src/main/..") that would bypass a simple
+        // string-contains check, and to match the globs against the file that is really changed.
         Path normalized = Path.of(filePath).normalize();
         if (normalized.startsWith("..")) {
             return "Path traversal is not allowed: " + filePath;
         }
-        if (allowedPathGlobs != null && !allowedPathGlobs.isEmpty()) {
-            boolean matched = false;
-            Path p = Path.of(filePath);
-            for (String glob : allowedPathGlobs) {
-                try {
-                    PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
-                    Path fileName = p.getFileName();
-                    if (matcher.matches(p) || (fileName != null && matcher.matches(fileName))) {
-                        matched = true;
-                        break;
-                    }
-                } catch (Exception e) {
-                    LOGGER.warning("Invalid glob pattern '" + glob + "': " + e.getMessage());
-                }
+        boolean pipelineDefinition = isPipelineDefinition(normalized);
+        if (allowedPathGlobs == null && !pipelineDefinition) {
+            return null;
+        }
+        List<String> globs = allowedPathGlobs != null ? allowedPathGlobs : List.of();
+        for (String glob : globs) {
+            if (pipelineDefinition && startsWithWildcard(glob)) {
+                continue;
             }
-            if (!matched) {
-                return "File path '" + filePath + "' is not allowed by configured path patterns";
+            try {
+                PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
+                if (matcher.matches(normalized)) {
+                    return null;
+                }
+                Path fileName = normalized.getFileName();
+                if (!pipelineDefinition && fileName != null && matcher.matches(fileName)) {
+                    return null;
+                }
+            } catch (Exception e) {
+                LOGGER.warning("Invalid glob pattern '" + glob + "': " + e.getMessage());
             }
         }
-        return null;
+        if (pipelineDefinition) {
+            return "File path '" + filePath + "' is a CI or pipeline definition; add its path to"
+                    + " autoFixAllowedPaths to let auto-fix change it";
+        }
+        return "File path '" + filePath + "' is not allowed by configured path patterns";
+    }
+
+    private static boolean startsWithWildcard(String glob) {
+        return !glob.isEmpty() && "*?[{".indexOf(glob.charAt(0)) >= 0;
+    }
+
+    /** Whether the file is a CI or pipeline definition: a Jenkinsfile, a GitHub Actions workflow and the like. */
+    static boolean isPipelineDefinition(Path normalized) {
+        Path fileName = normalized.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        String name = fileName.toString();
+        if (PIPELINE_DEFINITION_NAMES.contains(name) || name.startsWith("Jenkinsfile.")
+                || name.endsWith(".jenkinsfile")) {
+            return true;
+        }
+        String path = normalized.toString().replace('\\', '/');
+        return PIPELINE_DEFINITION_DIRS.stream().anyMatch(path::startsWith);
     }
 
     /**

@@ -74,7 +74,7 @@
         </f:entry>
 
         <f:entry title="Allowed File Paths" field="autoFixAllowedPaths"
-                 description="Comma-separated glob patterns for files AI is allowed to modify. Default covers common build/config files.">
+                 description="Comma-separated glob patterns for files AI is allowed to modify. Default covers common build/config files. CI and pipeline definitions such as the Jenkinsfile are changed only when a pattern spells out their path.">
             <f:textbox />
         </f:entry>
 

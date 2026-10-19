@@ -198,12 +198,12 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         }
     }
 
-    private void testConfiguration() throws ExplanationException {
+    private void testConfiguration(@CheckForNull Item item) throws ExplanationException {
         HttpClient client = newJenkinsHttpClientBuilder()
                 .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
                 .build();
         try {
-            requestRawContent(client, buildTestRequestBody(), null, null);
+            requestRawContent(client, buildTestRequestBody(), item, null);
         } catch (IOException e) {
             throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
         } catch (InterruptedException e) {
@@ -684,7 +684,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             AzureOpenAIProvider provider = new AzureOpenAIProvider(endpoint, deployment, apiVersion,
                     credentialsId, selectedApiType);
             try {
-                provider.testConfiguration();
+                provider.testConfiguration(credentialsContext(context));
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");
             } catch (ExplanationException e) {
                 return testConfigurationFailed(provider, e);
