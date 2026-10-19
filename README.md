@@ -491,7 +491,7 @@ The step returns `null` when no explanation could be generated (explanation disa
 | **autoFixGithubEnterpriseUrl** | Base URL of your GitHub Enterprise instance (e.g. `https://github.company.com`) | `''` (uses `api.github.com`) |
 | **autoFixGitlabUrl** | Base URL of your self-hosted GitLab instance (e.g. `https://gitlab.company.com`) | `''` (uses `gitlab.com`) |
 | **autoFixBitbucketUrl** | Base URL of your self-hosted Bitbucket instance | `''` (uses `api.bitbucket.org`) |
-| **autoFixAllowedPaths** | Comma-separated list of file glob patterns the AI is permitted to modify | `pom.xml,build.gradle,*.yml,*.yaml,...` |
+| **autoFixAllowedPaths** | Comma-separated list of file glob patterns the AI is permitted to modify. CI and pipeline definitions (`Jenkinsfile`, `.github/workflows/`, `.gitlab-ci.yml`, ...) are changed only when a pattern spells out their path | `pom.xml,build.gradle,*.yml,*.yaml,...` |
 | **autoFixDraftPr** | Open the pull request as a draft (GitHub only) | `false` |
 | **autoFixTimeoutSeconds** | Maximum seconds to wait for the auto-fix to complete | `60` |
 | **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}`, `{title}`, `{buildUrl}`, `{buildLink}` placeholders | Built-in template |
@@ -600,6 +600,8 @@ explainError(
 ```
 
 The AI will only propose changes to files matching the glob patterns. Any attempt to modify files outside the list is rejected before a branch is created.
+
+CI and pipeline definitions, such as `Jenkinsfile`, `.github/workflows/*.yml`, `.gitlab-ci.yml` or `bitbucket-pipelines.yml`, decide what a build of the pushed fix branch runs. They are not in the default list, and a pattern that starts with a wildcard, such as `*.yml`, does not cover them. To let auto-fix change one, list its path, for example `autoFixAllowedPaths: 'pom.xml,Jenkinsfile'`.
 
 > **Note:** Auto-fix requires a personal access token (PAT) with write access to the repository. It does **not** use the SSH key used to check out the repository.
 

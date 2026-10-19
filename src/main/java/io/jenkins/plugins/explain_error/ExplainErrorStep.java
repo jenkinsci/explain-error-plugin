@@ -29,6 +29,13 @@ import org.kohsuke.stapler.DataBoundSetter;
  */
 public class ExplainErrorStep extends Step {
 
+    /**
+     * Files auto-fix may change unless the step says otherwise. CI and pipeline definitions such as the
+     * Jenkinsfile are left out: a step that wants them changed lists their paths.
+     */
+    public static final String DEFAULT_AUTO_FIX_ALLOWED_PATHS = "pom.xml,build.gradle,build.gradle.kts,"
+            + "*.properties,*.yml,*.yaml,Dockerfile,package.json,requirements.txt,go.mod";
+
     private String logPattern;
     private int maxLines;
     private String language;
@@ -48,7 +55,7 @@ public class ExplainErrorStep extends Step {
     private String autoFixGithubEnterpriseUrl = "";
     private String autoFixGitlabUrl = "";
     private String autoFixBitbucketUrl = "";
-    private String autoFixAllowedPaths = "pom.xml,build.gradle,build.gradle.kts,*.properties,*.yml,*.yaml,Jenkinsfile,Dockerfile,package.json,requirements.txt,go.mod";
+    private String autoFixAllowedPaths = DEFAULT_AUTO_FIX_ALLOWED_PATHS;
     private boolean autoFixDraftPr = false;
     private int autoFixTimeoutSeconds = 120;
     private String autoFixPrTemplate = "";
@@ -227,8 +234,7 @@ public class ExplainErrorStep extends Step {
 
     @DataBoundSetter
     public void setAutoFixAllowedPaths(String autoFixAllowedPaths) {
-        this.autoFixAllowedPaths = autoFixAllowedPaths != null ? autoFixAllowedPaths
-                : "pom.xml,build.gradle,build.gradle.kts,*.properties,*.yml,*.yaml,Jenkinsfile,Dockerfile,package.json,requirements.txt,go.mod";
+        this.autoFixAllowedPaths = autoFixAllowedPaths != null ? autoFixAllowedPaths : DEFAULT_AUTO_FIX_ALLOWED_PATHS;
     }
 
     public boolean isAutoFixDraftPr() {
