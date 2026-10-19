@@ -189,7 +189,7 @@ src/main/java/io/jenkins/plugins/explain_error/
    - Refactor and optimize
 
 3. **Update documentation:**
-   - Update README.md if needed (keep provider lists in alphabetical order)
+   - Update README.md if needed, and `docs/providers.md` for provider changes (keep provider lists in alphabetical order)
    - Update `docs/` if the change affects existing feature docs
    - Add Javadoc comments
 

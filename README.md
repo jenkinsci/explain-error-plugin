@@ -6,708 +6,156 @@
 
 ---
 
-## 🎥 Demo
+Explain Error turns a failed Jenkins build into a short explanation: what broke, why, and how to fix it. It reads the
+log of the step that failed, asks the AI provider you choose, and shows the answer on the build, so nobody has to dig
+through a long console to find the one line that matters.
 
-👉 [Watch the 90-second overview on YouTube](https://youtu.be/3dwNNoYePE0) — one-click explanations, the `explainError()` pipeline step, automatic mode, twelve AI providers, and auto-fix pull requests.
+![An explanation on the console page of a failed build](docs/images/console-output.png)
 
----
+🎥 [Watch the 90-second overview on YouTube](https://youtu.be/3dwNNoYePE0)
 
-## Overview
+## Features
 
-Tired of digging through long Jenkins logs to understand what went wrong?
+- **Explain Error button** on the console page of a failed build, and for each stage on the Stages page of
+  [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/)
+- **`explainError()` Pipeline step** that returns the explanation as text or as a map of fields, for notifications and
+  routing
+- **Automatic explanation** of every failed build, with no pipeline change, within hourly and concurrency limits
+- **Twelve AI providers**: Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini,
+  LangGraph Platform, Microsoft Foundry, Ollama, OpenAI, OpenAI Compatible (LiteLLM, OpenWebUI and other gateways) and
+  Qwen, including private endpoints, company gateways and models you host yourself
+- **Folder settings**, so each team can use its own provider, language and instructions
+- **Request quotas and usage metrics** to keep provider costs in check
+- **AI auto-fix** *(experimental)*: opens a pull request on GitHub, GitLab or Bitbucket with a proposed fix
 
-**Explain Error Plugin** leverages AI to automatically interpret job and pipeline failures—saving you time and helping you fix issues faster.
+## Getting started
 
-Whether it’s a compilation error, test failure, or deployment hiccup, this plugin turns confusing logs into human-readable insights.
+Requirements: Jenkins 2.528.3 or newer, and an AI provider you can reach from the controller.
 
-## Key Features
+1. Install **Explain Error** from **Manage Jenkins → Plugins → Available plugins**. Without internet access, download
+   the `.hpi` from the [releases](https://plugins.jenkins.io/explain-error/releases/) and upload it under
+   **Plugins → Advanced settings → Deploy Plugin**.
+2. Open **Manage Jenkins → System** and find **Explain Error Plugin Configuration**.
+3. Choose an **AI Provider**, and fill in its key, endpoint and model.
+4. Click **Test Configuration**, then **Save**.
 
-* **One-click error analysis** on any console output, and per stage on the Stages page of [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/)
-* **Pipeline-ready** with a simple `explainError()` step
-* **Structured output** *(opt-in)* — `returnStructured: true` returns a `Map` of the analysis fields for notifications and routing
-* **Automatic explanation on failure** — failed builds are explained without any pipeline change when the global toggle is enabled, within hourly and concurrency limits, and a job can opt out or in
-* **Workspace Context** *(opt-in)* — include selected workspace files for more accurate explanations
-* **AI auto-fix** *(experimental)* — automatically opens a pull request on GitHub, GitLab, or Bitbucket with AI-generated code changes when a build fails
-* **AI-powered explanations** via Anthropic Claude, AWS Bedrock, Azure OpenAI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI GPT models, OpenAI-compatible gateways (LiteLLM, OpenWebUI, self-hosted proxies), Qwen, or generic Okta-authenticated company AI gateways
-* **Folder-level configuration** so teams can use project-specific settings
-* **Smart provider management** — LangChain4j handles most providers automatically
-* **Customizable**: set provider, model, API endpoint, Okta token flow settings, log filters, and more
+![The provider settings](docs/images/configuration.png)
 
-[^1]: *Enterprise-ready API endpoints support private gateways, company-hosted AI services, and air-gapped environments.*
+The same with [Configuration as Code](https://plugins.jenkins.io/configuration-as-code/):
 
-## Quick Start
-
-### Prerequisites
-
-- Jenkins (2.528.3) or higher required
-- Java 17+
-- AI provider credentials for your selected provider
-
-### Installation
-
-1. **Install via Jenkins Plugin Manager:**
-   - Go to `Manage Jenkins` → `Manage Plugins` → `Available`
-   - Search for "Explain Error Plugin"
-   - Click `Install` and restart Jenkins
-
-2. **Manual Installation:**
-   - Download the `.hpi` file from [releases](https://plugins.jenkins.io/explain-error/releases/)
-   - Upload via `Manage Jenkins` → `Manage Plugins` → `Advanced`
-
-### Configuration
-
-1. Go to `Manage Jenkins` → `Configure System`
-2. Find the **"Explain Error Plugin Configuration"** section
-3. Configure the following settings:
-
-| Setting | Description | Default |
-|---------|-------------|---------|
-| **Enable AI Error Explanation** | Toggle plugin functionality | ✅ Enabled |
-| **AI Provider** | Choose between Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini, LangGraph, Microsoft Foundry, Ollama, OpenAI, OpenAI Compatible, or Qwen | `OpenAI` |
-| **API Key** | Your AI provider API key | Used by OpenAI, Microsoft Foundry, Anthropic, Gemini, DeepSeek, and Qwen providers. Optional for OpenAI Compatible and Ollama providers |
-| **API URL** | AI service endpoint | **Leave empty** for official APIs where supported. **Required for Custom Okta AI, Ollama, and OpenAI Compatible providers.** Optional Bedrock Runtime endpoint override for private VPC endpoints. |
-| **AI Model** | Model to use for analysis | *Required*.  Specify the model name offered by your selected AI provider |
-| **Temperature** | Creativity control (0.0–2.0). Leave empty to use the provider default. | *Optional* |
-| **Language** | Language for AI explanations (e.g. `English`, `中文`, `日本語`). Can be overridden at folder and step level. The section labels around the explanation follow it for English, Chinese (Simplified and Traditional), Japanese, Spanish, French and German; other languages get English labels. | `English` |
-| **Custom Context** | Additional instructions or context for the AI (e.g., KB article links, organization-specific troubleshooting steps). Explanations are short by default (a summary of one or two sentences, up to four resolution steps, up to two best practices); ask here for more or less detail. | *Optional*. Can be overridden at folder and step level. |
-| **Automatically explain failed builds** | When enabled (and AI Error Explanation is active), all failed builds (result `FAILURE`) are automatically explained without any pipeline change. Builds already explained via `explainError()` step are skipped. A job can override it; see [Automatic Explanation](docs/auto-explain.md#per-job-override). | Disabled |
-| **Max Log Lines** *(auto-explain)* | Number of console log lines read per build for automatic explanation. Increase this for models with large context windows (e.g. DeepSeek, Kimi). Only visible when **Automatically explain failed builds** is enabled. | `100` |
-| **Max Automatic Explanations per Hour** *(auto-explain)* | Maximum number of AI provider calls for automatic explanations per hour, in addition to the request quota. Failed builds beyond it are not explained automatically and say so in their console. See [Automatic Explanation](docs/auto-explain.md). | `30` |
-
-`Custom Okta AI` adds provider-specific fields for `Okta Token URL`, `Client ID`, `Client Secret`, and optional `Scope`, `API Version`, `App Key`, and custom access-token header settings. This is intended for generic company AI gateways that require an OAuth client-credentials exchange before the chat call.
-
-4. Click **"Test Configuration"** to verify your setup
-5. Save the configuration
-
-![Configuration](docs/images/configuration.png)
-
-### Folder-Level Configuration
-
-Support for folder-level overrides allows different teams to use their own AI providers, models, language, temperature, and custom context.
-
-1. Click **Configure** on any folder
-2. Under **Properties**, check **"Set AI error explanation for this folder"** and set:
-   - **Turn off AI error explanation for jobs in this folder** — no Explain Error button, no automatic explanation, and `explainError()` does nothing, whatever the global setting says
-   - **Use a different AI provider for this folder** — check it to override the global provider; leave it unchecked to keep the provider of the parent folder or the global configuration. A folder with a provider of its own has explanation on even while the global **Enable AI Error Explanation** is off
-   - **Temperature** — overrides the global temperature
-   - **Language** — overrides the global language
-   - **Custom Context** — overrides the global custom context
-
-*All folder settings inherit from parent folders and override global defaults. Step-level settings take precedence over both. Whether a job is explained at all is decided by the nearest folder that turns explanation off or has a provider of its own, otherwise by the global setting.*
-
-In Configuration as Code, the folder property is `explainErrorFolder`; `disableExplanation: true` turns explanation off for the folder.
-
-### Quota and Metrics
-
-The plugin supports request quotas and usage metrics for provider/model-level visibility.
-See [AI Provider Call Quotas](docs/usage-quota.md) for configuration, collection, and dashboard guidance.
-
-### Configuration as Code (CasC)
-
-This plugin supports [Configuration as Code](https://plugins.jenkins.io/configuration-as-code/) for automated setup. Use the `explainError` symbol in your YAML configuration:
-
-**Anthropic (Claude) Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      anthropic:
-        apiKey: "${ANTHROPIC_API_KEY}"
-        model: "claude-sonnet-4-6"
-        # url: "" # Optional, leave empty for the official Anthropic API
-        # maxTokens: 4096 # Optional, defaults to 4096
-        # credentialsId: "anthropic-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
-        # customContext: "Custom instruccions" # Optional
-    enableExplanation: true
-```
-
-**AWS Bedrock Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      bedrock:
-        model: "anthropic.claude-3-5-sonnet-20240620-v1:0"
-        region: "us-east-1" # Optional, uses AWS SDK default if not specified
-        # url: "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com" # Optional private endpoint
-        # roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole" # Optional cross-account role
-        # guardrailIdentifier: "arn:aws:bedrock:us-east-1:123456789012:guardrail/abc123" # Optional guardrail ID or ARN
-        # guardrailVersion: "1" # Required with guardrailIdentifier: a version number or DRAFT
-    enableExplanation: true
-```
-
-**Azure OpenAI Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      azureOpenai:
-        endpoint: "https://my-resource.openai.azure.com"
-        deployment: "gpt-4o" # Azure OpenAI deployment name
-        apiVersion: "2025-01-01-preview"
-        credentialsId: "azure-openai-key" # Jenkins StringCredentials ID
-        # apiType: "RESPONSES" # Use Responses API for newer models (e.g. gpt-5.x). Defaults to Chat Completions.
-        # Responses API uses the Azure OpenAI /openai/v1/responses endpoint.
-    enableExplanation: true
-```
-
-**Custom Okta AI Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      customOkta:
-        url: "https://chat-ai.example.com/openai/deployments/{model}/chat/completions" # Required
-        tokenUrl: "https://id.example.com/oauth2/default/v1/token"                     # Required
-        model: "gpt-5-nano"                                                            # Required
-        clientId: "${OKTA_CLIENT_ID}"                                                  # Required
-        clientSecret: "${OKTA_CLIENT_SECRET}"                                          # Required
-        scope: "custom.scope"                                                          # Optional
-        apiVersion: "2025-04-01-preview"                                               # Optional
-        accessTokenHeader: "api-key"                                                   # Optional (default: Authorization)
-        accessTokenPrefix: ""                                                          # Optional (default: empty; sends raw token)
-        appKey: "${CUSTOM_AI_APP_KEY}"                                                 # Optional
-        userId: "svc-jenkins"                                                          # Optional
-        timeoutSeconds: 180                                                            # Optional (default: 180)
-    enableExplanation: true
-```
-
-Use `tokenUrl` for the Okta OAuth exchange and `url` for the actual chat completions endpoint. This matches providers that separate authentication from inference, such as gateways where the access token is fetched from one URL and the model is invoked on another.
-
-**DeepSeek Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      deepseek:
-        apiKey: "${DEEPSEEK_API_KEY}"
-        model: "deepseek-v4-flash"
-        # url: "https://api.deepseek.com" # Optional, defaults to the official endpoint
-    enableExplanation: true
-```
-
-**Google Gemini Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      gemini:
-        apiKey: "${AI_API_KEY}"
-        model: "gemini-2.5-flash"
-        # url: "" # Optional, leave empty for default
-    enableExplanation: true
-```
-
-**LangGraph Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      langGraph:
-        url: "https://your-langgraph-deployment.example.com"
-        model: "my-agent" # assistant UUID or graph name
-        apiKey: "${LANGGRAPH_API_KEY}"
-        # timeoutSeconds: 180 # Optional, defaults to 180
-    enableExplanation: true
-```
-
-**Microsoft Foundry Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      microsoftFoundry:
-        apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
-        model: "gpt-4o" # Foundry model deployment name
-        url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
-    enableExplanation: true
-```
-
-**Ollama Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      ollama:
-        model: "gemma3:1b"
-        url: "http://localhost:11434" # Required for Ollama
-    enableExplanation: true
-```
-
-**OpenAI Configuration:**
 ```yaml
 unclassified:
   explainError:
     aiProvider:
       openai:
-        apiKey: "${AI_API_KEY}"
-        model: "gpt-5"
-        # url: "" # Optional, leave empty for default
-    enableExplanation: true
-    customContext: |
-      Consider these additional instructions:
-      - If the error is from SonarQube Scanner, link to: https://example.org/sonarqube-kb
-      - If a Kubernetes manifest failed, remind about cluster-specific requirements
-      - Check if the error might be caused by a builder crash and suggest restarting the pipeline
-```
-
-**OpenAI Compatible Configuration (LiteLLM / custom gateways):**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      openaiCompatible:
-        url: "https://litellm.example.com" # Required: base URL of your gateway
-        model: "azure/gpt-4o" # Any model name exposed by the gateway
-        # apiKey: "${GATEWAY_API_KEY}" # Optional, sent as Bearer token
-        # apiType: RESPONSES # Optional: CHAT_COMPLETIONS (default) or RESPONSES for gateways that only support /responses
+        apiKey: "${OPENAI_API_KEY}"
+        model: "gpt-5-mini"
     enableExplanation: true
 ```
 
-**Environment Variable Example:**
-```bash
-export AI_API_KEY="your-api-key-here"
-```
+[AI Providers](docs/providers.md) lists the fields and an example for each provider, and
+[Configuration](docs/configuration.md) describes every setting, folder overrides included.
 
-**Qwen Configuration:**
-```yaml
-unclassified:
-  explainError:
-    aiProvider:
-      qwen:
-        apiKey: "${DASHSCOPE_API_KEY}"
-        model: "qwen-plus"
-        # url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # Optional, defaults to China Beijing
-        # credentialsId: "qwen-api-key" # Alternative to apiKey: use a Jenkins StringCredentials ID
-    enableExplanation: true
-```
+## Getting an explanation
 
-**Global Settings (apply to all providers):**
+### On the console page
 
-The following optional settings are configured at the `explainError` level (not inside the provider block) and apply regardless of which provider you use. Any provider example above can include them alongside `enableExplanation`:
+Open the console of a failed build and click **Explain Error**. The explanation opens above the log, as in the picture
+at the top: a title that names the root cause, a summary, the steps to fix it, the log lines where it failed and, when
+there are any, practices that would have prevented it. It reads up to 200 lines of the step that failed.
 
-```yaml
-unclassified:
-  explainError:
-    # ... your provider configuration above ...
-    enableExplanation: true
-    # enableAutoExplainOnFailure: true # Optional, automatically explain failed builds without pipeline changes
-    # autoExplainMaxLogLines: 100    # Optional, number of log lines read per build (increase for large-context models)
-    # autoExplainMaxPerHour: 30      # Optional, provider calls per hour for automatic explanations
-    # temperature: 0.7 # Optional, leave empty for provider default
-    # language: "English" # Optional, defaults to English
-    # customContext: "Additional context for the AI" # Optional
-```
+Once a build has an explanation, the button reads **Show explanation**, and the card says when the explanation was
+generated; the re-explain icon asks the provider again. If a request fails, the card stays open with what went wrong
+and a **Try again** button.
 
-This allows you to manage the plugin configuration alongside your other Jenkins settings in version control.
+Asking for a new explanation needs the **Job/Build** permission, because it calls the AI provider. Users who can only
+read the job see the explanation a build already has, and no button when it has none. The same applies on the Stages
+page.
 
-## Supported AI Providers
+### On the Stages page
 
-### Anthropic (Claude)
-- **Models**: `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, etc.
-- **API Key**: Get from [Anthropic Console](https://console.anthropic.com/settings/keys)
-- **Endpoint**: Leave empty for official Anthropic API, or specify custom URL for Claude-compatible services
-- **Best for**: High-quality error analysis with strong reasoning capabilities and contextual understanding
-- **Note**: Claude Opus 4.7 and newer models have deprecated the `temperature` parameter. See [model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) for migration details.
+With [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/) 777 or newer (Jenkins 2.534 or newer), the
+same button is on the **Stages** page of a failed Pipeline build. It explains the stage, parallel branch or step selected
+in the graph from that node's log only, and shows the explanation above the node's steps. A node that passed has no
+button.
 
-### AWS Bedrock
-- **Requires**: the [AWS SDK 2.x](https://plugins.jenkins.io/aws-java-sdk2/) plugin (`aws-java-sdk2-core`). This dependency is intentionally **optional** so installations that don't use Bedrock are not forced to carry the AWS SDK. As a result, **AWS Bedrock appears in the AI Provider list only after you install that plugin**. To enable it: **Manage Jenkins → Plugins → Available plugins**, search for `AWS SDK`, install the AWS SDK 2.x plugin, and restart Jenkins.
-- **Models**: `anthropic.claude-3-5-sonnet-20240620-v1:0`, `eu.anthropic.claude-3-5-sonnet-20240620-v1:0` (EU cross-region), `meta.llama3-8b-instruct-v1:0`, `us.amazon.nova-lite-v1:0`, etc.
-- **API Key**: Not required — uses AWS credential chain (instance profiles, environment variables, etc.)
-- **Region**: AWS region (e.g., `us-east-1`, `eu-west-1`). Optional — defaults to AWS SDK region resolution
-- **Endpoint**: Optional Bedrock Runtime endpoint override for VPC endpoints or private AWS-compatible endpoints. Host-only values default to HTTPS
-- **Cross-account role**: Optional IAM role ARN. Jenkins uses its base AWS credentials to call STS AssumeRole, then invokes Bedrock with the temporary credentials
-- **Guardrail**: Optional [Amazon Bedrock guardrail](https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html). Set both **Guardrail Identifier** (ID or ARN) and **Guardrail Version** (a version number or `DRAFT`) to apply it to every explanation and auto-fix request; a configuration with only one of the two is rejected rather than run unguarded. The guardrail evaluates the build log sent to the model and the model's answer. When it blocks either one, no explanation is produced and the guardrail's blocked message is reported as the error; an answer the guardrail only masked (for example PII) is shown as returned. The AWS credentials need `bedrock:ApplyGuardrail` on the guardrail in addition to `bedrock:InvokeModel`
-- **Best for**: Enterprise AWS environments, data residency compliance, using Claude models with AWS infrastructure
+![An explanation on the Stages page](docs/images/graph-view.png)
 
-### Azure OpenAI
-- **Models**: Any Azure OpenAI deployment supporting Chat Completions (`/chat/completions`) or Responses API (`/openai/v1/responses`)
-- **API Key**: Store the Azure OpenAI API key in Jenkins StringCredentials and set its credentials ID
-- **Endpoint**: Azure OpenAI resource endpoint such as `https://my-resource.openai.azure.com`
-- **API Type**: Choose between `Chat Completions API` (legacy, default) and `Responses API` (recommended for newer models like gpt-5.x that do not support chat completions)
-- **API Version**: Used by `Chat Completions API`; `Responses API` uses the v1 endpoint
-- **Best for**: Azure OpenAI deployments, with support for both legacy and latest API endpoints
+A build keeps one explanation. Explaining another node replaces it, also on the build page and the console page; going
+back to a node the explanation covers shows it again without asking the provider.
 
-### Custom Okta AI
-- **Models**: Any model exposed by your company AI gateway
-- **Authentication**: Okta OAuth client credentials (`client_id` + `client_secret`)
-- **Token URL**: Required and separate from the chat completions URL
-- **Chat Endpoint**: Required. Supports endpoint templates such as `.../deployments/{model}/chat/completions`
-- **App Key Support**: Optional `appKey` and `userId` fields populate the OpenAI-style `user` metadata payload for providers that require an application key
-- **Access Token Delivery**: Configurable header name and optional prefix so the same provider can support `Authorization: Bearer ...`, `api-key: ...`, and similar patterns
-- **Best for**: Generic company AI providers that use Okta for authentication before invoking a custom chat endpoint
+### In a Pipeline
 
-### DeepSeek
-- **Models**: `deepseek-v4-flash`, `deepseek-v4-pro`, etc.
-- **API Key**: Get from [DeepSeek Platform](https://platform.deepseek.com/)
-- **Endpoint**: Defaults to `https://api.deepseek.com`, or specify a custom DeepSeek-compatible endpoint
-- **Best for**: OpenAI-compatible DeepSeek model access
-
-### Google Gemini
-- **Models**: `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-2.5-flash`, etc.
-- **API Key**: Get from [Google AI Studio](https://aistudio.google.com/app/apikey)
-- **Endpoint**: Leave empty for official Google AI API, or specify custom URL for Gemini-compatible services
-- **Best for**: Fast, efficient analysis with competitive quality
-
-### LangGraph
-- **Models**: The assistant UUID or registered graph name to invoke (e.g. `my-agent`)
-- **API Key**: LangGraph Platform API key — passed as the `x-api-key` header
-- **Endpoint**: Base URL of your LangGraph Platform deployment, e.g. `https://your-deployment.langchain.com`
-- **Best for**: Custom LangGraph agents deployed on the LangGraph Platform that expose a `/runs/wait` endpoint
-
-### Microsoft Foundry
-- **Models**: Any chat completions model deployment available in your Microsoft Foundry resource, such as Azure OpenAI, DeepSeek, Grok, Mistral, or other deployed models
-- **API Key**: Use the endpoint key from your Foundry resource
-- **Endpoint**: Resource endpoint such as `https://my-resource.services.ai.azure.com` or full OpenAI v1 base URL such as `https://my-resource.openai.azure.com/openai/v1`
-- **Best for**: Enterprise Microsoft Foundry deployments that need one provider configuration for multiple deployed model families
-
-### Ollama (Local/Private LLM)
-- **Models**: `gemma3:1b`, `gpt-oss`, `deepseek-r1`, and any model available in your Ollama instance
-- **API Key**: Not required by default (unless your Ollama server is secured)
-- **Endpoint**: `http://localhost:11434` (or your Ollama server URL)
-- **Best for**: Private, local, or open-source LLMs; no external API usage or cost
-
-### OpenAI Compatible
-- **Models**: Any model exposed by your gateway, e.g. `gpt-4o`, `azure/gpt-4o`, `claude-3-5-sonnet`, `llama-3.1-70b`
-- **API Key**: Optional. Sent as a standard `Authorization: Bearer` header; leave empty for unauthenticated gateways
-- **Endpoint**: Base URL of any OpenAI-compatible gateway, e.g. `https://litellm.example.com` (LiteLLM), `https://openwebui.example.com/api/v1` (OpenWebUI), or a self-hosted proxy. `/chat/completions` is appended automatically, so include the gateway's API path prefix, such as `/v1`, if it has one
-- **API Type**: `Chat Completions API` (default) or `Responses API`. Choose `Responses API` for gateways and models that only support the Responses API; requests then go to `<url>/responses` and are sent with `store: false`, so the provider does not keep the build logs
-- **Redirects**: HTTP redirects (e.g. `http` to `https` upgrades behind load balancers) are followed automatically
-- **Best for**: Enterprises standardizing on AI gateways, proxies, or self-hosted LLM platforms; works with LiteLLM, OpenWebUI, Azure OpenAI gateways, and other OpenAI-compatible backends
-
-### OpenAI
-- **Models**: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
-- **API Key**: Get from [OpenAI Platform](https://platform.openai.com/settings)
-- **Endpoint**: Leave empty for official OpenAI API, or specify custom URL for OpenAI-compatible services
-- **Best for**: Comprehensive error analysis with excellent reasoning
-
-### Qwen
-- **Models**: `qwen-plus`, `qwen-flash`, `qwen3-max`, etc.
-- **API Key**: Get from Alibaba Cloud Model Studio / DashScope. For production, configure a Jenkins StringCredentials ID and reference it via `credentialsId` instead of setting `apiKey` directly.
-- **Endpoint**: Defaults to the China Beijing endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; override it for Singapore, US, or Hong Kong regions
-- **Best for**: Alibaba Cloud Model Studio Qwen models through the OpenAI-compatible API
-
-## Usage
-
-### Method 1: Pipeline Step
-
-No pipeline changes are required for `Custom Okta AI`. Once the provider is configured globally or at the folder level, existing `explainError()` calls continue to work unchanged.
-
-Use `explainError()` in your pipeline (e.g., in a `post` block):
-
-```groovy
-pipeline {
-    agent any
-    stages {
-        stage('Build') {
-            steps {
-                script {
-                    // Your build steps here
-                    sh 'make build'
-                }
-            }
-        }
-    }
-    post {
-        failure {
-            // Automatically explain errors when build fails
-            explainError()
-        }
-    }
-}
-```
-
-**Return Value Support** — The step returns the AI explanation as a string, enabling integration with notifications and alerting:
+Call `explainError()` where the build has already failed:
 
 ```groovy
 post {
     failure {
         script {
-            // Capture the AI explanation
             def explanation = explainError()
-            
-            // Use it in notifications
-            slackSend(
-                color: 'danger',
-                message: "Build Failed!\n\nAI Analysis:\n${explanation}"
-            )
-            
-            // Or send to email, webhook, etc.
-            emailext body: "Error Analysis:\n${explanation}"
+            slackSend(color: 'danger', message: "Build failed!\n\nAI analysis:\n${explanation}")
         }
     }
 }
 ```
 
-**Structured Output** — Use `returnStructured: true` to get a `Map` with the individual analysis fields instead of a single string. Useful when a notification should show only the root cause, or when the error signature drives routing:
+The step can read more lines, filter them with a pattern, include downstream builds and workspace files, or return a
+map of fields with `returnStructured: true`. See [The explainError Pipeline Step](docs/pipeline-step.md).
 
-```groovy
-post {
-    failure {
-        script {
-            def result = explainError(returnStructured: true)
-            if (result) {
-                slackSend(
-                    color: 'danger',
-                    message: "Build failed: ${result.errorSummary}\n" +
-                             result.resolutionSteps.collect { "- ${it}" }.join('\n')
-                )
-            }
-        }
-    }
-}
-```
+### Automatically
 
-Map keys returned when `returnStructured: true`:
+Check **Automatically explain failed builds** in the global configuration, and every build that ends in `FAILURE` is
+explained as soon as it completes, without any pipeline change. At most 30 provider calls an hour go to automatic
+explanations by default, two run at a time, and a build that fails the same way as the last explained build of its job
+reuses that explanation. A job can opt out, or opt in while the global toggle is off. See
+[Automatic Explanation of Failed Builds](docs/auto-explain.md).
 
-| Key | Type | Description |
-|---|---|---|
-| `title` | `String` | One-line title naming the root cause, at most about 70 characters (`null` if the provider returned none) |
-| `errorSummary` | `String` | Root cause summary |
-| `resolutionSteps` | `List<String>` | Ordered steps to resolve the error (empty if none) |
-| `bestPractices` | `List<String>` | Recommendations to avoid recurrence (empty if none) |
-| `errorSignature` | `String` | The log snippet that identifies the failure |
-| `explanation` | `String` | The full rendered explanation, identical to the default return value |
+## Where explanations appear
 
-The step returns `null` when no explanation could be generated (explanation disabled, provider misconfigured, quota exceeded, or provider error), with or without `returnStructured`. The same fields are also stored on the build and exposed through the REST API (`<build-url>/error-explanation/api/json`).
+The build page shows the title and the summary, with a link to the whole explanation; the full page is under **AI Error
+Explanation** in the build's sidebar.
 
-#### Optional parameters:
+![The explanation on the build page](docs/images/build-page.png)
 
-| Parameter    | Description                                         | Default               |
-|--------------|-----------------------------------------------------|-----------------------|
-| **maxLines** | Max log lines to analyze (trims from the end)       | `100`                 |
-| **logPattern** | Regex pattern to filter relevant log lines        | `''` (no filtering)   |
-| **language** | Language for the explanation                        | `'English'`           |
-| **temperature** | Creativity control (0.0–2.0). Leave empty to use the folder or global setting. | Uses folder/global configuration |
-| **customContext** | Additional instructions or context for the AI. Overrides global custom context if specified. | Uses global configuration |
-| **collectDownstreamLogs** | Whether to include logs from failed downstream jobs discovered via the `build` step or `Cause.UpstreamCause` | `false` |
-| **downstreamJobPattern** | Regular expression matched against downstream job full names. Used only when downstream collection is enabled. | `''` (collect none) |
-| **includeWorkspaceContext** | Include selected workspace files as supporting context for the AI | `false` |
-| **workspaceContextPaths** | Comma-separated file paths or glob patterns to include when workspace context is enabled | Common build/config files |
-| **workspaceContextMaxBytes** | Maximum total bytes of workspace context to include | `20000` |
-| **autoFix** | Enable AI auto-fix: the plugin will attempt to generate and commit a code fix, then open a pull request | `false` |
-| **autoFixCredentialsId** | Jenkins credentials ID for a personal access token with write access to the repository. Supports Secret text and Username with password credentials. | `''` |
-| **autoFixScmType** | SCM type override: `github`, `gitlab`, or `bitbucket`. Required for self-hosted instances whose hostname is not `github.com`, `gitlab.com`, or `bitbucket.org` | Auto-detected from remote URL |
-| **autoFixGithubEnterpriseUrl** | Base URL of your GitHub Enterprise instance (e.g. `https://github.company.com`) | `''` (uses `api.github.com`) |
-| **autoFixGitlabUrl** | Base URL of your self-hosted GitLab instance (e.g. `https://gitlab.company.com`) | `''` (uses `gitlab.com`) |
-| **autoFixBitbucketUrl** | Base URL of your self-hosted Bitbucket instance | `''` (uses `api.bitbucket.org`) |
-| **autoFixAllowedPaths** | Comma-separated list of file glob patterns the AI is permitted to modify. CI and pipeline definitions (`Jenkinsfile`, `.github/workflows/`, `.gitlab-ci.yml`, ...) are changed only when a pattern spells out their path | `pom.xml,build.gradle,*.yml,*.yaml,...` |
-| **autoFixDraftPr** | Open the pull request as a draft (GitHub only) | `false` |
-| **autoFixTimeoutSeconds** | Maximum seconds to wait for the auto-fix to complete | `60` |
-| **autoFixPrTemplate** | Custom Markdown template for the PR body. Supports `{jobName}`, `{buildNumber}`, `{explanation}`, `{changesSummary}`, `{fixType}`, `{confidence}`, `{title}`, `{buildUrl}`, `{buildLink}` placeholders | Built-in template |
-| **returnStructured** | Return a `Map` with `title`, `errorSummary`, `resolutionSteps`, `bestPractices`, `errorSignature`, and `explanation` instead of the explanation text | `false` |
+The explanation's fields are also available through the REST API at `<build-url>/error-explanation/api/json`.
 
-```groovy
-explainError(
-  maxLines: 500,
-  logPattern: '(?i)(error|failed|exception)',
-  language: 'English', // or 'Spanish', 'French', '中文', '日本語', 'Español', etc.
-  customContext: '''
-    Additional context for this specific job:
-    - This is a payment service build
-    - Check PCI compliance requirements if deployment fails
-    - Contact security team for certificate issues
-  '''
-)
-```
+## AI auto-fix *(experimental)*
 
-To include downstream failures, opt in explicitly and limit collection with a regex:
+With `explainError(autoFix: true, autoFixCredentialsId: '...')`, the plugin also asks the AI for a code change, commits
+it to a new branch and opens a pull request for your review. It is opt-in and never merges anything. AI-generated
+changes can be wrong, so review them like any other contribution. See [AI Auto-Fix](docs/auto-fix.md) for the setup,
+the supported SCM services and the files it may change.
 
-```groovy
-explainError(
-  collectDownstreamLogs: true,
-  downstreamJobPattern: 'team-folder/.*/deploy-.*'
-)
-```
+## Documentation
 
-This keeps the default behavior fast and predictable on large controllers. Only downstream jobs
-whose full name matches `downstreamJobPattern` are scanned and included in the AI analysis.
-
-To include selected files from the build workspace, opt in with Workspace Context:
-
-```groovy
-explainError(
-  includeWorkspaceContext: true,
-  workspaceContextPaths: 'pom.xml,Jenkinsfile,src/test/**/*.java',
-  workspaceContextMaxBytes: 30000
-)
-```
-
-Workspace Context only reads explicitly configured paths and skips common secret or generated
-paths such as `.env*`, `credentials*`, `target/`, `build/`, `dist/`, `node_modules/`, and `.git/`.
-
-Output appears in the sidebar of the failed job.
-
-![Side Panel - AI Error Explanation](docs/images/side-panel.png)
-
-### Auto-Fix: Automatic Pull Request Creation *(Experimental)*
-
-> ⚠️ **Experimental feature.** Auto-fix is opt-in and disabled by default. AI-generated diffs can be incorrect or incomplete — always review the PR before merging. See [docs/auto-fix.md](docs/auto-fix.md) for a full setup guide, supported SCM providers, limitations, and best practices.
-
-When `autoFix: true` is set, the plugin goes one step further than explaining the error — it asks the AI to generate a code fix, commits the changes to a new branch, and opens a pull request for your review.
-
-**Quick start:**
-
-```groovy
-post {
-    failure {
-        explainError(
-            autoFix: true,
-            autoFixCredentialsId: 'github-pat'  // Secret text or Username with password credential with repo write access
-        )
-    }
-}
-```
-
-The pull request is created on the same repository the build checks out from. The URL appears in the Jenkins build sidebar as soon as the PR is opened.
-
-**Self-hosted SCM (GitHub Enterprise / GitLab self-managed / Bitbucket Server / Data Center):**
-
-```groovy
-// GitHub Enterprise
-explainError(
-    autoFix: true,
-    autoFixCredentialsId: 'github-pat',
-    autoFixScmType: 'github',
-    autoFixGithubEnterpriseUrl: 'https://github.company.com'
-)
-
-// GitLab self-managed
-explainError(
-    autoFix: true,
-    autoFixCredentialsId: 'gitlab-pat',
-    autoFixScmType: 'gitlab',
-    autoFixGitlabUrl: 'https://gitlab.company.com'
-)
-
-// Bitbucket Server / Data Center
-explainError(
-    autoFix: true,
-    autoFixCredentialsId: 'bitbucket-server-pat',
-    autoFixScmType: 'bitbucketserver',
-    autoFixBitbucketUrl: 'https://bitbucket.company.com'
-)
-```
-
-**Restrict which files the AI may change** (recommended for production):
-
-```groovy
-explainError(
-    autoFix: true,
-    autoFixCredentialsId: 'github-pat',
-    autoFixAllowedPaths: 'pom.xml,build.gradle,*.properties'
-)
-```
-
-The AI will only propose changes to files matching the glob patterns. Any attempt to modify files outside the list is rejected before a branch is created.
-
-CI and pipeline definitions, such as `Jenkinsfile`, `.github/workflows/*.yml`, `.gitlab-ci.yml` or `bitbucket-pipelines.yml`, decide what a build of the pushed fix branch runs. They are not in the default list, and a pattern that starts with a wildcard, such as `*.yml`, does not cover them. To let auto-fix change one, list its path, for example `autoFixAllowedPaths: 'pom.xml,Jenkinsfile'`.
-
-> **Note:** Auto-fix requires a personal access token (PAT) with write access to the repository. It does **not** use the SSH key used to check out the repository.
-
-### Method 2: Manual Console Analysis
-
-Works with Freestyle, Declarative, or any job type.
-
-1. Go to the failed build’s console output
-2. Click **Explain Error** button in the top
-3. View results directly under the button
-
-![AI Error Explanation](docs/images/console-output.png)
-
-Asking for a new explanation needs the **Job/Build** permission, because it calls the AI provider. Users who can
-only read the job see the explanation a build already has, and no button when it has none.
-
-If the request fails, the card stays open with what went wrong and a **Try again** button. Once a build
-has an explanation the button reads **Show explanation**, and the card says when it was generated.
-
-#### On the Stages page of a Pipeline
-
-With the [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/) plugin, the same button is
-on the **Stages** page of a failed Pipeline build. It explains the stage, parallel branch or step selected in
-the graph, from that node's log only, and shows the explanation above the node's steps. A node that passed
-has no button.
-
-![AI Error Explanation on the Stages page](docs/images/graph-view.png)
-
-A build keeps one explanation. Explaining another node replaces it, also on the build page and the console
-page; coming back to a node the explanation covers shows it again without asking the provider.
-
-### Method 3: Automatic (RunListener)
-
-No pipeline changes needed. When **"Automatically explain failed builds"** is enabled in the global plugin
-configuration, every failed build (result `FAILURE`) is automatically explained by the AI as soon as it completes.
-Unstable, aborted and not-built results are intentionally left untouched.
-
-The listener skips builds that already carry an `ErrorExplanationAction` (e.g. from an explicit
-`explainError()` step), so adding the toggle alongside an existing pipeline step produces no
-duplicate explanations.
-
-While the explanation is being generated, the build page shows a spinner in its place and reloads when
-it is in; on the console page the button reads **Explaining…** until then, instead of offering to request
-a second one.
-
-To enable:
-
-1. Go to `Manage Jenkins` → `Configure System`
-2. Find the **"Explain Error Plugin Configuration"** section
-3. Check **"Automatically explain failed builds"**
-4. Optionally adjust **"Max Log Lines"** — default is `100`. If your model supports a large context window (e.g. DeepSeek, Kimi), increase this to capture more of the build log for a more accurate explanation.
-5. Save
-
-Limits keep a burst of failures, for example during an outage, from turning into a burst of provider calls:
-
-* **Hourly limit** — at most 30 provider calls per hour for automatic explanations by default (**"Max Automatic Explanations per Hour"**)
-* **Bounded background work** — at most 2 explanations run at the same time and 50 wait
-* **Reuse of identical failures** — a build that fails the same way as the last explained build of the job takes over that explanation instead of calling the provider, and says which build it came from
-
-A failed build that is skipped because of either limit says so in its console, and can still be explained
-with the **Explain Error** button.
-
-A job can opt out, for example a flaky test job, or opt in while the global toggle is off, with
-**"Override automatic AI error explanation"** in its configuration or in a Pipeline:
-
-```groovy
-properties([explainErrorJob(autoExplainOnFailure: false)])
-```
-
-All existing configuration (provider, model, language, custom context, quota limits) applies
-to auto-explained builds in the same way as pipeline-step and console-action requests.
-Requests from the RunListener are tracked under the `run_listener` entry point in usage metrics.
-See [Automatic Explanation of Failed Builds](docs/auto-explain.md) for details and tuning.
+| Page | What it covers |
+|---|---|
+| [AI Providers](docs/providers.md) | Every provider's fields, models and Configuration as Code example |
+| [Configuration](docs/configuration.md) | Global, folder and job settings, and Configuration as Code |
+| [The explainError Pipeline Step](docs/pipeline-step.md) | Parameters, return values, downstream builds, workspace files |
+| [Automatic Explanation](docs/auto-explain.md) | Explaining every failed build, its limits and per-job overrides |
+| [AI Provider Call Quotas](docs/usage-quota.md) | Request quotas, metrics and dashboards |
+| [AI Auto-Fix](docs/auto-fix.md) | Pull requests with AI-proposed fixes |
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-|API key not set	| Add your key in Jenkins global config |
-|Auth or rate limit error| Check key validity, quota, and provider plan. See [AI Provider Call Quotas](docs/usage-quota.md) |
-|Button not visible	| Ensure Jenkins version ≥ 2.528.3, restart Jenkins after installation. Requesting an explanation needs the Job/Build permission |
-|Test Configuration fails| The error now includes a **connection diagnostics report** (proxy decision, DNS, TCP, HTTP probe). Read it bottom-up to find the failing layer, and paste it when reporting issues |
+| Issue | What to check |
+|---|---|
+| No **Explain Error** button | The button appears on finished builds that did not succeed. Check that explanation is on, globally and for the job's folder, and that **Test Configuration** succeeds. On the Stages page it needs Pipeline Graph View 777 or newer. Asking for a new explanation needs the Job/Build permission |
+| Authentication or rate limit errors | The key, the provider's quota and plan, and the plugin's own [request quota](docs/usage-quota.md) |
+| **Test Configuration** fails | The connection diagnostics report under the error shows the proxy decision, DNS, TCP and HTTP probe; read it bottom-up to find the layer that fails, and include it when you report an issue |
 
-Enable debug logs:
+For details, add a log recorder for `io.jenkins.plugins.explain_error` at level `FINE` under
+**Manage Jenkins → System Log**.
 
-`Manage Jenkins` → `System Log` → Add logger for `io.jenkins.plugins.explain_error`
-
-## Best Practices
-
-1. Use `explainError()` in `post { failure { ... } }` blocks for fine-grained control
-2. Enable **"Automatically explain failed builds"** to cover all jobs without pipeline changes
-3. Apply `logPattern` to focus on relevant errors
-4. Monitor usage metrics and quota outcomes to control costs (see [AI Provider Call Quotas](docs/usage-quota.md))
-5. Keep plugin updated regularly
-
-## Support & Community
+## Support and contributing
 
 - [GitHub Issues](https://github.com/jenkinsci/explain-error-plugin/issues) for bug reports and feature requests
 - [Contributing Guide](CONTRIBUTING.md) if you'd like to help
-- Found a security vulnerability? Please report it following the [Jenkins vulnerability reporting process](https://www.jenkins.io/security/#reporting-vulnerabilities) — do not open a public GitHub issue
+- Found a security vulnerability? Please report it following the [Jenkins vulnerability reporting process](https://www.jenkins.io/security/#reporting-vulnerabilities); do not open a public GitHub issue
+
+If you find the plugin useful, please ⭐ it on GitHub.
 
 ## License
 
 Licensed under the [MIT License](LICENSE.md).
-
-## Acknowledgments
-
-Built with ❤️ for the Jenkins community.
-If you find it useful, please ⭐ us on GitHub!
