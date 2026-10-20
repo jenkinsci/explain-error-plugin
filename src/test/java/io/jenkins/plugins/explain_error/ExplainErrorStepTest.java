@@ -352,7 +352,8 @@ class ExplainErrorStepTest {
         assertEquals("", step.getAutoFixGitlabUrl());
         assertEquals("", step.getAutoFixBitbucketUrl());
         assertEquals(defaultAllowedPaths, step.getAutoFixAllowedPaths());
-        assertEquals(60, step.getAutoFixTimeoutSeconds());
+        assertEquals(new ExplainErrorStep().getAutoFixTimeoutSeconds(), step.getAutoFixTimeoutSeconds(),
+                "0 falls back to the same default as a step that does not set it");
         assertEquals("", step.getAutoFixPrTemplate());
     }
 

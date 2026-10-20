@@ -23,6 +23,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Pipeline step to explain errors using AI.
@@ -35,6 +36,9 @@ public class ExplainErrorStep extends Step {
      */
     public static final String DEFAULT_AUTO_FIX_ALLOWED_PATHS = "pom.xml,build.gradle,build.gradle.kts,"
             + "*.properties,*.yml,*.yaml,Dockerfile,package.json,requirements.txt,go.mod";
+
+    /** Seconds auto-fix may take when the step does not say, or says 0 or less. */
+    static final int DEFAULT_AUTO_FIX_TIMEOUT_SECONDS = 120;
 
     private String logPattern;
     private int maxLines;
@@ -57,7 +61,7 @@ public class ExplainErrorStep extends Step {
     private String autoFixBitbucketUrl = "";
     private String autoFixAllowedPaths = DEFAULT_AUTO_FIX_ALLOWED_PATHS;
     private boolean autoFixDraftPr = false;
-    private int autoFixTimeoutSeconds = 120;
+    private int autoFixTimeoutSeconds = DEFAULT_AUTO_FIX_TIMEOUT_SECONDS;
     private String autoFixPrTemplate = "";
 
     // Output format: return a Map of the structured analysis instead of the rendered text
@@ -252,7 +256,8 @@ public class ExplainErrorStep extends Step {
 
     @DataBoundSetter
     public void setAutoFixTimeoutSeconds(int autoFixTimeoutSeconds) {
-        this.autoFixTimeoutSeconds = autoFixTimeoutSeconds > 0 ? autoFixTimeoutSeconds : 60;
+        this.autoFixTimeoutSeconds = autoFixTimeoutSeconds > 0
+                ? autoFixTimeoutSeconds : DEFAULT_AUTO_FIX_TIMEOUT_SECONDS;
     }
 
     public String getAutoFixPrTemplate() {
@@ -312,10 +317,15 @@ public class ExplainErrorStep extends Step {
             Run<?, ?> run = getContext().get(Run.class);
             TaskListener listener = getContext().get(TaskListener.class);
 
-            String workspaceContext = collectWorkspaceContext(listener);
-            String effectiveCustomContext = mergeCustomContext(step.getCustomContext(), workspaceContext);
-
             ErrorExplainer explainer = new ErrorExplainer();
+            String workspaceContext = collectWorkspaceContext(listener);
+            // Workspace files come on top of the instructions the step would get without them, its own or
+            // else the folder's or the global ones
+            String instructions = workspaceContext == null || workspaceContext.isBlank()
+                    || StringUtils.isNotBlank(step.getCustomContext())
+                    ? step.getCustomContext() : explainer.inheritedCustomContext(run);
+            String effectiveCustomContext = mergeCustomContext(instructions, workspaceContext);
+
             String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
                     step.getLanguage(), effectiveCustomContext, step.isCollectDownstreamLogs(),
                     step.getDownstreamJobPattern(), Jenkins.getAuthentication2(), step.getTemperature());

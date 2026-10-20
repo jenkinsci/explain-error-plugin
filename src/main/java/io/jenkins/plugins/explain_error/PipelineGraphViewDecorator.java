@@ -14,6 +14,9 @@ import org.kohsuke.stapler.StaplerRequest2;
 @Extension
 public class PipelineGraphViewDecorator extends ConsolePageDecorator {
 
+    /** What Graph View called the page before version 777, which named it "stages". */
+    static final String OLD_URL_NAME = "pipeline-overview";
+
     /**
      * Whether the current request is for the "Stages" page of a build. The page is looked for
      * right under the build, so that a job or folder that happens to be called "stages" does not
@@ -39,7 +42,10 @@ public class PipelineGraphViewDecorator extends ConsolePageDecorator {
      * @param restOfUrl what follows the build in the request URL, without a leading slash
      */
     static boolean isStagesPage(String restOfUrl) {
-        return restOfUrl.equals(PipelineLogExtractor.URL_NAME)
-                || restOfUrl.startsWith(PipelineLogExtractor.URL_NAME + "/");
+        return isPage(restOfUrl, PipelineLogExtractor.URL_NAME) || isPage(restOfUrl, OLD_URL_NAME);
+    }
+
+    private static boolean isPage(String restOfUrl, String urlName) {
+        return restOfUrl.equals(urlName) || restOfUrl.startsWith(urlName + "/");
     }
 }

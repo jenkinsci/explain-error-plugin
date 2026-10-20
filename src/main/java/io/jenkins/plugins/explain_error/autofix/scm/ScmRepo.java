@@ -1,5 +1,7 @@
 package io.jenkins.plugins.explain_error.autofix.scm;
 
+import java.net.URI;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,8 +43,14 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
         Matcher sshMatcher = SSH_PATTERN.matcher(url);
         Matcher httpsMatcher = HTTPS_PATTERN.matcher(url);
 
-        // Bitbucket Server SSH: ssh://git@host:7999/PROJECT/repo.git
+        // Bitbucket Server SSH: ssh://git@host:7999/PROJECT/repo.git. GitHub, GitLab and Bitbucket Cloud
+        // accept the same ssh:// form, ssh://git@github.com/owner/repo.git
         if (bbServerSshMatcher.matches()) {
+            String host = URI.create(url).getHost();
+            if (host != null && isKnownHost(host)) {
+                return new ScmRepo(detectType(host, remoteUrl), detectBaseUrl(host),
+                        bbServerSshMatcher.group(1), bbServerSshMatcher.group(2), token);
+            }
             String baseUrl = extractBitbucketServerBaseUrl(url) + "/rest/api/1.0";
             return new ScmRepo(ScmType.BITBUCKET_SERVER, baseUrl,
                     bbServerSshMatcher.group(1), bbServerSshMatcher.group(2), token);
@@ -75,16 +83,27 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
     }
 
     private static ScmType detectType(String host, String remoteUrl) {
-        if (host.contains("github.com")) return ScmType.GITHUB;
-        if (host.contains("gitlab.com")) return ScmType.GITLAB;
-        if (host.contains("bitbucket.org")) return ScmType.BITBUCKET;
+        // The host itself, not a name that contains it: github.company.com is a GitHub Enterprise server
+        if (isHost(host, "github.com")) return ScmType.GITHUB;
+        if (isHost(host, "gitlab.com")) return ScmType.GITLAB;
+        if (isHost(host, "bitbucket.org")) return ScmType.BITBUCKET;
         throw new IllegalArgumentException(
                 "Cannot detect SCM type from host '" + host + "' in URL: " + remoteUrl);
     }
 
+    private static boolean isKnownHost(String host) {
+        return isHost(host, "github.com") || isHost(host, "gitlab.com") || isHost(host, "bitbucket.org");
+    }
+
+    /** Whether {@code host}, with or without a port, is {@code domain} or one of its subdomains. */
+    private static boolean isHost(String host, String domain) {
+        String name = host.toLowerCase(Locale.ROOT).replaceFirst(":\\d+$", "");
+        return name.equals(domain) || name.endsWith("." + domain);
+    }
+
     private static String detectBaseUrl(String host) {
-        if (host.contains("github.com")) return "https://api.github.com";
-        if (host.contains("gitlab.com")) return "https://gitlab.com/api/v4";
+        if (isHost(host, "github.com")) return "https://api.github.com";
+        if (isHost(host, "gitlab.com")) return "https://gitlab.com/api/v4";
         return "https://api.bitbucket.org/2.0";
     }
 

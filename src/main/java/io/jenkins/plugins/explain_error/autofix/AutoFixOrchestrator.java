@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -882,8 +883,9 @@ public class AutoFixOrchestrator {
                 "buildLink", buildUrl.isEmpty() ? "#" + buildNumber : "[#" + buildNumber + "](" + buildUrl + ")"
         );
         return TEMPLATE_PLACEHOLDER.matcher(template).replaceAll(m -> {
+            // The text is the replacement itself: dollar signs and backslashes in it refer to no group
             String val = values.get(m.group(1));
-            return val != null ? val : m.group(0);
+            return Matcher.quoteReplacement(val != null ? val : m.group(0));
         });
     }
 

@@ -23,6 +23,10 @@ class PipelineGraphViewDecoratorTest {
     void onlyTheStagesPageOfABuildCounts(JenkinsRule jenkins) {
         assertTrue(PipelineGraphViewDecorator.isStagesPage("stages"));
         assertTrue(PipelineGraphViewDecorator.isStagesPage("stages/tree"));
+        // Graph View before 777 calls the page pipeline-overview
+        assertTrue(PipelineGraphViewDecorator.isStagesPage("pipeline-overview"));
+        assertTrue(PipelineGraphViewDecorator.isStagesPage("pipeline-overview/tree"));
+        assertFalse(PipelineGraphViewDecorator.isStagesPage("pipeline-overview-archive"));
         assertFalse(PipelineGraphViewDecorator.isStagesPage("console"));
         assertFalse(PipelineGraphViewDecorator.isStagesPage("stages-archive"));
         assertFalse(PipelineGraphViewDecorator.isStagesPage("artifact/stages/report.txt"));

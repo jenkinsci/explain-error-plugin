@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error.autofix;
 
 import io.jenkins.plugins.explain_error.autofix.scm.ScmRepo;
 import io.jenkins.plugins.explain_error.autofix.scm.ScmType;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -184,6 +185,31 @@ class ScmRepoTest {
         String str = repo.toString();
         assertFalse(str.contains("super-secret-token"), "Token must not appear in toString()");
         assertTrue(str.contains("[REDACTED]"), "toString() must contain [REDACTED]");
+    }
+
+    @Test
+    void parse_selfManagedHostThatContainsASaasName_isNotTakenForTheSaas() {
+        for (String url : List.of("https://github.company.com/acme/app.git", "git@github.company.com:acme/app.git",
+                "https://gitlab.company.com/acme/app.git", "https://mybitbucket.org.example/acme/app.git")) {
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> ScmRepo.parse(url, "t"));
+            assertTrue(e.getMessage().startsWith("Cannot detect SCM type"), e.getMessage());
+        }
+    }
+
+    @Test
+    void parse_saasHostsWithAPortOrInSshUrlForm_areRecognised() {
+        ScmRepo https = ScmRepo.parse("https://github.com:443/acme/my-repo.git", "tok");
+        assertEquals(ScmType.GITHUB, https.scmType());
+        assertEquals("https://api.github.com", https.baseUrl());
+
+        ScmRepo ssh = ScmRepo.parse("ssh://git@github.com/acme/my-repo.git", "tok");
+        assertEquals(ScmType.GITHUB, ssh.scmType());
+        assertEquals("acme", ssh.owner());
+        assertEquals("my-repo", ssh.repoName());
+
+        assertEquals(ScmType.GITLAB, ScmRepo.parse("ssh://git@gitlab.com/acme/my-repo.git", "tok").scmType());
+        assertEquals(ScmType.BITBUCKET_SERVER,
+                ScmRepo.parse("ssh://git@bitbucket.company.com:7999/PROJ/my-repo.git", "tok").scmType());
     }
 
     @Test

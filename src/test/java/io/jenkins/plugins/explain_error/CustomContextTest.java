@@ -48,6 +48,26 @@ class CustomContextTest {
     }
 
     @Test
+    void workspaceFilesComeOnTopOfTheInheritedCustomContext(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        FakeAIProvider provider = new FakeAIProvider();
+        config.setAiProvider(provider);
+        config.setEnableExplanation(true);
+        config.setCustomContext("Global custom instructions");
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "workspace-context");
+        job.setDefinition(new CpsFlowDefinition("node {\n"
+                + "    writeFile file: 'pom.xml', text: '<project>workspace marker</project>'\n"
+                + "    explainError(includeWorkspaceContext: true, workspaceContextPaths: 'pom.xml')\n"
+                + "}", true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        String sent = provider.getLastCustomContext();
+        assertTrue(sent.contains("Global custom instructions"), "the global instructions still go: " + sent);
+        assertTrue(sent.contains("workspace marker"), "and so do the workspace files: " + sent);
+    }
+
+    @Test
     void testStepLevelCustomContextOverridesGlobal(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         FakeAIProvider provider = new FakeAIProvider();
