@@ -42,7 +42,9 @@ Because one toggle covers every job on the controller, automatic explanation has
 2. Find the **Explain Error Plugin Configuration** section and make sure **Enable AI Error Explanation** is checked.
 3. Check **Automatically explain failed builds**.
 4. Optionally adjust:
-   - **Max Log Lines** (default `100`): console lines read per build. Increase it for models with large context windows.
+   - **Max Log Lines** (default `100`): log lines sent per build, shared out among the steps that failed. Increase it
+     for models with large context windows. It sits next to **Log Pattern** in the main section, as both apply to the
+     Explain Error button too; see [Global settings](configuration.md#global-settings).
    - **Max Automatic Explanations per Hour** (default `30`): see [Hourly limit](#hourly-limit).
 5. Save.
 
@@ -85,7 +87,7 @@ The override only decides whether a failed build is explained *automatically*:
 - A job that opts out keeps its **Explain Error** button, and `explainError()` in its Pipeline still works.
 - A job that opts in is subject to the same [hourly limit](#hourly-limit) and [queue](#concurrency-and-queue-limits) as every other job, and to the request quota.
 - Opting in does not get past **Enable AI Error Explanation**: while that is off, nothing is explained, unless the job's folder has an AI provider of its own. Nor does it get past a folder that turns explanation off.
-- **Max Log Lines** and **Max Automatic Explanations per Hour** are global. They are shown in the global configuration only while **Automatically explain failed builds** is checked; with it unchecked, jobs that opt in use the values last saved there (or set through CasC).
+- **Max Log Lines** and **Max Automatic Explanations per Hour** are global. **Max Automatic Explanations per Hour** is shown in the global configuration only while **Automatically explain failed builds** is checked; with it unchecked, jobs that opt in use the value last saved there (or set through CasC).
 
 ---
 

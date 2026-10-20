@@ -71,7 +71,11 @@ class PipelineLogExtractorTest {
         // Create a mock WorkflowRun where getExecution() returns null
         WorkflowRun mockRun = mock(WorkflowRun.class);
         when(mockRun.getExecution()).thenReturn(null);
-        when(mockRun.getLog(100)).thenReturn(List.of("Build started", "ERROR: Something failed"));
+        org.kohsuke.stapler.framework.io.ByteBuffer console = new org.kohsuke.stapler.framework.io.ByteBuffer();
+        console.write("Build started\nERROR: Something failed\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        doReturn(new hudson.console.AnnotatedLargeText<>(console, java.nio.charset.StandardCharsets.UTF_8, true,
+                mockRun)).when(mockRun).getLogText();
+        when(mockRun.getCharset()).thenReturn(java.nio.charset.StandardCharsets.UTF_8);
         when(mockRun.getLogInputStream()).thenReturn(InputStream.nullInputStream());
         when(mockRun.getUrl()).thenReturn("job/test/1/");
 

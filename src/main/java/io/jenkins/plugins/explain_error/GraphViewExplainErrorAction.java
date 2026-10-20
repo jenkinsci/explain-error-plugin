@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import jenkins.model.Jenkins;
 import jenkins.model.RunAction2;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
@@ -192,8 +191,8 @@ public class GraphViewExplainErrorAction implements RunAction2 {
             }
             try {
                 // Extract logs from the selected node
-                PipelineLogExtractor logExtractor = new PipelineLogExtractor(run,
-                        ConsoleExplainErrorAction.DEFAULT_MAX_LINES, Jenkins.getAuthentication2(), false, null);
+                PipelineLogExtractor logExtractor = ConsoleExplainErrorAction.pageExtractor(run,
+                        ConsoleExplainErrorAction.defaultMaxLines());
                 List<String> logLines = logExtractor.extractNodeLog(nodeId);
                 this.urlString = logExtractor.getUrl();
 

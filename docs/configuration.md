@@ -18,7 +18,8 @@ folder that sets it), then global.
 | **Temperature** | Model temperature. Leave it empty to use the provider's default ([Anthropic](providers.md#anthropic-claude) has its own rules) | Empty |
 | **Enable Request Quota** | Caps the provider calls per **Quota Window** (Hourly or Daily) at **Max Provider Calls per Window**; `0` blocks every call. See [AI Provider Call Quotas](usage-quota.md) | Off; Hourly, 100 |
 | **Automatically explain failed builds** | Explains every failed build without a pipeline change. See [Automatic Explanation](auto-explain.md) | Off |
-| **Max Log Lines** | Log lines an automatic explanation reads. Raise it for models with large context windows | `100` |
+| **Max Log Lines** | Log lines an automatic explanation sends, shared out among the steps that failed so that each failed parallel branch is in. The Explain Error button sends at least 200; an `explainError()` step sets its own with `maxLines`. Raise it for models with large context windows | `100` |
+| **Log Pattern** | Regular expression, matched without regard to case. Only the lines it matches are sent, searched for in the whole log of each failing step; when it matches nothing, the last lines are sent as they are. Applies to automatic explanations, the Explain Error button and `explainError()` steps without a `logPattern` of their own | Empty |
 | **Max Automatic Explanations per Hour** | Provider calls per hour for automatic explanations, on top of the request quota | `30` |
 
 ## Folder settings
@@ -71,7 +72,8 @@ unclassified:
     # quotaWindow: HOURLY                  # HOURLY or DAILY
     # maxProviderCallsPerWindow: 100
     # enableAutoExplainOnFailure: true     # Optional, explain failed builds without pipeline changes
-    # autoExplainMaxLogLines: 100          # Log lines read per build
+    # autoExplainMaxLogLines: 100          # Log lines sent per build
+    # logPattern: "(?i)(error|failed)"     # Optional, only the lines it matches are sent
     # autoExplainMaxPerHour: 30            # Provider calls per hour for automatic explanations
 ```
 

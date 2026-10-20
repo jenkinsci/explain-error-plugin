@@ -14,9 +14,9 @@ import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.actions.WarningAction;
+import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 
 import hudson.console.AnnotatedLargeText;
-import hudson.console.ConsoleNote;
 import hudson.model.Cause;
 import hudson.model.Result;
 import hudson.model.Run;
@@ -26,17 +26,16 @@ import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
 import jenkins.model.Jenkins;
 import org.springframework.security.core.Authentication;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
-import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -92,6 +91,13 @@ public class PipelineLogExtractor {
     /** Lines of context to include before and after each error-pattern match. */
     private static final int ERROR_CONTEXT_LINES = 5;
 
+    /** The fewest log lines a failing step gets; with more failing steps than that allows, the first ones count. */
+    static final int MIN_LINES_PER_STEP = 10;
+
+    /** Put after the name of a step that fail-fast stopped, in the header of its log. */
+    static final String STOPPED_BY_FAIL_FAST =
+            " (stopped because another parallel branch failed first; not the cause of the failure)";
+
     /** Maximum recursion depth when following downstream (sub-job) failures. */
     private static final int MAX_DOWNSTREAM_DEPTH = 5;
 
@@ -107,6 +113,10 @@ public class PipelineLogExtractor {
     private final Pattern downstreamJobPattern;
     private final Authentication authentication;
     private final ExtractionStats stats;
+    /** Only the lines it matches are read from the failing steps and the console; the whole log is searched. */
+    @CheckForNull
+    private Pattern logPattern;
+    private boolean logPatternMatchedNothing;
 
     public record ExtractionResult(
             List<String> logLines,
@@ -117,7 +127,9 @@ public class PipelineLogExtractor {
             boolean downstreamCollectionEnabled,
             int downstreamMatchedCount,
             int downstreamReusedExplanationCount,
-            int downstreamPermissionSkippedCount) {
+            int downstreamPermissionSkippedCount,
+            int failedStepCount,
+            boolean logPatternMatchedNothing) {
 
         public ExtractionResult {
             logLines = List.copyOf(logLines);
@@ -141,41 +153,15 @@ public class PipelineLogExtractor {
     }
 
     /**
-     * Reads the provided log text and returns at most the last {@code maxLines} lines.
-     * <p>
-     * The entire log is streamed into memory, Jenkins {@link ConsoleNote} annotations are stripped,
-     * and a sliding window is maintained over the lines: when the number of buffered lines reaches
-     * {@code maxLines}, the oldest line is removed before adding the next one. This ensures that
-     * only the most recent {@code maxLines} lines are retained.
-     * <p>
-     * Line terminators ({@code \n} and {@code \r}) are removed from each returned line. If no log
-     * content is available or an error occurs while reading, an empty list is returned.
+     * The last {@code maxLines} lines of a step's log, or of the lines the log pattern matches. See
+     * {@link LogLines}: annotations and colour codes are taken out, and memory stays bounded.
      *
-     * @param logText  the annotated log text associated with a {@link FlowNode}
-     * @param maxLines the maximum number of trailing log lines to return
-     * @return a list containing up to the last {@code maxLines} lines of the log, or an empty list
-     *         if the log is empty or an error occurs
+     * @return the lines, or an empty list if there are none or the log cannot be read
      */
-    private List<String> readLimitedLog(AnnotatedLargeText<? extends FlowNode> logText,
-                                               int maxLines) {
-        StringWriter writer = new StringWriter();
+    private List<String> readLimitedLog(AnnotatedLargeText<? extends FlowNode> logText, int maxLines,
+                                        @CheckForNull Pattern pattern) {
         try {
-            long offset = logText.writeLogTo(0, writer);
-            if (offset <= 0) {
-                return Collections.emptyList();
-            }
-            String cleanLog = ConsoleNote.removeNotes(writer.toString());
-            BufferedReader reader = new BufferedReader(new StringReader(cleanLog));
-            LinkedList<String> queue = new LinkedList<>();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (queue.size() >= maxLines) {
-                    queue.removeFirst();
-                }
-
-                queue.add(line);
-            }
-            return new ArrayList<>(queue);
+            return LogLines.read(logText, maxLines, pattern);
         } catch (IOException e) {
             LOGGER.severe("Unable to serialize the flow node log: " + e.getMessage());
         }
@@ -192,8 +178,10 @@ public class PipelineLogExtractor {
      *
      * @param node The Jenkins FlowNode containing the execution context and timing.
      * @param logs The existing list of log lines for this node. If null, a new list is initialized.
+     * @param stoppedByFailFast whether the step was stopped because another parallel branch failed first;
+     *                          the node name says so, so that the model does not take it for the cause
      */
-    private void addHeaderLog(FlowNode node, List<String> logs) {
+    private void addHeaderLog(FlowNode node, List<String> logs, boolean stoppedByFailFast) {
         long startTimeMillis = TimingAction.getStartTime(node);
         String formattedStart = "Unknown Start Time";
 
@@ -204,7 +192,7 @@ public class PipelineLogExtractor {
 
         List<String> header = Arrays.asList(
             NODE_HEADER_PREFIX + node.getId() + NODE_MARKER_SUFFIX,
-            "Node Name: " + node.getDisplayName(),
+            "Node Name: " + node.getDisplayName() + (stoppedByFailFast ? STOPPED_BY_FAIL_FAST : ""),
             "Start Time: " + formattedStart,
             "--- LOG CONTENT ---");
 
@@ -374,72 +362,78 @@ public class PipelineLogExtractor {
             return Collections.emptyList();
         }
 
-        FlowNode logNode = target;
+        logPatternMatchedNothing = false;
+        List<FailedStep> steps;
         LogAction targetLogAction = target.getAction(LogAction.class);
-        if (targetLogAction == null || !hasLogContent(targetLogAction)) {
-            // A block node's failure output lives in the nodes it encloses;
-            // a step node's missing log may live in its immediate parent
+        if (targetLogAction != null && hasLogContent(targetLogAction)) {
+            steps = List.of(new FailedStep(target, targetLogAction, false));
+        } else if (target instanceof BlockStartNode) {
+            // A block node's failure output lives in the nodes it encloses: every one that failed, as in
+            // a stage whose parallel branches failed
+            steps = findFailedEnclosedSteps(execution, nodeId);
+        } else {
+            // A step node's missing log may live in its immediate parent
             // (catchError + sh(returnStatus:true) + error() pattern).
             // Also enter this branch when the target has a LogAction but its
             // content is empty (e.g. the error() step creates a node with a
             // LogAction that carries no output).
-            logNode = target instanceof BlockStartNode
-                    ? findFailedEnclosedNodeWithLog(execution, nodeId)
-                    : findImmediateParentWithLog(target);
-            if (logNode == null) {
-                return Collections.emptyList();
-            }
+            FlowNode parent = findImmediateParentWithLog(target);
+            steps = parent != null ? List.of(new FailedStep(parent, parent.getAction(LogAction.class), false))
+                    : List.of();
         }
 
-        LogAction logAction = logNode.getAction(LogAction.class);
-        if (logAction == null) {
+        List<String> lines = new ArrayList<>();
+        appendStepLogs(steps, logPattern, lines, new LinkedHashSet<>());
+        if (lines.isEmpty() && logPattern != null) {
+            logPatternMatchedNothing = true;
+            appendStepLogs(steps, null, lines, new LinkedHashSet<>());
+        }
+        if (lines.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> stepLog = readLimitedLog(logAction.getLogText(), maxLines);
-        if (stepLog.isEmpty()) {
-            return Collections.emptyList();
-        }
-        addHeaderLog(logNode, stepLog);
         setUrl(nodeId);
-        return stepLog;
+        return lines;
     }
 
     /**
-     * Finds a failed node (one with an {@link ErrorAction}, or a
-     * {@link WarningAction} with result {@link Result#FAILURE}) that is
-     * enclosed by the given block node and carries a {@link LogAction}.
-     * When the failed node itself has no log (e.g. an {@code error()} step),
+     * Finds the failed nodes (ones with an {@link ErrorAction}, or a
+     * {@link WarningAction} with result {@link Result#FAILURE}) that are
+     * enclosed by the given block node and carry a {@link LogAction}.
+     * When a failed node itself has no log (e.g. an {@code error()} step),
      * its immediate parent is used if it has a log and lives inside the same
      * block.
      *
      * @param execution the flow execution to search
      * @param blockId   the ID of the enclosing block node (e.g. a stage)
-     * @return the enclosed failed node with a log, or {@code null} if none
+     * @return the enclosed failed nodes with a log, in the order the graph is walked
      */
-    private FlowNode findFailedEnclosedNodeWithLog(FlowExecution execution, String blockId) {
+    private List<FailedStep> findFailedEnclosedSteps(FlowExecution execution, String blockId) {
+        List<FailedStep> steps = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
         for (FlowNode node : new FlowGraphWalker(execution)) {
             if (!isEnclosedBy(node, blockId) || !isFailedFlowNode(node)) {
                 continue;
             }
+            FlowNode logNode = node;
             LogAction nodeLogAction = node.getAction(LogAction.class);
-            if (nodeLogAction != null && hasLogContent(nodeLogAction)) {
-                return node;
+            if (nodeLogAction == null || !hasLogContent(nodeLogAction)) {
+                logNode = findImmediateParentWithLog(node);
+                if (logNode == null || !isEnclosedBy(logNode, blockId)) {
+                    continue;
+                }
+                nodeLogAction = logNode.getAction(LogAction.class);
             }
-            FlowNode parent = findImmediateParentWithLog(node);
-            if (parent != null && isEnclosedBy(parent, blockId)) {
-                return parent;
+            if (seen.add(logNode.getId())) {
+                ErrorAction error = node.getError();
+                boolean stoppedByFailFast = error != null && isStoppedByFailFast(error.getError());
+                steps.add(new FailedStep(logNode, nodeLogAction, stoppedByFailFast));
             }
         }
-        return null;
+        return steps;
     }
 
     private static boolean hasLogContent(LogAction logAction) {
-        try {
-            StringWriter sw = new StringWriter();
-            return logAction.getLogText().writeLogTo(0, sw) > 0;
-        } catch (IOException e) {
-            return false;
-        }
+        return logAction.getLogText().length() > 0;
     }
 
     private static boolean isFailedFlowNode(FlowNode node) {
@@ -467,91 +461,41 @@ public class PipelineLogExtractor {
         if (resetStats) {
             stats.reset();
         }
+        logPatternMatchedNothing = false;
 
-        List<String> accumulated = new ArrayList<>();
-        Set<FlowNode> nodes = new HashSet<>();
-        String primaryNodeId = null;
-        boolean fallbackToBuildLog = false;
-
+        List<FailedStep> failedSteps = List.of();
         if (this.run instanceof WorkflowRun) {
             FlowExecution execution = ((WorkflowRun) this.run).getExecution();
             if (execution != null) {
-                // Strategy 1: collect logs from ALL ErrorAction+LogAction nodes.
-                // Multi-collect instead of returning on first match so that parallel failures
-                // (e.g. multiple Rspec pods + a direct sh failure) are all captured.
-                Set<String> seenOriginIds = new HashSet<>();
-
-                FlowGraphWalker walker = new FlowGraphWalker(execution);
-                for (FlowNode node : walker) {
-                    int remainingLines = this.maxLines - accumulated.size();
-                    if (remainingLines <= 0) {
-                        break;
-                    }
-                    ErrorAction errorAction = node.getError();
-                    FlowNode origin = null;
-                    if (errorAction == null) {
-                        WarningAction warn = node.getAction(WarningAction.class);
-                        if (warn != null) {
-                            var result = warn.getResult();
-                            if (result != Result.FAILURE) {
-                                continue;
-                            }
-                            origin = node;
-                        }
-                    } else {
-                        origin = resolveOrigin(errorAction.getError(), execution);
-                        if (origin == null || seenOriginIds.contains(origin.getId())) {
-                            continue;
-                        }
-                    }
-                    if (origin == null) {
-                        continue;
-                    }
-                    LogAction logAction = origin.getAction(LogAction.class);
-                    // catchError + sh(returnStatus:true) + error() fallback:
-                    // error() has ErrorAction but no LogAction. Check the immediate parent;
-                    // if it is the only parent and carries a LogAction, use it instead.
-                    if (logAction == null && errorAction != null) {
-                        FlowNode immediateParent = findImmediateParentWithLog(origin);
-                        if (immediateParent != null && !seenOriginIds.contains(immediateParent.getId())) {
-                            origin = immediateParent;
-                            logAction = immediateParent.getAction(LogAction.class);
-                        }
-                    }
-                    if (logAction == null) {
-                        continue;
-                    }
-                    seenOriginIds.add(origin.getId());
-                    List<String> stepLog = readLimitedLog(logAction.getLogText(), remainingLines);
-                    if (stepLog == null || stepLog.isEmpty()) {
-                        continue;
-                    }
-
-                    if (primaryNodeId == null) {
-                        primaryNodeId = origin.getId();
-                    }
-                    nodes.add(origin);
-                    addHeaderLog(origin, stepLog);
-                    accumulated.addAll(stepLog);
-                }
+                failedSteps = findFailedSteps(execution);
             }
         }
 
+        List<String> accumulated = new ArrayList<>();
+        Set<FlowNode> nodes = new LinkedHashSet<>();
+        appendStepLogs(failedSteps, logPattern, accumulated, nodes);
+        boolean fallbackToBuildLog = accumulated.isEmpty();
+        if (fallbackToBuildLog) {
+            accumulated.addAll(readBuildLog(logPattern));
+        }
+        if (accumulated.isEmpty() && logPattern != null) {
+            // Better the lines the pattern was meant to narrow down than no explanation at all
+            logPatternMatchedNothing = true;
+            appendStepLogs(failedSteps, null, accumulated, nodes);
+            fallbackToBuildLog = accumulated.isEmpty();
+            if (fallbackToBuildLog) {
+                accumulated.addAll(readBuildLog(null));
+            }
+        }
+
+        String primaryNodeId = nodes.isEmpty() ? null : nodes.iterator().next().getId();
         if (nodes.size() > 1) {
             FlowNode ancestor = findCommonAncestor(nodes);
             if (ancestor != null) {
                 primaryNodeId = ancestor.getId();
             }
         }
-
-        if (!accumulated.isEmpty()) {
-            setUrl(primaryNodeId);
-        } else {
-            // Final fallback: last N lines of the full build console log
-            fallbackToBuildLog = true;
-            setUrl(null);
-            accumulated.addAll(run.getLog(maxLines));
-        }
+        setUrl(fallbackToBuildLog ? null : primaryNodeId);
 
         // Collect logs from failed downstream (sub-job) builds, recursively
         if (collectDownstreamLogs && downstreamDepth == 0) {
@@ -569,7 +513,142 @@ public class PipelineLogExtractor {
                 collectDownstreamLogs && downstreamJobPattern != null,
                 stats.downstreamMatchedCount,
                 stats.downstreamReusedExplanationCount,
-                stats.downstreamPermissionSkippedCount);
+                stats.downstreamPermissionSkippedCount,
+                nodes.size(),
+                logPatternMatchedNothing);
+    }
+
+    /**
+     * The steps that failed the build, with the log each failure is in. Each origin counts once, in the
+     * order the graph is walked.
+     * <p>
+     * When a failing node has no {@link LogAction} (e.g. the {@code error()} step in a
+     * {@code catchError + sh(returnStatus:true) + error()} pipeline), the immediate parent node is used if,
+     * and only if, there is exactly one parent and it has a {@link LogAction}.
+     */
+    private List<FailedStep> findFailedSteps(FlowExecution execution) {
+        List<FailedStep> steps = new ArrayList<>();
+        Set<String> seenOriginIds = new HashSet<>();
+        for (FlowNode node : new FlowGraphWalker(execution)) {
+            ErrorAction errorAction = node.getError();
+            FlowNode origin = null;
+            if (errorAction == null) {
+                WarningAction warn = node.getAction(WarningAction.class);
+                if (warn != null) {
+                    if (warn.getResult() != Result.FAILURE) {
+                        continue;
+                    }
+                    origin = node;
+                }
+            } else {
+                origin = resolveOrigin(errorAction.getError(), execution);
+                if (origin == null || seenOriginIds.contains(origin.getId())) {
+                    continue;
+                }
+            }
+            if (origin == null) {
+                continue;
+            }
+            LogAction logAction = origin.getAction(LogAction.class);
+            if (logAction == null && errorAction != null) {
+                FlowNode immediateParent = findImmediateParentWithLog(origin);
+                if (immediateParent != null && !seenOriginIds.contains(immediateParent.getId())) {
+                    origin = immediateParent;
+                    logAction = immediateParent.getAction(LogAction.class);
+                }
+            }
+            if (logAction == null) {
+                continue;
+            }
+            seenOriginIds.add(origin.getId());
+            steps.add(new FailedStep(origin, logAction,
+                    errorAction != null && isStoppedByFailFast(errorAction.getError())));
+        }
+        return steps;
+    }
+
+    /**
+     * Appends the logs of failed steps, each with a header naming its node, and shares {@link #maxLines} out
+     * among them: the last lines of one long log must not crowd out another step that failed too, as with
+     * parallel branches. A step that has fewer lines than its share leaves the rest to the others. Steps
+     * stopped by fail-fast come last, and at most as many steps as can get {@link #MIN_LINES_PER_STEP} lines.
+     *
+     * @param included the nodes whose logs were appended
+     */
+    private void appendStepLogs(List<FailedStep> steps, @CheckForNull Pattern pattern, List<String> lines,
+                                Set<FlowNode> included) {
+        List<FailedStep> ordered = new ArrayList<>(steps);
+        ordered.sort(Comparator.comparing(FailedStep::stoppedByFailFast));
+        int room = Math.max(1, maxLines / MIN_LINES_PER_STEP);
+        List<FailedStep> read = new ArrayList<>();
+        List<List<String>> logs = new ArrayList<>();
+        for (FailedStep step : ordered) {
+            if (read.size() >= room) {
+                break;
+            }
+            List<String> log = readLimitedLog(step.logAction().getLogText(), maxLines, pattern);
+            if (!log.isEmpty()) {
+                read.add(step);
+                logs.add(log);
+            }
+        }
+        int[] shares = share(logs.stream().mapToInt(List::size).toArray(), maxLines);
+        for (int i = 0; i < read.size(); i++) {
+            if (shares[i] == 0) {
+                continue;
+            }
+            List<String> log = logs.get(i);
+            List<String> stepLog = new ArrayList<>(log.subList(log.size() - shares[i], log.size()));
+            addHeaderLog(read.get(i).node(), stepLog, read.get(i).stoppedByFailFast());
+            lines.addAll(stepLog);
+            included.add(read.get(i).node());
+        }
+    }
+
+    /**
+     * Shares {@code budget} lines out among logs of the given sizes: each gets as much as an even share of
+     * what is left, and a log shorter than that leaves the rest to the others.
+     *
+     * @return the lines each log gets, in the order of {@code sizes}
+     */
+    static int[] share(int[] sizes, int budget) {
+        int[] shares = new int[sizes.length];
+        Integer[] bySize = new Integer[sizes.length];
+        for (int i = 0; i < sizes.length; i++) {
+            bySize[i] = i;
+        }
+        Arrays.sort(bySize, Comparator.comparingInt(i -> sizes[i]));
+        int left = budget;
+        for (int k = 0; k < bySize.length; k++) {
+            int i = bySize[k];
+            shares[i] = Math.min(sizes[i], left / (bySize.length - k));
+            left -= shares[i];
+        }
+        return shares;
+    }
+
+    /** The last lines of the build's whole console, or of the lines {@code pattern} matches. */
+    private List<String> readBuildLog(@CheckForNull Pattern pattern) throws IOException {
+        return LogLines.read(run.getLogText(), run.getCharset(), maxLines, pattern);
+    }
+
+    /**
+     * Whether the error is the one Pipeline puts into a parallel branch that is still running when another
+     * branch fails, with {@code failFast}: the branch did not fail by itself.
+     */
+    static boolean isStoppedByFailFast(@CheckForNull Throwable error) {
+        if (error == null) {
+            return false;
+        }
+        if (error.getClass().getName().endsWith("ParallelStep$FailFastException")) {
+            return true;
+        }
+        return error instanceof FlowInterruptedException interruption && interruption.getCauses().stream()
+                .anyMatch(cause -> cause.getClass().getName().endsWith("ParallelStep$FailFastCause"));
+    }
+
+    /** A step whose failure is explained, the log it is in, and whether fail-fast stopped it. */
+    private record FailedStep(FlowNode node, LogAction logAction, boolean stoppedByFailFast) {
     }
 
     /**
@@ -634,6 +713,31 @@ public class PipelineLogExtractor {
      */
     public String getUrl() {
         return this.url;
+    }
+
+    /**
+     * Reads only the lines of the failing steps, or of the console, that {@code logPattern} finds a match in,
+     * searching the whole of each log. When it matches nothing at all, the lines are read without it. Logs of
+     * downstream builds are not filtered.
+     */
+    void setLogPattern(@CheckForNull Pattern logPattern) {
+        this.logPattern = logPattern;
+    }
+
+    /**
+     * The log pattern as the extractor uses it: matched without regard to case, anywhere in a line.
+     *
+     * @return the pattern, or {@code null} when {@code regex} is blank
+     * @throws PatternSyntaxException when {@code regex} is not a regular expression
+     */
+    @CheckForNull
+    static Pattern compileLogPattern(@CheckForNull String regex) {
+        return regex == null || regex.isBlank() ? null : Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+    }
+
+    /** Whether the last extraction found no line the log pattern matches, and so read the lines without it. */
+    boolean isLogPatternMatchedNothing() {
+        return logPatternMatchedNothing;
     }
 
     public PipelineLogExtractor(Run<?, ?> run, int maxLines)
