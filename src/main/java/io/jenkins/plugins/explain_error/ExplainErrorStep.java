@@ -332,8 +332,10 @@ public class ExplainErrorStep extends Step {
             Object result = toStepResult(explanation, explainer.getLastAnalysis());
 
             if (step.isAutoFix()) {
+                // The log was masked when it was explained; the workspace files are masked here
                 String errorLogs = explainer.getLastErrorLogs();
-                String autoFixLogs = appendWorkspaceContext(errorLogs, workspaceContext);
+                String autoFixLogs = LogRedactor.fromConfiguration()
+                        .redact(appendWorkspaceContext(errorLogs, workspaceContext));
                 BaseAIProvider provider = explainer.getResolvedProvider(run);
 
                 if (errorLogs == null) {

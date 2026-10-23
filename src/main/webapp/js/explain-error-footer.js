@@ -111,9 +111,14 @@ function addExplainErrorButton(explanation) {
   const explainBtn = createButton(container.dataset.labelExplain, 'jenkins-button explain-error-btn',
     openExplanation, providerName);
 
+  const previewLink = enabled ? createPreviewLink(container) : null;
+
   // If we found the button container, add our button there
   if (buttonContainer) {
     buttonContainer.insertBefore(explainBtn, buttonContainer.firstChild);
+    if (previewLink) {
+      explainBtn.after(previewLink);
+    }
     Behaviour.applySubtree(buttonContainer, true);
   } else {
     // Fallback: create a simple container above console output
@@ -121,6 +126,9 @@ function addExplainErrorButton(explanation) {
     container.className = 'explain-error-container';
     container.style.marginBottom = '10px';
     container.appendChild(explainBtn);
+    if (previewLink) {
+      container.appendChild(previewLink);
+    }
     consoleOutput.parentNode.insertBefore(container, consoleOutput);
     Behaviour.applySubtree(container, true);
   }
@@ -171,6 +179,19 @@ function openExplanation() {
   }
   // Nothing rendered yet: the server answers with the explanation the build has, or a new one
   sendExplainRequest(false);
+}
+
+// Opens, in a new tab, the text a new explanation would send to the provider, after masking
+function createPreviewLink(container) {
+  const link = document.createElement('a');
+  const rootURL = document.head.getAttribute("data-rooturl");
+  link.href = rootURL + '/' + container.dataset.runUrl + 'console-explain-error/preview';
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.className = 'jenkins-button jenkins-button--tertiary explain-error-preview';
+  link.textContent = container.dataset.labelPreview;
+  link.setAttribute('tooltip', container.dataset.tooltipPreview);
+  return link;
 }
 
 function createButton(text, className, onClick, providerName) {

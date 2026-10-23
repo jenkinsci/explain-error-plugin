@@ -135,7 +135,8 @@ explainError(
 The files matching `workspaceContextPaths` (the default list when it is empty) are read, each cut to 8,000 bytes.
 Paths are skipped when the file name starts with `.env`, `credentials` or `secrets`, or when they lie under `.git/`,
 `.gradle/`, `target/`, `build/`, `dist/` or `node_modules/`, and absolute paths and `..` are refused. The files are sent
-to the AI provider, so leave out any that hold secrets.
+to the AI provider, [masked](configuration.md#masking-secrets) as the log is, but masking only finds secrets of a
+known shape, so leave out any files that hold secrets.
 
 The files travel with the step's `customContext`. While `includeWorkspaceContext` is on and the step sets no
 `customContext`, the folder and global Custom Context are not sent; set `customContext` on the step to keep them.

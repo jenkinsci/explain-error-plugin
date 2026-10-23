@@ -125,6 +125,11 @@ public final class ExplanationLabels {
     }
 
     /** Says which earlier build an explanation was taken over from. */
+    public String secretsMasked(int count) {
+        return MessageFormat.format(bundle.getString(count == 1 ? "secretMasked" : "secretsMasked"),
+                String.valueOf(count));
+    }
+
     public String reusedFrom(int buildNumber) {
         return MessageFormat.format(bundle.getString("reusedFrom"), String.valueOf(buildNumber));
     }
