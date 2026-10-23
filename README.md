@@ -74,8 +74,8 @@ page.
 
 ### On the Stages page
 
-With [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/) 777 or newer (Jenkins 2.534 or newer), the
-same button is on the **Stages** page of a failed Pipeline build. It explains the stage, parallel branch or step selected
+With [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/), the same button is on the **Stages** page
+of a failed Pipeline build, called **Pipeline Overview** before Pipeline Graph View 777. It explains the stage, parallel branch or step selected
 in the graph from that node's log only, and shows the explanation above the node's steps. A node that passed has no
 button.
 

@@ -6,7 +6,7 @@
     </f:entry>
 
     <f:entry title="Max Lines" field="maxLines"
-             description="Maximum number of lines to analyze (default: 100). Set to 0 for unlimited.">
+             description="Maximum number of lines to analyze (default: 100).">
         <f:number min="0" default="100" />
     </f:entry>
 

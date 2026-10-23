@@ -21,4 +21,13 @@ class AutoFixPullRequestBodyTest {
         String url = jenkins.getURL() + "job/inventory-service/1/";
         assertEquals("[#1](" + url + ")\n" + url, body);
     }
+
+    @Test
+    void dollarSignsAndBackslashesInTheAnswerAreKept(JenkinsRule jenkins) throws Exception {
+        FreeStyleBuild build = jenkins.buildAndAssertSuccess(jenkins.createFreeStyleProject("payments"));
+        String explanation = "Bump ${jackson.version}, then put C:\\tools on $PATH";
+        FixSuggestion suggestion = new FixSuggestion(true, explanation, "high", "dependency", List.of(), "bump");
+
+        assertEquals(explanation, new AutoFixOrchestrator().buildPrBody(build, suggestion, "{explanation}"));
+    }
 }

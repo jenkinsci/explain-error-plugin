@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.logging.Level;
@@ -594,7 +595,8 @@ public class PipelineLogExtractor {
      */
     private void setUrl(@CheckForNull String node)
     {
-        String rootUrl = Jenkins.get().getRootUrl();
+        // Without a root URL configured, a link from the Jenkins root still leads to the page
+        String rootUrl = Objects.requireNonNullElse(Jenkins.get().getRootUrl(), "/");
         String graphViewPage = node != null ? graphViewPage() : null;
         if (graphViewPage != null) {
             url = rootUrl + run.getUrl() + graphViewPage + "?selected-node=" + node;

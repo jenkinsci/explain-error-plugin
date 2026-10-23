@@ -7,6 +7,8 @@ import hudson.model.Run;
 import java.util.ArrayList;
 import java.util.List;
 import jenkins.model.RunAction2;
+import org.kohsuke.stapler.Stapler;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
@@ -322,6 +324,14 @@ public class ErrorExplanationAction implements RunAction2 {
 
     @Exported(visibility = 1)
     public String getUrlString() {
+        // Saved without a Jenkins root URL, the link starts at the root: put the context path Jenkins is
+        // served under in front of it
+        if (urlString != null && urlString.startsWith("/")) {
+            StaplerRequest2 request = Stapler.getCurrentRequest2();
+            if (request != null) {
+                return request.getContextPath() + urlString;
+            }
+        }
         return urlString;
     }
 

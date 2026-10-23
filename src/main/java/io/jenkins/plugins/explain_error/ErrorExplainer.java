@@ -490,7 +490,8 @@ public class ErrorExplainer {
 
     private String buildSavedExplanationMessage(Run<?, ?> run, ErrorExplanationAction action) {
         String label = action.getDisplayName();
-        String link = HyperlinkNote.encodeTo(run.getAbsoluteUrl() + action.getUrlName() + '/', label);
+        // Relative to the Jenkins root, so that a Jenkins without a root URL configured gets a link too
+        String link = HyperlinkNote.encodeTo('/' + run.getUrl() + action.getUrlName() + '/', label);
         return "Explanation saved to the build. Open " + link + ".";
     }
 
@@ -589,6 +590,12 @@ public class ErrorExplainer {
             return globalLanguage.trim();
         }
         return null;
+    }
+
+    /** The custom context of the folder, or else the global one: what a step that sets none gets. */
+    @CheckForNull
+    String inheritedCustomContext(@CheckForNull Run<?, ?> run) {
+        return resolveEffectiveCustomContext(run, null);
     }
 
     /**
