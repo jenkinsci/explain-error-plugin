@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.PatternSyntaxException;
 import io.jenkins.plugins.explain_error.provider.BaseAIProvider;
 import net.sf.json.JSONObject;
 
@@ -27,10 +28,16 @@ public class ConsoleExplainErrorAction implements RunAction2 {
 
     private static final Logger LOGGER = Logger.getLogger(ConsoleExplainErrorAction.class.getName());
 
-    /** Log lines a new explanation reads when the request does not say. */
+    /**
+     * Log lines a new explanation reads when the request does not say, unless the global Max Log Lines is
+     * higher: see {@link #defaultMaxLines()}.
+     */
     static final int DEFAULT_MAX_LINES = 200;
 
-    /** The most log lines a request may ask for: every line is sent to the provider. */
+    /**
+     * The most log lines a request may ask for, unless the global Max Log Lines is higher: every line is sent
+     * to the provider.
+     */
     static final int MAX_LINES_LIMIT = 1000;
 
     static final String ALREADY_PENDING = "An explanation of this build is already being generated."
@@ -117,8 +124,7 @@ public class ConsoleExplainErrorAction implements RunAction2 {
                 int maxLines = maxLines(req.getParameter("maxLines"));
 
                 // Fetch the last N lines of the log
-                PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines,
-                        Jenkins.getAuthentication2(), false, null);
+                PipelineLogExtractor logExtractor = pageExtractor(run, maxLines);
                 List<String> logLines = logExtractor.getFailedStepLog();
                 this.urlString = logExtractor.getUrl();
 
@@ -152,13 +158,40 @@ public class ConsoleExplainErrorAction implements RunAction2 {
      */
     static int maxLines(@CheckForNull String requested) {
         if (requested == null) {
-            return DEFAULT_MAX_LINES;
+            return defaultMaxLines();
         }
+        int limit = Math.max(MAX_LINES_LIMIT, GlobalConfigurationImpl.get().getAutoExplainMaxLogLines());
         try {
-            return Math.min(Math.max(1, Integer.parseInt(requested.trim())), MAX_LINES_LIMIT);
+            return Math.min(Math.max(1, Integer.parseInt(requested.trim())), limit);
         } catch (NumberFormatException e) {
-            return DEFAULT_MAX_LINES;
+            return defaultMaxLines();
         }
+    }
+
+    /**
+     * Log lines an explanation asked for on the console or Stages page reads: {@link #DEFAULT_MAX_LINES}, or
+     * the global Max Log Lines when that is higher, so that a model with a large context gets as much as an
+     * automatic explanation does.
+     */
+    static int defaultMaxLines() {
+        return Math.max(DEFAULT_MAX_LINES, GlobalConfigurationImpl.get().getAutoExplainMaxLogLines());
+    }
+
+    /**
+     * The log extractor for an explanation asked for on the console or Stages page, with the global log
+     * pattern, as an automatic explanation has.
+     */
+    static PipelineLogExtractor pageExtractor(Run<?, ?> run, int maxLines) {
+        PipelineLogExtractor extractor = new PipelineLogExtractor(run, maxLines, Jenkins.getAuthentication2(),
+                false, null);
+        try {
+            extractor.setLogPattern(PipelineLogExtractor.compileLogPattern(
+                    GlobalConfigurationImpl.get().getLogPattern()));
+        } catch (PatternSyntaxException e) {
+            LOGGER.fine("The global log pattern is not a valid regular expression, so it is not used: "
+                    + e.getDescription());
+        }
+        return extractor;
     }
 
     /**

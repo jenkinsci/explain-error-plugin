@@ -1,6 +1,8 @@
 package io.jenkins.plugins.explain_error;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
+import hudson.Util;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
@@ -9,13 +11,13 @@ import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.LangGraphProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
+import java.util.regex.PatternSyntaxException;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
-
 
 /**
  * Global configuration for the plugin.
@@ -43,6 +45,7 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
 
     private boolean enableAutoExplainOnFailure = false;
     private int autoExplainMaxLogLines = 100;
+    private String logPattern;
     private int autoExplainMaxPerHour = DEFAULT_AUTO_EXPLAIN_MAX_PER_HOUR;
 
     private transient QuotaEnforcer quotaEnforcer;
@@ -163,6 +166,21 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     @DataBoundSetter
     public void setAutoExplainMaxLogLines(int autoExplainMaxLogLines) {
         this.autoExplainMaxLogLines = Math.max(1, autoExplainMaxLogLines);
+    }
+
+    /**
+     * The regular expression that narrows the log lines sent down to those it matches, for every explanation
+     * whose {@code explainError()} step sets no pattern of its own: automatic ones, and those asked for on the
+     * console or Stages page. {@code null} sends the last lines as they are.
+     */
+    @CheckForNull
+    public String getLogPattern() {
+        return logPattern;
+    }
+
+    @DataBoundSetter
+    public void setLogPattern(@CheckForNull String logPattern) {
+        this.logPattern = Util.fixEmpty(logPattern);
     }
 
     /**
@@ -288,6 +306,17 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
             items.add(value.getDisplayName(), value.name());
         }
         return items;
+    }
+
+    @POST
+    public FormValidation doCheckLogPattern(@QueryParameter String value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        try {
+            PipelineLogExtractor.compileLogPattern(value);
+            return FormValidation.ok();
+        } catch (PatternSyntaxException e) {
+            return FormValidation.error("Not a valid regular expression: " + e.getDescription());
+        }
     }
 
     @POST

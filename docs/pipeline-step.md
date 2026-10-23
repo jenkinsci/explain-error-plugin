@@ -79,8 +79,8 @@ through the REST API at `<build-url>/error-explanation/api/json`.
 
 | Parameter | Description | Default |
 |---|---|---|
-| `maxLines` | Log lines to analyze: the last lines of the failing steps, or of the console when no step's log can be found. `0` or less means the default | `100` |
-| `logPattern` | Regular expression, matched without regard to case; only the lines it matches are sent. It filters the `maxLines` lines that were read, so raise `maxLines` when the lines you want are further back | `''` (no filtering) |
+| `maxLines` | Log lines to analyze: the last lines of the failing steps, or of the console when no step's log can be found. When several steps failed, as parallel branches do, the lines are shared out so that each is in; a branch that `failFast` stopped comes last and is marked as such. Terminal colour codes are taken out, and a line is cut at 2,000 characters. `0` or less means the default | `100` |
+| `logPattern` | Regular expression, matched without regard to case; only the lines it matches are sent, at most `maxLines` of them. The whole log of each failing step is searched. When it matches nothing, the last lines are sent as they are, and the console says so | The global **Log Pattern**, or no filtering |
 | `language` | Language of the explanation, e.g. `'English'`, `'中文'`, `'日本語'` | The folder or global setting |
 | `temperature` | Model temperature (0.0–2.0) | The folder or global setting |
 | `customContext` | Additional instructions for the AI. Overrides the folder and global Custom Context | The folder or global setting |

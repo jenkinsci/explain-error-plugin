@@ -16,6 +16,14 @@
                  description="Optional model temperature. Leave empty to omit the field and use provider defaults. This can be overridden at the folder or job level.">
           <f:number min="0" step="0.01" />
         </f:entry>
+        <f:entry title="Max Log Lines" field="autoExplainMaxLogLines"
+                 description="Log lines sent for an automatic explanation, shared out among the steps that failed. The Explain Error button on the console and Stages page sends at least 200. An explainError() step sets its own with maxLines. Increase this for models with larger context windows (e.g. DeepSeek, Kimi).">
+          <f:number clazz="setting-input" min="1" default="100" />
+        </f:entry>
+        <f:entry title="Log Pattern" field="logPattern"
+                 description="Optional regular expression, matched without regard to case. Only the log lines it matches are sent, searched for in the whole log of each failing step; when it matches nothing, the last lines are sent as they are. Applies to automatic explanations, the Explain Error button and explainError() steps that set no logPattern of their own.">
+          <f:textbox />
+        </f:entry>
         <f:optionalBlock field="enableQuota" title="Enable Request Quota"
                          checked="${it.enableQuota}" inline="true">
           <f:entry title="Quota Window" field="quotaWindow">
@@ -29,10 +37,6 @@
         <f:optionalBlock field="enableAutoExplainOnFailure" title="Automatically explain failed builds"
                          checked="${it.enableAutoExplainOnFailure}" inline="true"
                          help="When enabled, all failed builds will automatically trigger AI explanation. Requires 'Enable AI Error Explanation' to be active. Builds already explained via explainError() step are skipped. A job can override this setting with 'Override automatic AI error explanation' in its configuration.">
-          <f:entry title="Max Log Lines" field="autoExplainMaxLogLines"
-                   description="Number of log lines to read from the build console for auto-explanation. Increase this for models with larger context windows (e.g. DeepSeek, Kimi).">
-            <f:number clazz="setting-input" min="1" default="100" />
-          </f:entry>
           <f:entry title="Max Automatic Explanations per Hour" field="autoExplainMaxPerHour"
                    description="Maximum number of AI provider calls made for automatic explanations per hour, in addition to the request quota. Failed builds beyond it are not explained automatically and say so in their console; the Explain Error button and the explainError() step are not affected. An explanation reused from an earlier build that failed the same way does not count.">
             <f:number clazz="setting-input" min="1" default="30" />

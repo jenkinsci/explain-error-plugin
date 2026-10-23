@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import jenkins.model.Jenkins;
 import jenkins.util.SystemProperties;
 import org.apache.commons.lang3.StringUtils;
@@ -22,8 +23,6 @@ import org.springframework.security.core.Authentication;
  * Service class responsible for explaining errors using AI.
  */
 public class ErrorExplainer {
-    static final String DOWNSTREAM_SECTION_START = "### Downstream Job: ";
-    static final String DOWNSTREAM_SECTION_END = "### END OF DOWNSTREAM JOB: ";
     private static final String CONSOLE_PREFIX = "[explain-error] ";
     static final String REUSE_LOOKBACK_PROPERTY = ErrorExplainer.class.getName() + ".reuseLookbackBuilds";
 
@@ -162,9 +161,10 @@ public class ErrorExplainer {
 
             // Extract error logs
             logToConsole(listener, "Extracting failure logs.");
+            Pattern effectiveLogPattern = resolveEffectiveLogPattern(listener, logPattern);
             PipelineLogExtractor.ExtractionResult extractionResult = extractErrorLogs(run, maxLines,
-                    collectDownstreamLogs, downstreamJobPattern, authentication);
-            String errorLogs = filterErrorLogs(extractionResult.logLines(), logPattern);
+                    collectDownstreamLogs, downstreamJobPattern, authentication, effectiveLogPattern);
+            String errorLogs = String.join("\n", extractionResult.logLines());
             logExtractionSummary(listener, extractionResult, maxLines);
 
             // Resolve language: step → folder → global → null (provider defaults to "English")
@@ -258,10 +258,12 @@ public class ErrorExplainer {
     private PipelineLogExtractor.ExtractionResult extractErrorLogs(Run<?, ?> run, int maxLines,
                                                                    boolean collectDownstreamLogs,
                                                                    String downstreamJobPattern,
-                                                                   Authentication authentication)
+                                                                   Authentication authentication,
+                                                                   @CheckForNull Pattern logPattern)
             throws IOException {
         PipelineLogExtractor logExtractor = new PipelineLogExtractor(run, maxLines, authentication,
                 collectDownstreamLogs, downstreamJobPattern);
+        logExtractor.setLogPattern(logPattern);
         PipelineLogExtractor.ExtractionResult result = logExtractor.extractFailedStepLog();
         this.urlString = result.url();
         return result;
@@ -300,38 +302,21 @@ public class ErrorExplainer {
         return null;
     }
 
-    String filterErrorLogs(List<String> logLines, String logPattern) {
-        if (StringUtils.isBlank(logPattern)) {
-            return String.join("\n", logLines);
+    /**
+     * The log pattern of the step, or else the global one. A pattern that is not a regular expression is
+     * left out, and the console says so, rather than failing the explanation.
+     */
+    @CheckForNull
+    private Pattern resolveEffectiveLogPattern(TaskListener listener, @CheckForNull String stepLogPattern) {
+        String regex = StringUtils.isNotBlank(stepLogPattern) ? stepLogPattern
+                : GlobalConfigurationImpl.get().getLogPattern();
+        try {
+            return PipelineLogExtractor.compileLogPattern(regex);
+        } catch (PatternSyntaxException e) {
+            logToConsole(listener, "Log pattern is not a valid regular expression, so it is not used: "
+                    + e.getDescription() + ".");
+            return null;
         }
-
-        Pattern pattern = Pattern.compile(logPattern, Pattern.CASE_INSENSITIVE);
-        List<String> filteredLines = new ArrayList<>();
-        boolean inDownstreamSection = false;
-
-        for (String line : logLines) {
-            if (isDownstreamSectionStart(line)) {
-                inDownstreamSection = true;
-            }
-
-            if (inDownstreamSection || pattern.matcher(line).find()) {
-                filteredLines.add(line);
-            }
-
-            if (inDownstreamSection && isDownstreamSectionEnd(line)) {
-                inDownstreamSection = false;
-            }
-        }
-
-        return String.join("\n", filteredLines);
-    }
-
-    private boolean isDownstreamSectionStart(String line) {
-        return line != null && line.startsWith(DOWNSTREAM_SECTION_START);
-    }
-
-    private boolean isDownstreamSectionEnd(String line) {
-        return line != null && line.startsWith(DOWNSTREAM_SECTION_END);
     }
 
     /**
@@ -536,8 +521,14 @@ public class ErrorExplainer {
 
     private void logExtractionSummary(TaskListener listener, PipelineLogExtractor.ExtractionResult result,
                                       int maxLines) {
+        if (result.logPatternMatchedNothing()) {
+            logToConsole(listener, "The log pattern matched no line; using the lines without it.");
+        }
         if (result.fallbackToBuildLog()) {
             logToConsole(listener, "No failing step log found; using the last " + maxLines + " console lines.");
+        } else if (result.failedStepCount() > 1) {
+            logToConsole(listener, "Extracted " + result.getExtractedLineCount() + " log lines from "
+                    + result.failedStepCount() + " failing steps.");
         } else if (result.foundFailingNode()) {
             logToConsole(listener, "Extracted " + result.getExtractedLineCount() + " log lines from the failing step.");
         } else {

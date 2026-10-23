@@ -23,68 +23,6 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 class ErrorExplainerTest {
 
     @Test
-    void filterErrorLogs_patternMatchesNothing_returnsEmptyString() {
-        ErrorExplainer errorExplainer = new ErrorExplainer();
-
-        String filtered = errorExplainer.filterErrorLogs(java.util.List.of(
-                "info line 1",
-                "debug: nothing relevant here",
-                "another info line"
-        ), "ERROR");
-
-        assertTrue(filtered.isEmpty(),
-                "When logPattern matches nothing and there are no downstream sections, result should be empty");
-    }
-
-    @Test
-    void filterErrorLogs_preservesEntireDownstreamSectionWhenPatternIsUsed() {
-        ErrorExplainer errorExplainer = new ErrorExplainer();
-
-        String filtered = errorExplainer.filterErrorLogs(java.util.List.of(
-                "parent info line",
-                "ERROR: upstream failed",
-                "### Downstream Job: team-folder/sub-job #12 ###",
-                "Result: FAILURE",
-                "--- LOG CONTENT ---",
-                "[AI explanation from sub-job]",
-                "Root cause: dependency mismatch",
-                "### END OF DOWNSTREAM JOB: team-folder/sub-job ###",
-                "non matching tail"
-        ), "ERROR");
-
-        assertTrue(filtered.contains("ERROR: upstream failed"));
-        assertTrue(filtered.contains("### Downstream Job: team-folder/sub-job #12 ###"));
-        assertTrue(filtered.contains("[AI explanation from sub-job]"));
-        assertTrue(filtered.contains("Root cause: dependency mismatch"));
-        assertTrue(filtered.contains("### END OF DOWNSTREAM JOB: team-folder/sub-job ###"));
-        assertFalse(filtered.contains("parent info line"));
-        assertFalse(filtered.contains("non matching tail"));
-    }
-
-    @Test
-    void filterErrorLogs_keepsOnlyMatchingUpstreamLinesOutsideDownstreamSections() {
-        ErrorExplainer errorExplainer = new ErrorExplainer();
-
-        String filtered = errorExplainer.filterErrorLogs(java.util.List.of(
-                "upstream info",
-                "Exception: upstream failure",
-                "upstream debug",
-                "### Downstream Job: team-folder/sub-job #9 ###",
-                "Result: FAILURE",
-                "--- LOG CONTENT ---",
-                "sub-job debug line",
-                "### END OF DOWNSTREAM JOB: team-folder/sub-job ###",
-                "upstream trailing info"
-        ), "Exception");
-
-        assertFalse(filtered.contains("upstream info"));
-        assertTrue(filtered.contains("Exception: upstream failure"));
-        assertFalse(filtered.contains("upstream debug"));
-        assertTrue(filtered.contains("sub-job debug line"));
-        assertFalse(filtered.contains("upstream trailing info"));
-    }
-
-    @Test
     void testErrorExplainerBasicFunctionality(JenkinsRule jenkins) throws Exception {
         ErrorExplainer errorExplainer = new ErrorExplainer();
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
@@ -465,8 +403,15 @@ class ErrorExplainerTest {
         FreeStyleBuild build = org.mockito.Mockito.mock(FreeStyleBuild.class);
         org.mockito.Mockito.when(build.getParent()).thenReturn(project);
         org.mockito.Mockito.when(build.getNumber()).thenReturn(1);
-        org.mockito.Mockito.when(build.getLog(org.mockito.ArgumentMatchers.anyInt()))
+        @SuppressWarnings("unchecked")
+        hudson.console.AnnotatedLargeText<FreeStyleBuild> logText =
+                org.mockito.Mockito.mock(hudson.console.AnnotatedLargeText.class);
+        org.mockito.Mockito.when(logText.length()).thenReturn(100L);
+        org.mockito.Mockito.when(logText.writeRawLogTo(org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(java.io.OutputStream.class)))
                 .thenThrow(new java.io.IOException("log file is gone"));
+        org.mockito.Mockito.when(build.getLogText()).thenReturn(logText);
+        org.mockito.Mockito.when(build.getCharset()).thenReturn(java.nio.charset.StandardCharsets.UTF_8);
         java.io.ByteArrayOutputStream log = new java.io.ByteArrayOutputStream();
 
         String explanation = new ErrorExplainer().explainError(build,
