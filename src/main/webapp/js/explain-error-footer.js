@@ -181,17 +181,26 @@ function openExplanation() {
   sendExplainRequest(false);
 }
 
-// Opens, in a new tab, the text a new explanation would send to the provider, after masking
+// Opens, in a new tab, the text a new explanation would send to the provider, after masking. The preview
+// takes a POST with the crumb, so it is a form.
 function createPreviewLink(container) {
-  const link = document.createElement('a');
+  const form = document.createElement('form');
   const rootURL = document.head.getAttribute("data-rooturl");
-  link.href = rootURL + '/' + container.dataset.runUrl + 'console-explain-error/preview';
-  link.target = '_blank';
-  link.rel = 'noopener';
-  link.className = 'jenkins-button jenkins-button--tertiary explain-error-preview';
-  link.textContent = container.dataset.labelPreview;
-  link.setAttribute('tooltip', container.dataset.tooltipPreview);
-  return link;
+  form.method = 'post';
+  form.action = rootURL + '/' + container.dataset.runUrl + 'console-explain-error/preview';
+  form.target = '_blank';
+  form.rel = 'noopener';
+  // no-json: Jenkins adds a json field to a form it sees; the preview takes none
+  form.className = 'explain-error-preview no-json';
+  form.style.display = 'contents';
+  crumb.appendToForm(form);
+  const button = document.createElement('button');
+  button.type = 'submit';
+  button.className = 'jenkins-button jenkins-button--tertiary';
+  button.textContent = container.dataset.labelPreview;
+  button.setAttribute('tooltip', container.dataset.tooltipPreview);
+  form.appendChild(button);
+  return form;
 }
 
 function createButton(text, className, onClick, providerName) {

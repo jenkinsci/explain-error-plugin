@@ -20,6 +20,9 @@ import net.sf.json.JSONObject;
 import org.htmlunit.HttpMethod;
 import org.htmlunit.Page;
 import org.htmlunit.WebRequest;
+import org.htmlunit.WebResponse;
+import org.htmlunit.html.HtmlElement;
+import org.htmlunit.html.HtmlPage;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -151,6 +154,7 @@ class RedactionTest {
             }
         }
         assertNotNull(action, "the build is explained automatically");
+        ErrorRunListenerTest.awaitAutoExplainFinished(build);
         String sent = provider.getLastErrorLogs();
         assertFalse(sent.contains(GITHUB_TOKEN), sent);
         assertTrue(sent.contains("https://x-access-token:[REDACTED]@github.com/o/r"), sent);
@@ -206,7 +210,8 @@ class RedactionTest {
         GlobalConfigurationImpl.get().setCustomContext("Internal KB: token=kb-secret-123");
 
         try (JenkinsRule.WebClient client = jenkins.createWebClient().login("reader")) {
-            Page page = client.goTo(build.getUrl() + "console-explain-error/preview", "text/plain");
+            Page page = client.getPage(client.addCrumb(previewRequest(build)));
+            assertEquals("text/plain", page.getWebResponse().getContentType());
             String preview = page.getWebResponse().getContentAsString();
             assertTrue(preview.contains("Masked 2 secrets in what is sent"), preview);
             assertTrue(preview.contains("1 of them in the custom context, which is not shown here."), preview);
@@ -216,9 +221,38 @@ class RedactionTest {
         }
         try (JenkinsRule.WebClient client = jenkins.createWebClient().login("outsider")) {
             client.setThrowExceptionOnFailingStatusCode(false);
+            int status = client.getPage(client.addCrumb(previewRequest(build))).getWebResponse().getStatusCode();
+            assertTrue(status == 403 || status == 404, "no Item/Read, no preview: " + status);
+        }
+        try (JenkinsRule.WebClient client = jenkins.createWebClient().login("reader")) {
+            client.setThrowExceptionOnFailingStatusCode(false);
             int status = client.goTo(build.getUrl() + "console-explain-error/preview", null)
                     .getWebResponse().getStatusCode();
-            assertTrue(status == 403 || status == 404, "no Item/Read, no preview: " + status);
+            assertEquals(405, status, "a GET, as from a link on another site, gets nothing");
+        }
+        assertEquals(0, provider.getCallCount());
+    }
+
+    @Test
+    void thePreviewButtonOnTheConsoleOpensThePreview() throws Exception {
+        FreeStyleBuild build = leakyFreestyleBuild();
+
+        try (JenkinsRule.WebClient client = jenkins.createWebClient()) {
+            HtmlPage console = client.getPage(build, "console");
+            client.waitForBackgroundJavaScript(10_000);
+            HtmlElement button = console.querySelector("form.explain-error-preview button");
+            assertNotNull(button, "the console page has the preview button");
+
+            button.click();
+            client.waitForBackgroundJavaScript(5_000);
+
+            String preview = client.getTopLevelWindows().stream()
+                    .map(window -> window.getEnclosedPage().getWebResponse())
+                    .filter(response -> response.getWebRequest().getUrl().getPath().endsWith("/preview"))
+                    .map(WebResponse::getContentAsString)
+                    .findFirst().orElseThrow(() -> new AssertionError("the preview opens in a window"));
+            assertTrue(preview.contains("https://x-access-token:[REDACTED]@github.com/o/r"), preview);
+            assertFalse(preview.contains(GITHUB_TOKEN), preview);
         }
         assertEquals(0, provider.getCallCount());
     }
@@ -261,6 +295,11 @@ class RedactionTest {
             }
         });
         return jenkins.buildAndAssertStatus(Result.FAILURE, project);
+    }
+
+    private WebRequest previewRequest(FreeStyleBuild build) throws Exception {
+        return new WebRequest(new URL(jenkins.getURL(), build.getUrl() + "console-explain-error/preview"),
+                HttpMethod.POST);
     }
 
     private JSONObject postExplain(FreeStyleBuild build) throws Exception {

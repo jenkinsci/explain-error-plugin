@@ -8,6 +8,7 @@ import hudson.model.BuildListener;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Result;
+import hudson.model.Run;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import org.junit.jupiter.api.Test;
@@ -127,6 +128,7 @@ class ErrorRunListenerTest {
 
         assertNotNull(build);
         assertEquals(Result.FAILURE, build.getResult());
+        awaitAutoExplainFinished(build);
         // No action because the provider threw; the listener catches internally
         assertNull(build.getAction(ErrorExplanationAction.class),
                 "No action should be present when provider throws");
@@ -160,11 +162,23 @@ class ErrorRunListenerTest {
         for (int i = 0; i < 100; i++) {
             ErrorExplanationAction action = build.getAction(ErrorExplanationAction.class);
             if (action != null) {
+                awaitAutoExplainFinished(build);
                 return action;
             }
             Thread.sleep(100);
         }
         return build.getAction(ErrorExplanationAction.class);
+    }
+
+    /**
+     * Waits until the automatic explanation of a build is done with it, saving included, so that the test does
+     * not end, and its Jenkins home get deleted, while the explanation still writes to the build.
+     */
+    static void awaitAutoExplainFinished(Run<?, ?> build) throws InterruptedException {
+        for (int i = 0; i < 300 && PendingExplanations.contains(build); i++) {
+            Thread.sleep(100);
+        }
+        assertFalse(PendingExplanations.contains(build), "the automatic explanation finishes");
     }
 
     /**

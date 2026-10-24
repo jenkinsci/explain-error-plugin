@@ -155,8 +155,9 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     /**
      * Shows, as plain text, what the Explain Error button would send to the AI provider for this build: the
      * log lines, with secrets masked. Nothing is sent and no quota is used. Anyone who can read the build's
-     * log can read this.
+     * log can read this. POST only, as it reads and masks as many lines as the button may send.
      */
+    @RequirePOST
     public void doPreview(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
         run.checkPermission(Item.READ);
         int maxLines = maxLines(req.getParameter("maxLines"));
