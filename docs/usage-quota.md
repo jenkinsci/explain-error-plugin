@@ -148,7 +148,7 @@ The plugin exports the following metric families:
 
 | Metric | Type | Meaning |
 |---|---|---|
-| `explain_error.requests.<entryPoint>.<result>` | Counter | Total requests by entry point (`pipeline_step`, `console_action`, `run_listener`) and outcome (`success`, `provider_error`, `quota_rejected`, `throttled`, etc.) |
+| `explain_error.requests.<entryPoint>.<result>` | Counter | Total requests by entry point (`pipeline_step`, `console_action`, `run_listener`) and outcome (`success`, `provider_error`, `quota_rejected`, `throttled`, `blocked` when nothing was sent because a secret was masked, etc.) |
 | `explain_error.provider_calls.<provider>.<model>.<result>` | Counter | Provider/model-level outcomes for calls that involve a provider (`success`, `cache_hit`, `provider_error`, `quota_rejected`) |
 | `explain_error.request_duration_ms` | Histogram | End-to-end request duration in milliseconds |
 | `explain_error.input_log_lines` | Histogram | Number of input log lines processed per request |

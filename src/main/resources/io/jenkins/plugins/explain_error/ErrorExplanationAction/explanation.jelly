@@ -51,15 +51,19 @@
                 <j:set var="hasProvider" value="${!it.providerLabel.isEmpty()}"/>
                 <j:set var="hasLines" value="${it.inputLogLineCount > 0}"/>
                 <!-- showGenerated: set by the views that do not show the time themselves -->
-                <j:if test="${hasProvider or hasLines or showGenerated}">
+                <j:if test="${hasProvider or hasLines or showGenerated or it.redactedCount > 0}">
                     <p class="eep-meta">
                         ${it.providerLabel}
                         <j:if test="${hasLines}">
                             <j:if test="${hasProvider}"> &#183; </j:if>
                             ${labels.linesAnalysed(it.inputLogLineCount)}
                         </j:if>
-                        <j:if test="${showGenerated}">
+                        <j:if test="${it.redactedCount > 0}">
                             <j:if test="${hasProvider or hasLines}"> &#183; </j:if>
+                            <span class="eep-redacted">${labels.secretsMasked(it.redactedCount)}</span>
+                        </j:if>
+                        <j:if test="${showGenerated}">
+                            <j:if test="${hasProvider or hasLines or it.redactedCount > 0}"> &#183; </j:if>
                             <span class="eep-generated">${labels.generatedOn(it.formattedTimestamp)}</span>
                         </j:if>
                     </p>

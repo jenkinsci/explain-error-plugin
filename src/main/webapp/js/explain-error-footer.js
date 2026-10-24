@@ -111,9 +111,14 @@ function addExplainErrorButton(explanation) {
   const explainBtn = createButton(container.dataset.labelExplain, 'jenkins-button explain-error-btn',
     openExplanation, providerName);
 
+  const previewLink = enabled ? createPreviewLink(container) : null;
+
   // If we found the button container, add our button there
   if (buttonContainer) {
     buttonContainer.insertBefore(explainBtn, buttonContainer.firstChild);
+    if (previewLink) {
+      explainBtn.after(previewLink);
+    }
     Behaviour.applySubtree(buttonContainer, true);
   } else {
     // Fallback: create a simple container above console output
@@ -121,6 +126,9 @@ function addExplainErrorButton(explanation) {
     container.className = 'explain-error-container';
     container.style.marginBottom = '10px';
     container.appendChild(explainBtn);
+    if (previewLink) {
+      container.appendChild(previewLink);
+    }
     consoleOutput.parentNode.insertBefore(container, consoleOutput);
     Behaviour.applySubtree(container, true);
   }
@@ -171,6 +179,28 @@ function openExplanation() {
   }
   // Nothing rendered yet: the server answers with the explanation the build has, or a new one
   sendExplainRequest(false);
+}
+
+// Opens, in a new tab, the text a new explanation would send to the provider, after masking. The preview
+// takes a POST with the crumb, so it is a form.
+function createPreviewLink(container) {
+  const form = document.createElement('form');
+  const rootURL = document.head.getAttribute("data-rooturl");
+  form.method = 'post';
+  form.action = rootURL + '/' + container.dataset.runUrl + 'console-explain-error/preview';
+  form.target = '_blank';
+  form.rel = 'noopener';
+  // no-json: Jenkins adds a json field to a form it sees; the preview takes none
+  form.className = 'explain-error-preview no-json';
+  form.style.display = 'contents';
+  crumb.appendToForm(form);
+  const button = document.createElement('button');
+  button.type = 'submit';
+  button.className = 'jenkins-button jenkins-button--tertiary';
+  button.textContent = container.dataset.labelPreview;
+  button.setAttribute('tooltip', container.dataset.tooltipPreview);
+  form.appendChild(button);
+  return form;
 }
 
 function createButton(text, className, onClick, providerName) {

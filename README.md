@@ -24,6 +24,8 @@ through a long console to find the one line that matters.
 - **Twelve AI providers**: Anthropic (Claude), AWS Bedrock, Azure OpenAI, Custom Okta AI, DeepSeek, Google Gemini,
   LangGraph Platform, Microsoft Foundry, Ollama, OpenAI, OpenAI Compatible (LiteLLM, OpenWebUI and other gateways) and
   Qwen, including private endpoints, company gateways and models you host yourself
+- **Secrets masked before sending**: tokens, keys and passwords in the log are replaced with `[REDACTED]`, with
+  patterns of your own and a preview of what is sent. See [Masking secrets](docs/configuration.md#masking-secrets)
 - **Folder settings**, so each team can use its own provider, language and instructions
 - **Request quotas and usage metrics** to keep provider costs in check
 - **AI auto-fix** *(experimental)*: opens a pull request on GitHub, GitLab or Bitbucket with a proposed fix
@@ -64,6 +66,8 @@ Open the console of a failed build and click **Explain Error**. The explanation 
 at the top: a title that names the root cause, a summary, the steps to fix it, the log lines where it failed and, when
 there are any, practices that would have prevented it. It reads up to 200 lines of the steps that failed, or the global
 **Max Log Lines** when that is higher, and only the lines the global **Log Pattern** matches when one is set.
+**Preview what is sent**, next to the button, shows those lines as the provider would get them, with secrets masked,
+without sending anything.
 
 Once a build has an explanation, the button reads **Show explanation**, and the card says when the explanation was
 generated; the re-explain icon asks the provider again. If a request fails, the card stays open with what went wrong
