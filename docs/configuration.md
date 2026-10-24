@@ -38,15 +38,20 @@ With **Mask secrets before sending** on, these are replaced with `[REDACTED]`:
 | What | Example | Sent as |
 |---|---|---|
 | AWS access key IDs | `AKIA…` | `[REDACTED]` |
-| GitHub, GitLab, Slack, Google, Stripe and npm tokens | `ghp_…`, `github_pat_…`, `glpat-…`, `xoxb-…`, `AIza…`, `sk_live_…`, `npm_…` | `[REDACTED]` |
+| GitHub, GitLab, Slack, Google, Stripe, OpenAI, Anthropic and npm tokens | `ghp_…`, `github_pat_…`, `glpat-…`, `xoxb-…`, `AIza…`, `sk_live_…`, `sk-proj-…`, `sk-ant-…`, `npm_…` | `[REDACTED]` |
 | JSON Web Tokens | `eyJ….eyJ….…` | `[REDACTED]` |
-| Private keys | `-----BEGIN … PRIVATE KEY-----` to `-----END … PRIVATE KEY-----` | `[REDACTED]` |
+| Private keys, PEM and PGP, from their first line to their last, whatever comes before each line (a timestamp, a BuildKit step) and also inside a JSON string. A key whose first or last line is not in the lines sent is masked as far as its base64 lines go, when nothing comes before them; a key header printed on its own, as a secret scanner does, is masked alone | `-----BEGIN … PRIVATE KEY-----` to `-----END … PRIVATE KEY-----` | `[REDACTED]` |
 | The credentials of an `Authorization` header or a bearer token | `Authorization: Bearer abc123…` | `Authorization: Bearer [REDACTED]` |
-| The password of a URL | `https://deploy:s3cret@git.example.com` | `https://deploy:[REDACTED]@git.example.com` |
-| A value given to a key named like a secret: `password`, `passwd`, `secret`, `token`, `api_key`, `access_key`, `private_key`, in any case and with a prefix or suffix | `DB_PASSWORD=hunter2`, `"client_secret": "…"`, `--token=…` | `DB_PASSWORD=[REDACTED]` |
+| The password of a URL, or of `curl -u` (not `docker run -u 1000:1000`) | `https://deploy:s3cret@git.example.com`, `curl -u admin:s3cret` | `https://deploy:[REDACTED]@git.example.com` |
+| A value given to a key whose last word is `password`, `passwd`, `passphrase`, `secret` or `token`, or `key` after `api`, `access`, `private`, `secret`, `account`, `client` and the like; a key in capitals may run the words together (`PGPASSWORD`). As `KEY=value`, `key: value`, JSON, XML or a command-line option | `DB_PASSWORD=hunter2`, `"clientSecret": "…"`, `<password>…</password>`, `--token=…`, `-Dgpg.passphrase=…`, `AccountKey=…` | `DB_PASSWORD=[REDACTED]` |
 
-The key stays, so the model still sees what the value was for. A reference such as `${PASSWORD}` and a value Jenkins
-already masked (`****`) are left as they are.
+The key stays, so the model still sees what the value was for. The key's last word has to be one of those, so
+`TokenService.java:42`, `password_reset.py`, `io.jsonwebtoken:jjwt`, `token-service:` and `"max_tokens": 4096` are
+left alone. In a sentence, a key of one word followed by a colon and a single word is not taken for a value:
+`Invalid token: expired` says what went wrong, where `password: changeme` on a line of YAML is masked. A reference
+such as `${PASSWORD}`, a value that says there is none (`null`, `undefined`, `none`) and a value Jenkins already
+masked (`****`) are left as they are too. The rules only find secrets by
+their shape or their name: a password printed on its own, with nothing to say what it is, is sent.
 
 **Additional Redaction Patterns** takes regular expressions of your own, one per line, for what only you know is
 sensitive, such as internal host names, IP addresses or customer IDs. They apply even with the built-in rules off. A
@@ -58,22 +63,26 @@ with `#` are left out.
 \b[a-z0-9-]+\.corp\.example\.com\b
 # Private IP addresses
 \b10(?:\.\d{1,3}){3}\b
-# The value of a license key, keeping its name
-(?i)license[_-]?key\s*[:=]\s*(?<secret>\S+)
+# A customer ID, keeping its name
+(?i)customer[_-]?id[ \t]*[:=][ \t]*(?<secret>\S+)
 ```
 
-The console of the build says how many secrets were masked (`[explain-error] Masked 2 secrets in what is sent to the
-AI provider.`), the explanation shows it next to the number of lines analysed, and the build's REST API has it as
-`redactedCount`. At `FINE`, the `io.jenkins.plugins.explain_error.ErrorExplainer` logger records each request: the
-job and build, the number of lines sent, the provider and model, and how many secrets were masked.
+The explanation shows how many secrets were masked next to the number of lines analysed, and the build's REST API has
+it as `redactedCount`. An `explainError()` step also says it in the build's console (`[explain-error] Masked 2 secrets
+in what is sent to the AI provider.`); the Explain Error button and automatic explanations run after the build and
+leave its console alone. At `FINE`, the `io.jenkins.plugins.explain_error.ErrorExplainer` logger records each
+request: the job and build, the number of lines sent, the provider and model, and how many secrets were masked.
 
 **Do not send a log in which something was masked** is for those who would rather have no explanation than trust the
-masking: when anything is masked, nothing is sent, the step returns `null`, and the console and the Explain Error
-button say why.
+masking: when anything is masked, in the log or in the context, nothing is sent and no quota is used. The
+`explainError()` step returns `null` and says why in the console, the Explain Error button shows why, and an automatic
+explanation leaves the build without one, saying why at `FINE` in the system log. Usage metrics count these requests
+as `blocked`.
 
 **Preview what is sent**, next to the Explain Error button on the console page, shows as plain text the log lines a
 new explanation would send, masked, without sending anything or using the quota. Anyone who can read the build's log
-can open it. The Custom Context is sent with those lines and is not shown in the preview.
+can open it. The Custom Context is sent with those lines and masked with them; the preview counts what is masked in
+it and whether that would stop the request, but does not show it.
 
 ## Folder settings
 

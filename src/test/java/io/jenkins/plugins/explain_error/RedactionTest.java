@@ -13,6 +13,8 @@ import hudson.model.Result;
 import hudson.util.FormValidation;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
 import java.net.URL;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.htmlunit.HttpMethod;
@@ -32,7 +34,6 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 /** Secrets are masked in everything sent to the AI provider, wherever the explanation is asked for. */
 @WithJenkins
-@DisabledOnOs(OS.WINDOWS)
 class RedactionTest {
 
     private static final String AWS_KEY_ID = LogRedactorTest.AWS_KEY_ID;
@@ -50,6 +51,7 @@ class RedactionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void theStepSendsTheLogWithItsSecretsMasked() throws Exception {
         WorkflowRun run = explain("step", "explainError()", LEAKY_STEP);
 
@@ -62,6 +64,7 @@ class RedactionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void customContextIsMaskedToo() throws Exception {
         explain("context", "explainError(customContext: 'Deploy with api_key=ctx-secret-123')", LEAKY_STEP);
 
@@ -71,17 +74,20 @@ class RedactionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void workspaceFilesSentAsContextAreMasked() throws Exception {
         explain("workspace", "explainError(includeWorkspaceContext: true, workspaceContextPaths: 'pom.xml')",
                 "writeFile file: 'pom.xml', text: '<password>pom-secret-1</password><url>https://ci:"
                         + "pom-secret-2@repo.example.com</url>'\n" + LEAKY_STEP);
 
         String context = provider.getLastCustomContext();
-        assertFalse(context.contains("pom-secret-2"), context);
+        assertFalse(context.contains("pom-secret-1") || context.contains("pom-secret-2"), context);
+        assertTrue(context.contains("<password>[REDACTED]</password>"), context);
         assertTrue(context.contains("https://ci:[REDACTED]@repo.example.com"), context);
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void withMaskingOffTheLogIsSentAsItIs() throws Exception {
         GlobalConfigurationImpl.get().setRedactSecrets(false);
 
@@ -93,6 +99,7 @@ class RedactionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void thePatternsOfTheAdministratorApplyEvenWithTheBuiltInRulesOff() throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         config.setRedactSecrets(false);
@@ -106,18 +113,52 @@ class RedactionTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void nothingIsSentWhenSomethingWasMaskedAndTheConfigurationSaysSo() throws Exception {
-        GlobalConfigurationImpl.get().setBlockWhenRedacted(true);
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setBlockWhenRedacted(true);
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(1);
+        RecordingUsageRecorder recorder = new RecordingUsageRecorder();
+        UsageRecorders.setRecorderSupplier(() -> List.of(recorder));
+        try {
+            WorkflowRun run = explain("block", "explainError(autoFix: true, autoFixCredentialsId: 'scm-token')",
+                    LEAKY_STEP);
 
-        WorkflowRun run = explain("block", "explainError()", LEAKY_STEP);
-
-        jenkins.assertLogContains("RETURNED=false", run);
-        jenkins.assertLogContains(ErrorExplainer.BLOCKED, run);
-        assertEquals(0, provider.getCallCount());
-        assertNull(run.getAction(ErrorExplanationAction.class));
+            jenkins.assertLogContains("RETURNED=false", run);
+            jenkins.assertLogContains(ErrorExplainer.BLOCKED, run);
+            jenkins.assertLogContains("[AutoFix] Skipped: no error logs available", run);
+            assertEquals(0, provider.getCallCount());
+            assertNull(run.getAction(ErrorExplanationAction.class));
+            assertEquals(List.of(UsageEvent.Result.BLOCKED), recorder.results());
+            assertTrue(config.tryAcquireQuota(), "a request that sent nothing used no quota");
+        } finally {
+            UsageRecorders.resetRecorderSupplier();
+        }
     }
 
     @Test
+    void anAutomaticExplanationIsMaskedToo() throws Exception {
+        GlobalConfigurationImpl.get().setEnableAutoExplainOnFailure(true);
+
+        FreeStyleBuild build = leakyFreestyleBuild();
+
+        ErrorExplanationAction action = null;
+        for (int i = 0; i < 300 && action == null; i++) {
+            action = build.getAction(ErrorExplanationAction.class);
+            if (action == null) {
+                Thread.sleep(100);
+            }
+        }
+        assertNotNull(action, "the build is explained automatically");
+        String sent = provider.getLastErrorLogs();
+        assertFalse(sent.contains(GITHUB_TOKEN), sent);
+        assertTrue(sent.contains("https://x-access-token:[REDACTED]@github.com/o/r"), sent);
+        assertEquals(1, action.getRedactedCount());
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
     void aLogWithNothingToMaskIsSentEvenWhenBlocking() throws Exception {
         GlobalConfigurationImpl.get().setBlockWhenRedacted(true);
 
@@ -162,10 +203,14 @@ class RedactionTest {
                 .grant(Jenkins.READ).everywhere().to("outsider"));
         FreeStyleBuild build = leakyFreestyleBuild();
 
+        GlobalConfigurationImpl.get().setCustomContext("Internal KB: token=kb-secret-123");
+
         try (JenkinsRule.WebClient client = jenkins.createWebClient().login("reader")) {
             Page page = client.goTo(build.getUrl() + "console-explain-error/preview", "text/plain");
             String preview = page.getWebResponse().getContentAsString();
-            assertTrue(preview.contains("Masked 1 secret in what is sent"), preview);
+            assertTrue(preview.contains("Masked 2 secrets in what is sent"), preview);
+            assertTrue(preview.contains("1 of them in the custom context, which is not shown here."), preview);
+            assertFalse(preview.contains("kb-secret-123") || preview.contains("Internal KB"), preview);
             assertTrue(preview.contains("https://x-access-token:[REDACTED]@github.com/o/r"), preview);
             assertFalse(preview.contains(GITHUB_TOKEN), preview);
         }
@@ -233,5 +278,18 @@ class RedactionTest {
         WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
         assertNotNull(run);
         return run;
+    }
+
+    private static final class RecordingUsageRecorder implements UsageRecorder {
+        private final List<UsageEvent> events = new CopyOnWriteArrayList<>();
+
+        @Override
+        public void record(UsageEvent event) {
+            events.add(event);
+        }
+
+        List<UsageEvent.Result> results() {
+            return events.stream().map(UsageEvent::result).toList();
+        }
     }
 }

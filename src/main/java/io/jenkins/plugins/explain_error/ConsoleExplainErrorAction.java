@@ -163,6 +163,9 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         String log = String.join("\n", pageExtractor(run, maxLines).getFailedStepLog());
         LogRedactor redactor = LogRedactor.fromConfiguration();
         String sent = redactor.redact(log);
+        int maskedInLog = redactor.count();
+        // The custom context goes with the log and is masked with it, but it is the administrator's to read
+        redactor.redact(new ErrorExplainer().inheritedCustomContext(run));
         int masked = redactor.count();
         rsp.setContentType("text/plain;charset=UTF-8");
         PrintWriter writer = rsp.getWriter();
@@ -170,6 +173,9 @@ public class ConsoleExplainErrorAction implements RunAction2 {
         writer.println("# " + ErrorExplainer.countLines(sent) + " log lines. "
                 + (masked > 0 ? ErrorExplainer.describeRedaction(masked)
                         : redactor.isActive() ? "Nothing to mask was found." : "Masking is turned off."));
+        if (masked > maskedInLog) {
+            writer.println("# " + (masked - maskedInLog) + " of them in the custom context, which is not shown here.");
+        }
         if (masked > 0 && GlobalConfigurationImpl.get().isBlockWhenRedacted()) {
             writer.println("# Nothing would be sent: the configuration says not to send a log in which"
                     + " something was masked.");

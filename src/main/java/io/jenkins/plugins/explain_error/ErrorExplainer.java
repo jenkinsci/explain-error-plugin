@@ -394,6 +394,8 @@ public class ErrorExplainer {
         String text = redactor.redact(errorText);
         String effectiveCustomContext = redactor.redact(resolveEffectiveCustomContext(run, null));
         int redactedCount = redactor.count();
+        // A private key masked whole takes up one line; count what is sent, as the step does
+        inputLogLineCount = countLines(text);
         if (redactedCount > 0 && GlobalConfigurationImpl.get().isBlockWhenRedacted()) {
             recordUsage(entryPoint, UsageEvent.Result.BLOCKED, provider, startTimeNanos, 0, false);
             throw new ExplanationException("warning", describeRedaction(redactedCount) + " " + BLOCKED);

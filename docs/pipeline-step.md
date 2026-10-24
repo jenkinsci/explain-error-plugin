@@ -27,8 +27,9 @@ sidebar:
 
 ![The AI Error Explanation page of a build](images/side-panel.png)
 
-A failure to explain (explanation turned off, provider misconfigured, quota exceeded, provider error) is reported in the
-console and never fails the build.
+A failure to explain (explanation turned off, provider misconfigured, quota exceeded, provider error, or a secret
+masked while [Do not send a log in which something was masked](configuration.md#masking-secrets) is on) is reported in
+the console and never fails the build.
 
 ## Return value
 
