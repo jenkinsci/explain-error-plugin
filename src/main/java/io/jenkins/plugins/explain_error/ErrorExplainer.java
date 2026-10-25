@@ -35,6 +35,10 @@ public class ErrorExplainer {
 
     private static final Logger LOGGER = Logger.getLogger(ErrorExplainer.class.getName());
 
+    /** Said when nothing is sent because something was masked and the configuration says not to send it. */
+    static final String BLOCKED = "Nothing was sent to the AI provider: the configuration says not to send a log"
+            + " in which something was masked.";
+
     /** What the Explain Error button gets back when explanation is turned off for the job. */
     static final String TURNED_OFF = "AI error explanation is turned off for this job.";
 
@@ -179,6 +183,21 @@ public class ErrorExplainer {
             Double effectiveTemperature = resolveEffectiveTemperature(run, stepTemperature);
             logToConsole(listener, "Temperature: " + (effectiveTemperature != null ? effectiveTemperature : "unset (provider default)") + ".");
 
+            // Secrets are masked before the text is compared, kept or sent
+            LogRedactor redactor = LogRedactor.fromConfiguration();
+            errorLogs = redactor.redact(errorLogs);
+            effectiveCustomContext = redactor.redact(effectiveCustomContext);
+            int redactedCount = redactor.count();
+            if (redactedCount > 0) {
+                logToConsole(listener, describeRedaction(redactedCount));
+                if (GlobalConfigurationImpl.get().isBlockWhenRedacted()) {
+                    logToConsole(listener, BLOCKED);
+                    recordUsage(entryPoint, UsageEvent.Result.BLOCKED, provider, startTimeNanos, 0,
+                            collectDownstreamLogs);
+                    return null;
+                }
+            }
+
             // An automatic explanation reuses the automatic explanation of an earlier build that failed
             // the same way. This comes before the quota: an explanation that is reused costs no provider
             // call. The step and the console button neither reuse nor leave a fingerprint to be matched.
@@ -189,6 +208,7 @@ public class ErrorExplainer {
                         effectiveTemperature != null ? effectiveTemperature.toString() : null);
                 ErrorExplanationAction reused = reuseMatchingExplanation(run, fingerprint, errorLogs);
                 if (reused != null) {
+                    reused.setRedactedCount(redactedCount);
                     run.addOrReplaceAction(reused);
                     logToConsole(listener, "Build #" + reused.getReusedFromBuild()
                             + " failed the same way; reusing its explanation.");
@@ -212,6 +232,7 @@ public class ErrorExplainer {
             // Get AI explanation
             try {
                 logToConsole(listener, "Sending AI request.");
+                LOGGER.fine(describeRequest(jobInfo, provider, inputLogLineCount, redactedCount));
                 this.providerCalled = true;
                 JenkinsLogAnalysis analysis = provider.analyzeError(errorLogs, listener, effectiveLanguage,
                         effectiveCustomContext, run != null ? run.getParent() : null, null, effectiveTemperature);
@@ -233,6 +254,7 @@ public class ErrorExplainer {
                 action.setStructuredData(analysis);
                 action.setLanguage(effectiveLanguage);
                 action.setFailureFingerprint(fingerprint);
+                action.setRedactedCount(redactedCount);
                 run.addOrReplaceAction(action);
                 logToConsole(listener, buildSavedExplanationMessage(run, action));
                 recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount,
@@ -253,6 +275,18 @@ public class ErrorExplainer {
             logToConsole(listener, "Failed to explain error: " + e.getMessage());
             return null;
         }
+    }
+
+    /** The console line that says how much was masked. */
+    static String describeRedaction(int count) {
+        return "Masked " + count + (count == 1 ? " secret" : " secrets") + " in what is sent to the AI provider.";
+    }
+
+    /** The system log line that records a request: what was sent, to which model, and how much was masked. */
+    private static String describeRequest(String jobInfo, BaseAIProvider provider, int lineCount,
+                                          int redactedCount) {
+        return jobInfo + " Sending " + lineCount + " log lines to " + provider.getProviderName() + " ("
+                + provider.getModel() + "); " + redactedCount + " masked.";
     }
 
     private PipelineLogExtractor.ExtractionResult extractErrorLogs(Run<?, ?> run, int maxLines,
@@ -355,6 +389,18 @@ public class ErrorExplainer {
             throw new ExplanationException("error", "The provider is not properly configured.");
         }
 
+        // Secrets are masked before anything is sent; with nothing to be sent, no quota is used
+        LogRedactor redactor = LogRedactor.fromConfiguration();
+        String text = redactor.redact(errorText);
+        String effectiveCustomContext = redactor.redact(resolveEffectiveCustomContext(run, null));
+        int redactedCount = redactor.count();
+        // A private key masked whole takes up one line; count what is sent, as the step does
+        inputLogLineCount = countLines(text);
+        if (redactedCount > 0 && GlobalConfigurationImpl.get().isBlockWhenRedacted()) {
+            recordUsage(entryPoint, UsageEvent.Result.BLOCKED, provider, startTimeNanos, 0, false);
+            throw new ExplanationException("warning", describeRedaction(redactedCount) + " " + BLOCKED);
+        }
+
         // Check quota before making a real provider call (folder-level overrides global)
         QuotaCheckResult quotaCheck = tryAcquireQuota(run);
         if (!quotaCheck.allowed()) {
@@ -364,22 +410,23 @@ public class ErrorExplainer {
         }
 
         try {
-            // Resolve language, custom context, and temperature from folder/global
+            // Resolve language and temperature from folder/global
             String effectiveLanguage = resolveEffectiveLanguage(run, null);
-            String effectiveCustomContext = resolveEffectiveCustomContext(run, null);
             Double effectiveTemperature = resolveEffectiveTemperature(run, null);
+            LOGGER.fine(describeRequest(jobInfo, provider, inputLogLineCount, redactedCount));
 
             // Get AI explanation with resolved settings
-            JenkinsLogAnalysis analysis = provider.analyzeError(errorText, new LogTaskListener(LOGGER, Level.FINE),
+            JenkinsLogAnalysis analysis = provider.analyzeError(text, new LogTaskListener(LOGGER, Level.FINE),
                     effectiveLanguage, effectiveCustomContext, run.getParent(), null, effectiveTemperature);
             this.lastAnalysis = analysis;
             String explanation = analysis.toText(ExplanationLabels.forLanguage(effectiveLanguage));
             LOGGER.fine(jobInfo + " AI error explanation succeeded.");
             LOGGER.fine("Explanation length: " + explanation.length());
-            ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, errorText,
+            ErrorExplanationAction action = new ErrorExplanationAction(explanation, url, text,
                     provider.getProviderName(), provider.getModel(), inputLogLineCount);
             action.setStructuredData(analysis);
             action.setLanguage(effectiveLanguage);
+            action.setRedactedCount(redactedCount);
             run.addOrReplaceAction(action);
             run.save();
             recordUsage(entryPoint, UsageEvent.Result.SUCCESS, provider, startTimeNanos, inputLogLineCount, false);

@@ -45,6 +45,8 @@ public class ErrorExplanationAction implements RunAction2 {
     private String failureFingerprint;
     /** Number of the build this explanation was taken over from, or 0 if it was generated for this build. */
     private int reusedFromBuild;
+    /** How many secrets were masked in what was sent; 0 also for explanations of older plugin versions. */
+    private int redactedCount;
 
     public ErrorExplanationAction(String explanation, String urlString, String originalErrorLogs, String providerName) {
         this(explanation, urlString, originalErrorLogs, providerName, null,
@@ -125,6 +127,16 @@ public class ErrorExplanationAction implements RunAction2 {
     @Exported(visibility = 1)
     public String getErrorSignature() {
         return errorSignature;
+    }
+
+    /** How many secrets were masked in the log and context sent to the AI provider for this explanation. */
+    @Exported(visibility = 1)
+    public int getRedactedCount() {
+        return redactedCount;
+    }
+
+    void setRedactedCount(int redactedCount) {
+        this.redactedCount = Math.max(0, redactedCount);
     }
 
     void setLanguage(@CheckForNull String language) {

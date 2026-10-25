@@ -153,6 +153,41 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     }
 
     /**
+     * Shows, as plain text, what the Explain Error button would send to the AI provider for this build: the
+     * log lines, with secrets masked. Nothing is sent and no quota is used. Anyone who can read the build's
+     * log can read this. POST only, as it reads and masks as many lines as the button may send.
+     */
+    @RequirePOST
+    public void doPreview(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
+        run.checkPermission(Item.READ);
+        int maxLines = maxLines(req.getParameter("maxLines"));
+        String log = String.join("\n", pageExtractor(run, maxLines).getFailedStepLog());
+        LogRedactor redactor = LogRedactor.fromConfiguration();
+        String sent = redactor.redact(log);
+        int maskedInLog = redactor.count();
+        // The custom context goes with the log and is masked with it, but it is the administrator's to read
+        redactor.redact(new ErrorExplainer().inheritedCustomContext(run));
+        int masked = redactor.count();
+        rsp.setContentType("text/plain;charset=UTF-8");
+        PrintWriter writer = rsp.getWriter();
+        writer.println("# What the Explain Error button would send to the AI provider for this build.");
+        writer.println("# " + ErrorExplainer.countLines(sent) + " log lines. "
+                + (masked > 0 ? ErrorExplainer.describeRedaction(masked)
+                        : redactor.isActive() ? "Nothing to mask was found." : "Masking is turned off."));
+        if (masked > maskedInLog) {
+            writer.println("# " + (masked - maskedInLog) + " of them in the custom context, which is not shown here.");
+        }
+        if (masked > 0 && GlobalConfigurationImpl.get().isBlockWhenRedacted()) {
+            writer.println("# Nothing would be sent: the configuration says not to send a log in which"
+                    + " something was masked.");
+        }
+        writer.println("# The custom context configured for the job is sent with it, masked the same way.");
+        writer.println();
+        writer.print(sent);
+        writer.flush();
+    }
+
+    /**
      * The number of log lines asked for, within {@link #MAX_LINES_LIMIT}; the default when the request does
      * not say or says something that is not a number.
      */

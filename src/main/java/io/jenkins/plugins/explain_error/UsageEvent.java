@@ -47,7 +47,9 @@ public record UsageEvent(
         MISCONFIGURED("misconfigured"),
         PROVIDER_ERROR("provider_error"),
         QUOTA_REJECTED("quota_rejected"),
-        THROTTLED("throttled");
+        THROTTLED("throttled"),
+        /** Something was masked and the configuration says not to send a log in which something was. */
+        BLOCKED("blocked");
 
         private final String value;
 

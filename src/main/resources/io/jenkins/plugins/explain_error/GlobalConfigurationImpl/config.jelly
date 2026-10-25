@@ -24,6 +24,18 @@
                  description="Optional regular expression, matched without regard to case. Only the log lines it matches are sent, searched for in the whole log of each failing step; when it matches nothing, the last lines are sent as they are. Applies to automatic explanations, the Explain Error button and explainError() steps that set no logPattern of their own.">
           <f:textbox />
         </f:entry>
+        <f:entry field="redactSecrets"
+                 description="Masks access keys, tokens, private keys, passwords in URLs and values given to keys such as PASSWORD or api_key with [REDACTED], in the log and in the context sent. Credentials bound with withCredentials are already masked by Jenkins.">
+          <f:checkbox title="Mask secrets before sending" default="true" />
+        </f:entry>
+        <f:entry title="Additional Redaction Patterns" field="redactionPatterns"
+                 description="Optional regular expressions, one per line, whose matches are masked as well, such as internal host names or customer IDs. A pattern with a group named secret masks that group only, e.g. (?i)license=(?&amp;lt;secret&amp;gt;\S+). Lines starting with # are left out.">
+          <f:textarea />
+        </f:entry>
+        <f:entry field="blockWhenRedacted"
+                 description="When something is masked, send nothing and explain nothing, rather than send what is left.">
+          <f:checkbox title="Do not send a log in which something was masked" />
+        </f:entry>
         <f:optionalBlock field="enableQuota" title="Enable Request Quota"
                          checked="${it.enableQuota}" inline="true">
           <f:entry title="Quota Window" field="quotaWindow">

@@ -124,6 +124,12 @@ public final class ExplanationLabels {
         return MessageFormat.format(bundle.getString("linesAnalysed"), String.valueOf(count));
     }
 
+    /** "n secrets masked", for the line under the explanation of a log in which secrets were masked. */
+    public String secretsMasked(int count) {
+        return MessageFormat.format(bundle.getString(count == 1 ? "secretMasked" : "secretsMasked"),
+                String.valueOf(count));
+    }
+
     /** Says which earlier build an explanation was taken over from. */
     public String reusedFrom(int buildNumber) {
         return MessageFormat.format(bundle.getString("reusedFrom"), String.valueOf(buildNumber));

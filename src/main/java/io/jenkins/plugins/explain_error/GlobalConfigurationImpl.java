@@ -11,6 +11,8 @@ import io.jenkins.plugins.explain_error.provider.GeminiProvider;
 import io.jenkins.plugins.explain_error.provider.LangGraphProvider;
 import io.jenkins.plugins.explain_error.provider.OllamaProvider;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
+import java.util.List;
+import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
@@ -46,6 +48,9 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     private boolean enableAutoExplainOnFailure = false;
     private int autoExplainMaxLogLines = 100;
     private String logPattern;
+    private boolean redactSecrets = true;
+    private String redactionPatterns;
+    private boolean blockWhenRedacted;
     private int autoExplainMaxPerHour = DEFAULT_AUTO_EXPLAIN_MAX_PER_HOUR;
 
     private transient QuotaEnforcer quotaEnforcer;
@@ -184,6 +189,47 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
     }
 
     /**
+     * Whether the built-in rules mask secrets (tokens, keys, passwords) in what is sent to the AI provider.
+     * On by default; the administrator's own {@link #getRedactionPatterns() patterns} apply either way.
+     */
+    public boolean isRedactSecrets() {
+        return redactSecrets;
+    }
+
+    @DataBoundSetter
+    public void setRedactSecrets(boolean redactSecrets) {
+        this.redactSecrets = redactSecrets;
+    }
+
+    /**
+     * Regular expressions of the administrator's own, one per line, whose matches are masked in what is
+     * sent to the AI provider. A pattern with a group named {@code secret} masks that group only. Blank lines
+     * and lines starting with {@code #} are left out.
+     */
+    @CheckForNull
+    public String getRedactionPatterns() {
+        return redactionPatterns;
+    }
+
+    @DataBoundSetter
+    public void setRedactionPatterns(@CheckForNull String redactionPatterns) {
+        this.redactionPatterns = Util.fixEmptyAndTrim(redactionPatterns);
+    }
+
+    /**
+     * Whether nothing is sent when something was masked, instead of sending what is left. For those who
+     * would rather go without an explanation than trust the masking.
+     */
+    public boolean isBlockWhenRedacted() {
+        return blockWhenRedacted;
+    }
+
+    @DataBoundSetter
+    public void setBlockWhenRedacted(boolean blockWhenRedacted) {
+        this.blockWhenRedacted = blockWhenRedacted;
+    }
+
+    /**
      * Maximum number of AI provider calls made for automatic explanations per hour. A failed
      * build that was counted but never reached the provider gives its slot back.
      */
@@ -317,6 +363,21 @@ public class GlobalConfigurationImpl extends GlobalConfiguration {
         } catch (PatternSyntaxException e) {
             return FormValidation.error("Not a valid regular expression: " + e.getDescription());
         }
+    }
+
+    @POST
+    public FormValidation doCheckRedactionPatterns(@QueryParameter String value) {
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        List<String> lines = LogRedactor.patternLines(value);
+        for (int i = 0; i < lines.size(); i++) {
+            try {
+                Pattern.compile(lines.get(i));
+            } catch (PatternSyntaxException e) {
+                return FormValidation.error("Pattern " + (i + 1) + " (" + lines.get(i)
+                        + ") is not a valid regular expression: " + e.getDescription());
+            }
+        }
+        return FormValidation.ok();
     }
 
     @POST
