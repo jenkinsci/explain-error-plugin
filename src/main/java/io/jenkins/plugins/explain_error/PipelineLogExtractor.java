@@ -10,8 +10,11 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecution;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
+import org.jenkinsci.plugins.workflow.actions.ArgumentsAction;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
+import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.actions.LogAction;
+import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.actions.WarningAction;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
@@ -68,6 +71,9 @@ public class PipelineLogExtractor {
      * sits in the Pipeline, not part of what failed, so {@link FailureFingerprint} leaves it out.
      */
     static final String NODE_HEADER_PREFIX = "### Node ID: ";
+
+    /** The most lines of a step's script that its header shows. */
+    static final int MAX_COMMAND_LINES = 10;
     static final String NODE_FOOTER_PREFIX = "### END OF LOG ";
     static final String NODE_MARKER_SUFFIX = " ###";
 
@@ -191,14 +197,75 @@ public class PipelineLogExtractor {
             formattedStart = sdf.format(new Date(startTimeMillis));
         }
 
-        List<String> header = Arrays.asList(
-            NODE_HEADER_PREFIX + node.getId() + NODE_MARKER_SUFFIX,
-            "Node Name: " + node.getDisplayName() + (stoppedByFailFast ? STOPPED_BY_FAIL_FAST : ""),
-            "Start Time: " + formattedStart,
-            "--- LOG CONTENT ---");
+        List<String> header = new ArrayList<>();
+        header.add(NODE_HEADER_PREFIX + node.getId() + NODE_MARKER_SUFFIX);
+        header.add("Node Name: " + node.getDisplayName() + (stoppedByFailFast ? STOPPED_BY_FAIL_FAST : ""));
+        String stage = stageOf(node);
+        if (stage != null) {
+            header.add("Stage: " + stage);
+        }
+        header.addAll(commandOf(node));
+        header.add("Start Time: " + formattedStart);
+        header.add("--- LOG CONTENT ---");
 
         logs.addAll(0, header);
         logs.add(NODE_FOOTER_PREFIX + node.getId() + NODE_MARKER_SUFFIX);
+    }
+
+    /**
+     * The stages and parallel branches a step runs in, outermost first: {@code Build / lint}. {@code null} for a
+     * step outside any stage.
+     */
+    @CheckForNull
+    static String stageOf(FlowNode node) {
+        List<String> names = new ArrayList<>();
+        for (FlowNode block : node.getEnclosingBlocks()) {
+            LabelAction label = block.getPersistentAction(LabelAction.class);
+            if (label != null) {
+                names.add(0, label instanceof ThreadNameAction thread ? thread.getThreadName()
+                        : label.getDisplayName());
+            }
+        }
+        return names.isEmpty() ? null : String.join(" / ", names);
+    }
+
+    /**
+     * What the step was asked to run, as the Pipeline recorded it: the script of {@code sh}, the message of
+     * {@code error}. A long script is cut short.
+     */
+    static List<String> commandOf(FlowNode node) {
+        String arguments = ArgumentsAction.getStepArgumentsAsString(node);
+        if (arguments == null || arguments.isBlank()) {
+            return List.of();
+        }
+        List<String> lines = withoutSharedIndent(arguments).stream().map(LogLines::clean).toList();
+        if (lines.size() == 1) {
+            return List.of("Command: " + lines.get(0));
+        }
+        List<String> command = new ArrayList<>();
+        command.add("Command:");
+        lines.stream().limit(MAX_COMMAND_LINES).forEach(line -> command.add("    " + line));
+        if (lines.size() > MAX_COMMAND_LINES) {
+            command.add("    [" + (lines.size() - MAX_COMMAND_LINES) + " more lines]");
+        }
+        return command;
+    }
+
+    /**
+     * The lines of a script without the blank lines around it and without the indentation all its lines share,
+     * which a script written inside a Jenkinsfile takes from the Jenkinsfile.
+     */
+    static List<String> withoutSharedIndent(String script) {
+        List<String> lines = new ArrayList<>(script.lines().map(String::stripTrailing).toList());
+        while (!lines.isEmpty() && lines.get(0).isEmpty()) {
+            lines.remove(0);
+        }
+        while (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) {
+            lines.remove(lines.size() - 1);
+        }
+        int indent = lines.stream().filter(line -> !line.isEmpty())
+                .mapToInt(line -> line.length() - line.stripLeading().length()).min().orElse(0);
+        return lines.stream().map(line -> line.isEmpty() ? line : line.substring(indent)).toList();
     }
 
     /**

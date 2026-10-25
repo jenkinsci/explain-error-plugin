@@ -4,10 +4,12 @@
     <j:if test="${active}">
       <j:set var="enabled" value="${it.explainErrorEnabled}" />
       <j:set var="existingExplanation" value="${it.existingExplanation}" />
-      <j:if test="${enabled or existingExplanation != null}">
+      <j:set var="agentContext" value="${it.agentContextEnabled}" />
+      <j:if test="${enabled or existingExplanation != null or agentContext}">
         <script src="${rootURL}/plugin/explain-error/js/explain-error-footer.js" type="text/javascript"/>
         <ee:card surface="console" runUrl="${it.runUrl}" explainPath="console-explain-error/explainConsoleError"
-                 providerName="${it.providerName}" enabled="${enabled}" explanation="${existingExplanation}"/>
+                 providerName="${it.providerName}" enabled="${enabled}" explanation="${existingExplanation}"
+                 agentContext="${agentContext}"/>
       </j:if>
     </j:if>
 </j:jelly>
