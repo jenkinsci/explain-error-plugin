@@ -248,4 +248,21 @@ class UnifiedDiffApplierTest {
 
         assertEquals("Hunk has no changed lines (no + or - lines)", UnifiedDiffApplier.validate(diff));
     }
+
+    @Test
+    void applyRemovesALineThatStartsWithTwoDashes() {
+        // An SQL comment "-- ..." removed reads "--- ..." in the diff, like a file header
+        String original = "SELECT 1;\n-- TODO remove\nSELECT 2;\n";
+        String diff = "--- a/q.sql\n+++ b/q.sql\n@@ -1,3 +1,2 @@\n SELECT 1;\n--- TODO remove\n SELECT 2;\n";
+
+        assertEquals("SELECT 1;\nSELECT 2;\n", UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyAddsALineThatStartsWithTwoPluses() {
+        String original = "a\nb\n";
+        String diff = "--- a/f\n+++ b/f\n@@ -1,2 +1,3 @@\n a\n+++ c\n b\n";
+
+        assertEquals("a\n++ c\nb\n", UnifiedDiffApplier.apply(original, diff));
+    }
 }

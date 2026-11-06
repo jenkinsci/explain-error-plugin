@@ -232,7 +232,7 @@ class AutoFixOrchestratorFlowTest {
 
         assertEquals(AutoFixStatus.CREATED, result.getStatus(), log());
         server.verify(postRequestedFor(urlEqualTo(REPO_API + "/git/blobs"))
-                .withRequestBody(matchingJsonPath("$.content", equalTo("retries: 3\ntimeout: 30"))));
+                .withRequestBody(matchingJsonPath("$.content", equalTo("retries: 3\ntimeout: 30\n"))));
         server.verify(postRequestedFor(urlEqualTo(REPO_API + "/git/trees"))
                 .withRequestBody(matchingJsonPath("$.tree[0].path", equalTo("config/app.yml"))));
         server.verify(postRequestedFor(urlEqualTo(REPO_API + "/pulls"))
@@ -835,7 +835,7 @@ class AutoFixOrchestratorFlowTest {
     void extractNewContent_ignoresLinesOutsideHunks() {
         String diff = "+not part of a hunk\n--- /dev/null\n+++ b/a.txt\n@@ -0,0 +1 @@\n+kept";
 
-        assertEquals("kept", new AutoFixOrchestrator().extractNewContent(diff));
+        assertEquals("kept\n", new AutoFixOrchestrator().extractNewContent(diff));
     }
 
     @Test
