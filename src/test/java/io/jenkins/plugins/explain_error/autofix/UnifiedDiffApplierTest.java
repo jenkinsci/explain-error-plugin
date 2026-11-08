@@ -114,6 +114,23 @@ class UnifiedDiffApplierTest {
     }
 
     @Test
+    void applyKeepsTheCrlfLineEndingsOfTheFile() {
+        String original = "flask==3.0.3\r\nrequests==2.99.0\r\npytest==8.3.3\r\n";
+        String diff = "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1,2 +1,3 @@\n"
+                + " flask==3.0.3\n-requests==2.99.0\n+requests==2.32.3\n+urllib3==2.2.3\n";
+
+        assertEquals("flask==3.0.3\r\nrequests==2.32.3\r\nurllib3==2.2.3\r\npytest==8.3.3\r\n",
+                UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyKeepsTheCrlfLineEndingsOfAFileWithoutAFinalNewline() {
+        String diff = "--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n a\n-b\n+c\n\\ No newline at end of file\n";
+
+        assertEquals("a\r\nc", UnifiedDiffApplier.apply("a\r\nb", diff));
+    }
+
+    @Test
     void applyIgnoresBlankLinesBetweenHunksAndAfterTheLastOne() {
         String original = "alpha\nbeta\ngamma\ndelta\nepsilon\nzeta\n";
         String diff = "--- a/file.txt\n+++ b/file.txt\n"
