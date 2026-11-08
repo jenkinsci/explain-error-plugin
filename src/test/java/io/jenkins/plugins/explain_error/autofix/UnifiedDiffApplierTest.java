@@ -167,6 +167,23 @@ class UnifiedDiffApplierTest {
     }
 
     @Test
+    void applyInsertsAfterTheLineAZeroLengthHunkNames() {
+        // "@@ -2,0 +3,1 @@" is what diff -U0 writes for a line added after line 2
+        String diff = "--- a/f\n+++ b/f\n@@ -2,0 +3,1 @@\n+c\n";
+
+        assertEquals("a\nb\nc\nd\n", UnifiedDiffApplier.apply("a\nb\nd\n", diff));
+    }
+
+    @Test
+    void applyInsertsAfterTheLineAZeroLengthHunkNamesInALaterHunk() {
+        String diff = "--- a/f\n+++ b/f\n"
+                + "@@ -1,0 +2,1 @@\n+a2\n"
+                + "@@ -3,0 +5,1 @@\n+c2\n";
+
+        assertEquals("a\na2\nb\nc\nc2\nd\n", UnifiedDiffApplier.apply("a\nb\nc\nd\n", diff));
+    }
+
+    @Test
     void applyToEmptyFileEndsWithANewlineUnlessTheDiffSaysOtherwise() {
         assertEquals("line1\nline2\n", UnifiedDiffApplier.apply("", "@@ -0,0 +1,2 @@\n+line1\n+line2\n"));
         assertEquals("line1\nline2\n", UnifiedDiffApplier.apply("", "@@ -0,0 +1,2 @@\n+line1\n+line2"));
