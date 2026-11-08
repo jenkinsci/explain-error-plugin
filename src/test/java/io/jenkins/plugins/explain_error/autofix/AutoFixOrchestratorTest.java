@@ -122,6 +122,24 @@ class AutoFixOrchestratorTest {
     }
 
     @Test
+    void extractNewContent_endsWithANewline() {
+        String diff = "--- /dev/null\n+++ b/.yamllint\n@@ -0,0 +1,2 @@\n+extends: default\n+rules: {}\n";
+        assertEquals("extends: default\nrules: {}\n", orchestrator.extractNewContent(diff));
+    }
+
+    @Test
+    void extractNewContent_keepsNoNewlineMarker() {
+        String diff = "--- /dev/null\n+++ b/f\n@@ -0,0 +1,2 @@\n+a\n+b\n\\ No newline at end of file\n";
+        assertEquals("a\nb", orchestrator.extractNewContent(diff));
+    }
+
+    @Test
+    void extractNewContent_keepsAddedLinesThatStartWithTwoPluses() {
+        String diff = "--- /dev/null\n+++ b/f\n@@ -0,0 +1,2 @@\n+a\n+++ b\n";
+        assertEquals("a\n++ b\n", orchestrator.extractNewContent(diff));
+    }
+
+    @Test
     void extractNewContent_nullDiff_returnsEmpty() {
         assertEquals("", orchestrator.extractNewContent(null));
     }

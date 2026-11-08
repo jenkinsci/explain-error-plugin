@@ -765,19 +765,26 @@ public class AutoFixOrchestrator {
         StringBuilder sb = new StringBuilder();
         String[] lines = unifiedDiff.split("\r?\n", -1);
         boolean inHunk = false;
+        boolean lastWasAdded = false;
         for (String line : lines) {
             if (line.startsWith("@@ ")) {
                 inHunk = true;
+                lastWasAdded = false;
                 continue;
             }
-            if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+            // Once in a hunk, "+++ " is an added line that starts with "++ ", not a file header
+            if (!inHunk && (line.startsWith("+++ ") || line.startsWith("--- "))) {
                 continue;
             }
             if (inHunk && line.startsWith("+")) {
-                if (sb.length() > 0) {
-                    sb.append("\n");
-                }
-                sb.append(line.substring(1));
+                sb.append(line.substring(1)).append("\n");
+                lastWasAdded = true;
+            } else if (lastWasAdded && line.startsWith("\\")) {
+                // "\ No newline at end of file" after the last added line
+                sb.setLength(sb.length() - 1);
+                lastWasAdded = false;
+            } else if (!line.isEmpty()) {
+                lastWasAdded = false;
             }
         }
         return sb.toString();

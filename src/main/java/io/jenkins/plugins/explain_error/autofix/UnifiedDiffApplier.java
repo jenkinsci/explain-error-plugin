@@ -57,7 +57,7 @@ public class UnifiedDiffApplier {
 
             // Collect hunk body lines
             List<String> hunkLines = new ArrayList<>();
-            while (i < diffLines.length && !diffLines[i].startsWith("@@ ") && !diffLines[i].startsWith("--- ") && !diffLines[i].startsWith("+++ ")) {
+            while (i < diffLines.length && !diffLines[i].startsWith("@@ ") && !isFileHeader(diffLines, i)) {
                 hunkLines.add(diffLines[i]);
                 i++;
             }
@@ -190,6 +190,15 @@ public class UnifiedDiffApplier {
             // Keep it: join("\n") on ["a","b",""] => "a\nb\n"
         }
         return list;
+    }
+
+    /**
+     * Whether the line at {@code i} starts a file header: a {@code ---} line followed by a {@code +++} line.
+     * Inside a hunk, a {@code ---} or {@code +++} line on its own is a removed {@code -- ...} or an added
+     * {@code ++ ...} line, as in an SQL or Lua comment.
+     */
+    private static boolean isFileHeader(String[] diffLines, int i) {
+        return diffLines[i].startsWith("--- ") && i + 1 < diffLines.length && diffLines[i + 1].startsWith("+++ ");
     }
 
     /**
