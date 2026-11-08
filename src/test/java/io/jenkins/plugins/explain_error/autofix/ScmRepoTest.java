@@ -31,6 +31,18 @@ class ScmRepoTest {
     }
 
     @Test
+    void parse_ignoresATrailingSlash() {
+        ScmRepo repo = ScmRepo.parse("https://github.com/acme/my-repo/", "tok");
+        assertEquals("acme", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+
+        ScmRepo overridden = ScmRepo.parseWithOverride("https://git.internal.example/acme/my-repo/", "tok",
+                ScmType.GITLAB, "https://git.internal.example/api/v4");
+        assertEquals("acme", overridden.owner());
+        assertEquals("my-repo", overridden.repoName());
+    }
+
+    @Test
     void parse_gitlabSsh_detectsGitLab() {
         ScmRepo repo = ScmRepo.parse("git@gitlab.com:acme/my-repo.git", "tok");
         assertEquals(ScmType.GITLAB, repo.scmType());
