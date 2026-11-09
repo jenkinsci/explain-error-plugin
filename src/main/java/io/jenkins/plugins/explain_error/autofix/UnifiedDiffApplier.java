@@ -78,7 +78,8 @@ public class UnifiedDiffApplier {
             if (startOld == 0) {
                 actualPos = 0;
             } else {
-                int expectedPos = (startOld - 1) + offset;
+                // A hunk that removes and keeps nothing (-5,0) names the line it inserts after, not before
+                int expectedPos = (countOld == 0 ? startOld : startOld - 1) + offset;
                 // Extract context lines from hunk to find actual position (fuzzy match ±3)
                 actualPos = findActualPosition(result, hunkLines, expectedPos, countOld);
             }
