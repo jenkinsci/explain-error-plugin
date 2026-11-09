@@ -125,7 +125,16 @@ public class UnifiedDiffApplier {
             result.add("");
         }
 
-        return String.join("\n", result);
+        return String.join(lineSeparator(originalContent), result);
+    }
+
+    /**
+     * The line ending of {@code content}: {@code \r\n} when its first line ends with one, otherwise {@code \n}.
+     * Lines are split on both, so joining with {@code \n} alone would rewrite every line of a CRLF file.
+     */
+    private static String lineSeparator(String content) {
+        int newline = content == null ? -1 : content.indexOf('\n');
+        return newline > 0 && content.charAt(newline - 1) == '\r' ? "\r\n" : "\n";
     }
 
     /**
