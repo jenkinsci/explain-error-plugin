@@ -76,8 +76,8 @@ public class GitLabApiClient implements ScmApiClient {
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String encodedPath = URLEncoder.encode(filePath, StandardCharsets.UTF_8);
-        String url = projectIdUrl() + "/repository/files/" + encodedPath + "?ref=" + branch;
+        String url = projectIdUrl() + "/repository/files/" + ScmUrls.pathSegment(filePath)
+                + "?ref=" + ScmUrls.queryValue(branch);
         HttpRequest request = baseRequest(url).GET().build();
         HttpResponse<String> response = sendWithRetry(request, 3);
         if (response.statusCode() == 404) {

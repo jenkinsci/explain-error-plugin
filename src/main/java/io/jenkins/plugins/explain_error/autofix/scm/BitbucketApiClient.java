@@ -93,7 +93,7 @@ public class BitbucketApiClient implements ScmApiClient {
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String url = repoUrl() + "/src/" + branch + "/" + filePath;
+        String url = repoUrl() + "/src/" + branch + "/" + ScmUrls.path(filePath);
         HttpRequest request = baseRequest(url).GET().build();
         HttpResponse<String> response = sendWithRetry(request, 3);
         if (response.statusCode() == 404) {

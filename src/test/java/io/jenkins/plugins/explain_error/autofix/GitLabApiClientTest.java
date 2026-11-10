@@ -266,4 +266,16 @@ class GitLabApiClientTest {
 
         assertNull(client.getFileContent("missing.txt", "main"));
     }
+
+    @Test
+    void getFileContent_pathWithSpace_isPercentEncoded() throws Exception {
+        stubProjectLookup();
+
+        String encoded = Base64.getEncoder().encodeToString("notes\n".getBytes());
+        stubFor(get(urlEqualTo("/api/v4/projects/" + PROJECT_ID
+                + "/repository/files/docs%2FRelease%20Notes.md?ref=fix%2Bci"))
+                .willReturn(okJson("{\"content\": \"" + encoded + "\"}")));
+
+        assertEquals("notes\n", client.getFileContent("docs/Release Notes.md", "fix+ci"));
+    }
 }
