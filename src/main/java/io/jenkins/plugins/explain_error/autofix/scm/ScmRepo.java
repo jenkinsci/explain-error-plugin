@@ -36,7 +36,7 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
             throw new IllegalArgumentException("Remote URL must not be null or blank");
         }
 
-        String url = remoteUrl.trim();
+        String url = withoutTrailingSlash(remoteUrl.trim());
 
         Matcher bbServerSshMatcher = BB_SERVER_SSH_PATTERN.matcher(url);
         Matcher bbServerHttpsMatcher = BB_SERVER_HTTPS_PATTERN.matcher(url);
@@ -123,7 +123,7 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
         if (remoteUrl == null || remoteUrl.isBlank()) {
             throw new IllegalArgumentException("Remote URL must not be null or blank");
         }
-        String url = remoteUrl.trim();
+        String url = withoutTrailingSlash(remoteUrl.trim());
         Matcher bbServerSshMatcher = BB_SERVER_SSH_PATTERN.matcher(url);
         Matcher bbServerHttpsMatcher = BB_SERVER_HTTPS_PATTERN.matcher(url);
         Matcher sshMatcher = SSH_PATTERN.matcher(url);
@@ -171,6 +171,15 @@ public record ScmRepo(ScmType scmType, String baseUrl, String owner, String repo
     // -------------------------------------------------------------------------
     // Private URL parsing helpers
     // -------------------------------------------------------------------------
+
+    /** {@code https://host/owner/repo/} names the same repository as {@code https://host/owner/repo}. */
+    private static String withoutTrailingSlash(String url) {
+        String trimmed = url;
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
+    }
 
     private static String extractBitbucketServerBaseUrl(String url) {
         if (url.startsWith("ssh://")) {

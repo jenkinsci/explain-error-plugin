@@ -819,6 +819,22 @@ class AutoFixOrchestratorFlowTest {
     }
 
     @Test
+    void buildScmRepo_ignoresATrailingSlashInServerUrls() throws Exception {
+        String remote = "https://git.internal.example/acme/app.git";
+
+        assertRepo(buildScmRepo(remote, "github", "https://ghe.example/", null, null),
+                ScmType.GITHUB, "https://ghe.example/api/v3");
+        assertRepo(buildScmRepo(remote, "gitlab", null, "https://gitlab.internal.example/ ", null),
+                ScmType.GITLAB, "https://gitlab.internal.example/api/v4");
+        assertRepo(buildScmRepo(remote, "bitbucketserver", null, null, "https://bitbucket.internal.example/"),
+                ScmType.BITBUCKET_SERVER, "https://bitbucket.internal.example/rest/api/1.0");
+        assertRepo(buildScmRepo("https://github.com/acme/app.git", null, "https://ghe.example//", null, null),
+                ScmType.GITHUB, "https://ghe.example/api/v3");
+        assertEquals("https://proxy.example/bitbucket/2.0",
+                new AutoFixOrchestrator().resolveCloudBitbucketBaseUrl("https://proxy.example/bitbucket/2.0/"));
+    }
+
+    @Test
     void resolveCloudBitbucketBaseUrl_validatesAndKeepsExplicitApiUrls() {
         AutoFixOrchestrator orchestrator = new AutoFixOrchestrator();
 
