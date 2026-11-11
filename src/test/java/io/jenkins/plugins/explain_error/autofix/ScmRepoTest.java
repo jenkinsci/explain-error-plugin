@@ -172,6 +172,50 @@ class ScmRepoTest {
         assertEquals("my-repo", repo.repoName());
     }
 
+    @Test
+    void parse_bitbucketServerHttps_withContextPath_keepsContextInBaseUrl() {
+        ScmRepo repo = ScmRepo.parse("https://git.company.com/bitbucket/scm/PROJ/my-repo.git", "tok");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("https://git.company.com/bitbucket/rest/api/1.0", repo.baseUrl());
+        assertEquals("PROJ", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+    }
+
+    @Test
+    void parse_bitbucketServerHttps_withNestedContextPath_keepsContextInBaseUrl() {
+        ScmRepo repo = ScmRepo.parse("https://git.company.com:8443/tools/bitbucket/scm/TEAM/service", "tok");
+        assertEquals(ScmType.BITBUCKET_SERVER, repo.scmType());
+        assertEquals("https://git.company.com:8443/tools/bitbucket/rest/api/1.0", repo.baseUrl());
+        assertEquals("TEAM", repo.owner());
+        assertEquals("service", repo.repoName());
+    }
+
+    @Test
+    void parse_gitlabSubgroupNamedScm_staysGitLab() {
+        ScmRepo repo = ScmRepo.parse("https://gitlab.com/acme/scm/tools/my-repo.git", "tok");
+        assertEquals(ScmType.GITLAB, repo.scmType());
+        assertEquals("acme", repo.owner());
+        assertEquals("scm/tools/my-repo", repo.repoName());
+    }
+
+    @Test
+    void parseWithOverride_bitbucketServerHttpsUrlWithContextPath_extractsProjectAndRepo() {
+        ScmRepo repo = ScmRepo.parseWithOverride(
+                "https://git.company.com/bitbucket/scm/PROJ/my-repo.git", "tok",
+                ScmType.BITBUCKET_SERVER, "https://git.company.com/bitbucket/rest/api/1.0");
+        assertEquals("PROJ", repo.owner());
+        assertEquals("my-repo", repo.repoName());
+    }
+
+    @Test
+    void parseWithOverride_gitlabSubgroupNamedScm_keepsFullPath() {
+        ScmRepo repo = ScmRepo.parseWithOverride(
+                "https://gitlab.company.com/acme/scm/tools/my-repo.git", "tok",
+                ScmType.GITLAB, "https://gitlab.company.com/api/v4");
+        assertEquals("acme", repo.owner());
+        assertEquals("scm/tools/my-repo", repo.repoName());
+    }
+
     // -----------------------------------------------------------------------
     // ScmRepo.withBaseUrl()
     // -----------------------------------------------------------------------
