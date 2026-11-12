@@ -103,7 +103,7 @@ public class BitbucketServerApiClient implements ScmApiClient {
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String encodedPath = encodePathSegments(filePath);
+        String encodedPath = ScmUrls.path(filePath);
         String url = repoUrl() + "/raw/" + encodedPath
                 + "?at=" + URLEncoder.encode("refs/heads/" + branch, StandardCharsets.UTF_8);
         HttpRequest request = baseRequest(url).GET().build();
@@ -244,7 +244,7 @@ public class BitbucketServerApiClient implements ScmApiClient {
      */
     private String commitSingleFile(String branchName, String filePath, String content,
                                      String commitMessage, String sourceCommitId) throws IOException {
-        String encodedPath = encodePathSegments(filePath);
+        String encodedPath = ScmUrls.path(filePath);
         String boundary = "----BitbucketServerBoundary" + UUID.randomUUID().toString().replace("-", "");
         byte[] multipartBody = buildBrowseMultipart(
                 boundary, branchName, content, commitMessage, sourceCommitId);
@@ -345,18 +345,6 @@ public class BitbucketServerApiClient implements ScmApiClient {
      * Encodes each path segment individually so that slashes between segments are preserved
      * while special characters within segments are percent-encoded.
      */
-    private static String encodePathSegments(String filePath) {
-        String[] segments = filePath.split("/", -1);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < segments.length; i++) {
-            if (i > 0) {
-                sb.append('/');
-            }
-            sb.append(URLEncoder.encode(segments[i], StandardCharsets.UTF_8));
-        }
-        return sb.toString();
-    }
-
     private static HttpRequest.BodyPublisher jsonBody(ObjectNode body) {
         return HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8);
     }

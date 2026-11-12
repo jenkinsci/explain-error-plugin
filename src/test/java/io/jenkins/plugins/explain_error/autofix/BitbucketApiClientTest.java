@@ -206,4 +206,12 @@ class BitbucketApiClientTest {
 
         assertThrows(Exception.class, () -> client.deleteBranch("fix-branch"));
     }
+
+    @Test
+    void getFileContent_pathWithSpace_isPercentEncoded() throws Exception {
+        stubFor(get(urlEqualTo(REPO_PATH + "/src/main/docs/Release%20Notes.md"))
+                .willReturn(aResponse().withStatus(200).withBody("notes")));
+
+        assertEquals("notes", client.getFileContent("docs/Release Notes.md", "main"));
+    }
 }

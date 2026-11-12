@@ -69,7 +69,7 @@ public class GitHubApiClient implements ScmApiClient {
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String url = repoUrl() + "/contents/" + filePath + "?ref=" + branch;
+        String url = repoUrl() + "/contents/" + ScmUrls.path(filePath) + "?ref=" + ScmUrls.queryValue(branch);
         HttpRequest request = baseRequest(url).GET().build();
         HttpResponse<String> response = sendWithRetry(request, 3);
         if (response.statusCode() == 404) {

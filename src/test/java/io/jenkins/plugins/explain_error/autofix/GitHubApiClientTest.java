@@ -216,4 +216,13 @@ class GitHubApiClientTest {
 
         assertNull(client.getFileContent("missing.txt", "main"));
     }
+
+    @Test
+    void getFileContent_pathWithSpace_isPercentEncoded() throws Exception {
+        String encoded = java.util.Base64.getEncoder().encodeToString("notes\n".getBytes());
+        stubFor(get(urlEqualTo("/repos/owner/repo/contents/docs/Release%20Notes.md?ref=release%2F1.x"))
+                .willReturn(okJson("{\"content\": \"" + encoded + "\"}")));
+
+        assertEquals("notes\n", client.getFileContent("docs/Release Notes.md", "release/1.x"));
+    }
 }
