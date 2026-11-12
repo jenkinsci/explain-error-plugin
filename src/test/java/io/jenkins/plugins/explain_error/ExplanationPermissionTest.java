@@ -169,7 +169,11 @@ class ExplanationPermissionTest {
 
     @Test
     void theConsolePageOffersTheButtonOnlyToUsersWhoMayUseIt() throws Exception {
-        assertNull(card("reader"), "a reader gets no button for a build without an explanation");
+        Element readerCard = card("reader");
+        assertEquals("false", readerCard.attr("data-plugin-enabled"),
+                "a reader gets no Explain Error button for a build without an explanation");
+        assertEquals("true", readerCard.attr("data-agent-context"),
+                "but can copy the failure for a coding agent, which calls no provider");
         assertEquals("true", card("builder").attr("data-plugin-enabled"));
 
         post("builder", build, CONSOLE);

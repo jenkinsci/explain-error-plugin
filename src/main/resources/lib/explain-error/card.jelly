@@ -23,6 +23,9 @@
       The explanation the build already has, to render it with the page. Leave it out when the page
       decides later which explanation applies.
     </st:attribute>
+    <st:attribute name="agentContext">
+      Whether the build can be copied for a coding agent, which needs no AI provider.
+    </st:attribute>
     <st:attribute name="logLink">
       false leaves out the link to the failure output, for a page that already shows it.
     </st:attribute>
@@ -46,6 +49,14 @@
        data-label-explain="${%Explain Error}" data-label-show="${%Show explanation}"
        data-label-pending="${%Explaining…}"
        data-label-preview="${%Preview what is sent}"
+       data-agent-context="${attrs.agentContext == true}"
+       data-label-agent="${%Copy for AI agent}"
+       data-tooltip-agent="${%agentTooltip}"
+       data-label-agent-copied="${%agentCopied}"
+       data-label-agent-dialog="${%Failure context for a coding agent}"
+       data-label-agent-copy="${%Copy}"
+       data-label-agent-hint="${%agentHint}"
+       data-label-agent-failed="${%agentFailed}"
        data-tooltip-preview="${%previewTooltip}"
        data-failure-headline="${%The explanation could not be generated.}">
     <l:card title="${hasExplanation ? existingExplanation.heading : 'AI Error Explanation'}" controls="${controls}">

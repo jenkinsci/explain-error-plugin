@@ -112,3 +112,20 @@
 #explain-error-container[data-surface="graph-view"] {
   margin-bottom: 0.75rem;
 }
+
+/* The failure context for a coding agent, shown to be copied by hand */
+.eep-agent-context {
+  box-sizing: border-box;
+  /* As wide as the log on a desktop, within the screen on a phone */
+  width: min(900px, calc(100vw - 6rem));
+  min-width: 0;
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs, 0.8rem);
+  white-space: pre-wrap;
+}
+
+.eep-agent-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}

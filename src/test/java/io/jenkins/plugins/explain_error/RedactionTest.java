@@ -61,9 +61,10 @@ class RedactionTest {
         String sent = provider.getLastErrorLogs();
         assertFalse(sent.contains("hunter2hunter2") || sent.contains(AWS_KEY_ID), sent);
         assertTrue(sent.contains("DB_PASSWORD=[REDACTED]") && sent.contains("BUILD FAILED"), sent);
-        jenkins.assertLogContains("Masked 2 secrets in what is sent to the AI provider.", run);
+        // Each secret twice: in the command the step ran, in the step's header, and in its log
+        jenkins.assertLogContains("Masked 4 secrets in what is sent to the AI provider.", run);
         ErrorExplanationAction action = run.getAction(ErrorExplanationAction.class);
-        assertEquals(2, action.getRedactedCount());
+        assertEquals(4, action.getRedactedCount());
     }
 
     @Test

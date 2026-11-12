@@ -38,6 +38,15 @@ public class ConsolePageDecorator extends PageDecorator {
     }
 
     /**
+     * Whether the build can be copied for a coding agent: its log can be read and explanation is not turned off
+     * for it. No AI provider is needed.
+     */
+    public boolean isAgentContextEnabled() {
+        Run<?, ?> run = currentRun();
+        return run != null && run.hasPermission(Item.READ) && new ErrorExplainer().isExplanationEnabled(run);
+    }
+
+    /**
      * @return the name of the provider a new explanation of the build would come from, folder or global
      */
     public String getProviderName() {
