@@ -21,6 +21,15 @@ class TitleTextTest {
     }
 
     @Test
+    void keepsTheBackticksOfACodeSpanAtEitherEnd() {
+        assertEquals("`npm ci` fails: lock file out of sync",
+                TitleText.clean("`npm ci` fails: lock file out of sync", 60));
+        assertEquals("Upgrade `lodash`", TitleText.clean("Upgrade `lodash`", 60));
+        assertEquals("`pom.xml` and `settings.xml` disagree on the repository URL",
+                TitleText.clean("`pom.xml` and `settings.xml` disagree on the repository URL", 70));
+    }
+
+    @Test
     void keepsOnlyTheFirstLine() {
         assertEquals("Docker daemon is not running",
                 TitleText.clean("Docker daemon is not running\nStart Colima.", 70));
