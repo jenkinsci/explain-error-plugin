@@ -8,6 +8,8 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
  */
 public final class TitleText {
 
+    private static final String WRAPPING_QUOTES = "\"'`";
+
     private TitleText() {
     }
 
@@ -28,7 +30,7 @@ public final class TitleText {
             line = line.substring(0, lineBreak);
         }
         line = line.replaceAll("\\s+", " ").strip();
-        line = line.replaceAll("^[\"'`]+|[\"'`]+$", "").strip();
+        line = withoutWrappingQuotes(line);
         while (line.endsWith(".")) {
             line = line.substring(0, line.length() - 1).stripTrailing();
         }
@@ -37,5 +39,22 @@ public final class TitleText {
             line = line.substring(0, cut > maxLength / 2 ? cut : maxLength).stripTrailing();
         }
         return line.isEmpty() ? null : line;
+    }
+
+    /**
+     * Takes off quotes or backticks that wrap the whole title, as in {@code "Fix the build"}. A quote that
+     * belongs to the text stays: {@code `npm ci` fails} keeps both backticks of its code span.
+     */
+    private static String withoutWrappingQuotes(String line) {
+        while (line.length() >= 2) {
+            char first = line.charAt(0);
+            String inner = line.substring(1, line.length() - 1);
+            if (WRAPPING_QUOTES.indexOf(first) < 0 || line.charAt(line.length() - 1) != first
+                    || inner.indexOf(first) >= 0) {
+                break;
+            }
+            line = inner.strip();
+        }
+        return line;
     }
 }
