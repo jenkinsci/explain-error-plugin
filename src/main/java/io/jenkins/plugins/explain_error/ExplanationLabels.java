@@ -73,6 +73,25 @@ public final class ExplanationLabels {
                 return locale;
             }
         }
+        return forTag(name);
+    }
+
+    /** The labels for a language tag with a region or script, such as de-DE, es-MX or zh-Hant-TW. */
+    private static Locale forTag(String name) {
+        if (!name.contains("-")) {
+            return Locale.ROOT;
+        }
+        Locale tag = Locale.forLanguageTag(name);
+        if (tag.getLanguage().equals(Locale.CHINESE.getLanguage())) {
+            boolean traditional = tag.getScript().equals("Hant")
+                    || (tag.getScript().isEmpty() && List.of("TW", "HK", "MO").contains(tag.getCountry()));
+            return traditional ? Locale.TRADITIONAL_CHINESE : Locale.SIMPLIFIED_CHINESE;
+        }
+        for (Locale locale : TRANSLATED) {
+            if (!tag.getLanguage().isEmpty() && tag.getLanguage().equals(locale.getLanguage())) {
+                return locale;
+            }
+        }
         return Locale.ROOT;
     }
 

@@ -54,6 +54,31 @@ class ExplanationLabelsTest {
     }
 
     @Test
+    void aLanguageTagWithARegionOrScriptFindsItsLanguage() {
+        for (String language : new String[] {"de-DE", "de_AT", "de-CH"}) {
+            assertEquals("So lässt es sich beheben", ExplanationLabels.forLanguage(language).getHowToFix(),
+                    "for " + language);
+        }
+        for (String language : new String[] {"es-ES", "es-MX", "es-419"}) {
+            assertEquals("Cómo solucionarlo", ExplanationLabels.forLanguage(language).getHowToFix(),
+                    "for " + language);
+        }
+        for (String language : new String[] {"fr-FR", "fr-CA"}) {
+            assertEquals("Comment corriger", ExplanationLabels.forLanguage(language).getHowToFix(), "for " + language);
+        }
+        assertEquals("修正方法", ExplanationLabels.forLanguage("ja-JP").getHowToFix());
+        for (String language : new String[] {"zh-SG", "zh-Hans-CN"}) {
+            assertEquals("如何修复", ExplanationLabels.forLanguage(language).getHowToFix(), "for " + language);
+        }
+        for (String language : new String[] {"zh-MO", "zh-Hant-TW", "zh-Hant-HK"}) {
+            assertEquals("如何修復", ExplanationLabels.forLanguage(language).getHowToFix(), "for " + language);
+        }
+        for (String language : new String[] {"en-US", "pt-BR", "x-klingon"}) {
+            assertEquals("How to fix it", ExplanationLabels.forLanguage(language).getHowToFix(), "for " + language);
+        }
+    }
+
+    @Test
     void theJvmLocaleDoesNotLeakIntoEnglishExplanations() {
         Locale.setDefault(Locale.SIMPLIFIED_CHINESE);
 
