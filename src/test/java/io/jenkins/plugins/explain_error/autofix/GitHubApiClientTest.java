@@ -82,7 +82,7 @@ class GitHubApiClientTest {
         stubFor(post(urlEqualTo("/repos/owner/repo/git/refs"))
                 .willReturn(aResponse().withStatus(201).withBody("{}")));
 
-        assertDoesNotThrow(() -> client.createBranch("fix/test", "main"));
+        assertEquals("fix/test", client.createBranch("fix/test", "main"));
     }
 
     @Test
@@ -101,7 +101,11 @@ class GitHubApiClientTest {
                 .whenScenarioStateIs("retry")
                 .willReturn(aResponse().withStatus(201).withBody("{}")));
 
-        assertDoesNotThrow(() -> client.createBranch("fix/test", "main"));
+        String created = client.createBranch("fix/test", "main");
+
+        assertTrue(created.matches("fix/test-[0-9a-f]{4}"), created);
+        verify(postRequestedFor(urlEqualTo("/repos/owner/repo/git/refs"))
+                .withRequestBody(matchingJsonPath("$.ref", equalTo("refs/heads/" + created))));
     }
 
     // -----------------------------------------------------------------------
