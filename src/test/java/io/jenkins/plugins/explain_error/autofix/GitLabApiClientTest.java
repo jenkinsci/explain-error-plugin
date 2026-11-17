@@ -115,7 +115,7 @@ class GitLabApiClientTest {
         stubFor(post(urlEqualTo("/api/v4/projects/" + PROJECT_ID + "/repository/branches"))
                 .willReturn(aResponse().withStatus(201).withBody("{\"name\": \"fix/test\"}")));
 
-        assertDoesNotThrow(() -> client.createBranch("fix/test", "main"));
+        assertEquals("fix/test", client.createBranch("fix/test", "main"));
     }
 
     @Test
@@ -133,7 +133,11 @@ class GitLabApiClientTest {
                 .whenScenarioStateIs("retry")
                 .willReturn(aResponse().withStatus(201).withBody("{\"name\": \"fix/test-ab12\"}")));
 
-        assertDoesNotThrow(() -> client.createBranch("fix/test", "main"));
+        String created = client.createBranch("fix/test", "main");
+
+        assertTrue(created.matches("fix/test-[0-9a-f]{4}"), created);
+        verify(postRequestedFor(urlEqualTo("/api/v4/projects/" + PROJECT_ID + "/repository/branches"))
+                .withRequestBody(matchingJsonPath("$.branch", equalTo(created))));
     }
 
     // -----------------------------------------------------------------------

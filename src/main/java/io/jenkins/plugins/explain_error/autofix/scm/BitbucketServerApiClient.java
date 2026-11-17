@@ -85,7 +85,7 @@ public class BitbucketServerApiClient implements ScmApiClient {
     }
 
     @Override
-    public void createBranch(String branchName, String fromBranch) throws IOException {
+    public String createBranch(String branchName, String fromBranch) throws IOException {
         ObjectNode body = MAPPER.createObjectNode();
         body.put("name", branchName);
         body.put("startPoint", "refs/heads/" + fromBranch);
@@ -99,6 +99,7 @@ public class BitbucketServerApiClient implements ScmApiClient {
                     "Bitbucket Server createBranch failed [" + response.statusCode() + "]: "
                             + response.body());
         }
+        return branchName;
     }
 
     @Override

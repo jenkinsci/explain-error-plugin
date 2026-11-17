@@ -60,14 +60,16 @@ public class GitLabApiClient implements ScmApiClient {
     }
 
     @Override
-    public void createBranch(String branchName, String fromBranch) throws IOException {
+    public String createBranch(String branchName, String fromBranch) throws IOException {
         try {
             doCreateBranch(branchName, fromBranch);
+            return branchName;
         } catch (IOException e) {
             if (e.getMessage() != null && e.getMessage().contains("400")) {
                 // Branch may already exist – retry with a random suffix
                 String suffixed = branchName + "-" + randomHex4();
                 doCreateBranch(suffixed, fromBranch);
+                return suffixed;
             } else {
                 throw e;
             }

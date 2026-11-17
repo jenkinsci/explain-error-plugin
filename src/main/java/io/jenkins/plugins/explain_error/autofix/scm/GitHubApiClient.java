@@ -52,15 +52,17 @@ public class GitHubApiClient implements ScmApiClient {
     }
 
     @Override
-    public void createBranch(String branchName, String fromBranch) throws IOException {
+    public String createBranch(String branchName, String fromBranch) throws IOException {
         String sha = getRefSha("heads/" + fromBranch);
         try {
             doCreateRef("refs/heads/" + branchName, sha);
+            return branchName;
         } catch (IOException e) {
             if (e.getMessage() != null && e.getMessage().contains("422")) {
                 // Branch already exists – retry with a random suffix
                 String suffixed = branchName + "-" + randomHex4();
                 doCreateRef("refs/heads/" + suffixed, sha);
+                return suffixed;
             } else {
                 throw e;
             }

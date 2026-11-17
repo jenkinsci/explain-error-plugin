@@ -341,9 +341,14 @@ public class AutoFixOrchestrator {
         listener.getLogger().println("[AutoFix] Default branch: " + defaultBranch);
 
         // Step 8 — Create fix branch
-        String branchName = branchName(run.getNumber(), suggestion.title(), System.currentTimeMillis());
-        listener.getLogger().println("[AutoFix] Creating branch: " + branchName);
-        client.createBranch(branchName, defaultBranch);
+        String requestedBranch = branchName(run.getNumber(), suggestion.title(), System.currentTimeMillis());
+        listener.getLogger().println("[AutoFix] Creating branch: " + requestedBranch);
+        // The client picks another name when the requested branch already exists; everything below must use
+        // that one, or the fix lands on (and a rollback deletes) the existing branch.
+        String branchName = client.createBranch(requestedBranch, defaultBranch);
+        if (!branchName.equals(requestedBranch)) {
+            listener.getLogger().println("[AutoFix] Branch already exists, created: " + branchName);
+        }
         createdBranchRef[0] = branchName;
 
         // Step 9 — Apply diffs, collect new file contents
