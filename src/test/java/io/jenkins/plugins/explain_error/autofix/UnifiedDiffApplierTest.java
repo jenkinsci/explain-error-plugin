@@ -114,6 +114,23 @@ class UnifiedDiffApplierTest {
     }
 
     @Test
+    void applyKeepsTheCrlfLineEndingsOfTheFile() {
+        String original = "flask==3.0.3\r\nrequests==2.99.0\r\npytest==8.3.3\r\n";
+        String diff = "--- a/requirements.txt\n+++ b/requirements.txt\n@@ -1,2 +1,3 @@\n"
+                + " flask==3.0.3\n-requests==2.99.0\n+requests==2.32.3\n+urllib3==2.2.3\n";
+
+        assertEquals("flask==3.0.3\r\nrequests==2.32.3\r\nurllib3==2.2.3\r\npytest==8.3.3\r\n",
+                UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyKeepsTheCrlfLineEndingsOfAFileWithoutAFinalNewline() {
+        String diff = "--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n a\n-b\n+c\n\\ No newline at end of file\n";
+
+        assertEquals("a\r\nc", UnifiedDiffApplier.apply("a\r\nb", diff));
+    }
+
+    @Test
     void applyIgnoresBlankLinesBetweenHunksAndAfterTheLastOne() {
         String original = "alpha\nbeta\ngamma\ndelta\nepsilon\nzeta\n";
         String diff = "--- a/file.txt\n+++ b/file.txt\n"
@@ -147,6 +164,23 @@ class UnifiedDiffApplierTest {
         String diff = "@@ -0,0 +1,1 @@\n+# header\n";
 
         assertEquals("# header\na\nb\n", UnifiedDiffApplier.apply("a\nb\n", diff));
+    }
+
+    @Test
+    void applyInsertsAfterTheLineAZeroLengthHunkNames() {
+        // "@@ -2,0 +3,1 @@" is what diff -U0 writes for a line added after line 2
+        String diff = "--- a/f\n+++ b/f\n@@ -2,0 +3,1 @@\n+c\n";
+
+        assertEquals("a\nb\nc\nd\n", UnifiedDiffApplier.apply("a\nb\nd\n", diff));
+    }
+
+    @Test
+    void applyInsertsAfterTheLineAZeroLengthHunkNamesInALaterHunk() {
+        String diff = "--- a/f\n+++ b/f\n"
+                + "@@ -1,0 +2,1 @@\n+a2\n"
+                + "@@ -3,0 +5,1 @@\n+c2\n";
+
+        assertEquals("a\na2\nb\nc\nc2\nd\n", UnifiedDiffApplier.apply("a\nb\nc\nd\n", diff));
     }
 
     @Test
@@ -247,5 +281,22 @@ class UnifiedDiffApplierTest {
         String diff = "@@ -1,1 +1,1 @@\n context only\n@@ -5,1 +5,1 @@\n-old\n+new";
 
         assertEquals("Hunk has no changed lines (no + or - lines)", UnifiedDiffApplier.validate(diff));
+    }
+
+    @Test
+    void applyRemovesALineThatStartsWithTwoDashes() {
+        // An SQL comment "-- ..." removed reads "--- ..." in the diff, like a file header
+        String original = "SELECT 1;\n-- TODO remove\nSELECT 2;\n";
+        String diff = "--- a/q.sql\n+++ b/q.sql\n@@ -1,3 +1,2 @@\n SELECT 1;\n--- TODO remove\n SELECT 2;\n";
+
+        assertEquals("SELECT 1;\nSELECT 2;\n", UnifiedDiffApplier.apply(original, diff));
+    }
+
+    @Test
+    void applyAddsALineThatStartsWithTwoPluses() {
+        String original = "a\nb\n";
+        String diff = "--- a/f\n+++ b/f\n@@ -1,2 +1,3 @@\n a\n+++ c\n b\n";
+
+        assertEquals("a\n++ c\nb\n", UnifiedDiffApplier.apply(original, diff));
     }
 }

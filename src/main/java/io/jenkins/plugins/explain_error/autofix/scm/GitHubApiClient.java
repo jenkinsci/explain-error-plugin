@@ -12,11 +12,15 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Random;
 
 public class GitHubApiClient implements ScmApiClient {
+
+    private static final String REGULAR_FILE_MODE = "100644";
+    private static final String EXECUTABLE_FILE_MODE = "100755";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Random RANDOM = new Random();
@@ -52,15 +56,17 @@ public class GitHubApiClient implements ScmApiClient {
     }
 
     @Override
-    public void createBranch(String branchName, String fromBranch) throws IOException {
+    public String createBranch(String branchName, String fromBranch) throws IOException {
         String sha = getRefSha("heads/" + fromBranch);
         try {
             doCreateRef("refs/heads/" + branchName, sha);
+            return branchName;
         } catch (IOException e) {
             if (e.getMessage() != null && e.getMessage().contains("422")) {
                 // Branch already exists – retry with a random suffix
                 String suffixed = branchName + "-" + randomHex4();
                 doCreateRef("refs/heads/" + suffixed, sha);
+                return suffixed;
             } else {
                 throw e;
             }
@@ -69,7 +75,7 @@ public class GitHubApiClient implements ScmApiClient {
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String url = repoUrl() + "/contents/" + filePath + "?ref=" + branch;
+        String url = repoUrl() + "/contents/" + ScmUrls.path(filePath) + "?ref=" + ScmUrls.queryValue(branch);
         HttpRequest request = baseRequest(url).GET().build();
         HttpResponse<String> response = sendWithRetry(request, 3);
         if (response.statusCode() == 404) {
@@ -94,6 +100,7 @@ public class GitHubApiClient implements ScmApiClient {
         // 2. Get tree SHA of current commit
         JsonNode commitNode = getJson(repoUrl() + "/git/commits/" + currentSha);
         String treeSha = commitNode.path("tree").path("sha").asText();
+        Map<String, String> modes = fileModes(treeSha);
 
         // 3. Create blobs
         ArrayNode treeEntries = MAPPER.createArrayNode();
@@ -106,7 +113,7 @@ public class GitHubApiClient implements ScmApiClient {
 
             ObjectNode treeEntry = MAPPER.createObjectNode();
             treeEntry.put("path", entry.getKey());
-            treeEntry.put("mode", "100644");
+            treeEntry.put("mode", modes.getOrDefault(entry.getKey(), REGULAR_FILE_MODE));
             treeEntry.put("type", "blob");
             treeEntry.put("sha", blobSha);
             treeEntries.add(treeEntry);
@@ -166,6 +173,28 @@ public class GitHubApiClient implements ScmApiClient {
 
     private String repoUrl() {
         return repo.baseUrl() + "/repos/" + repo.owner() + "/" + repo.repoName();
+    }
+
+    /**
+     * The modes of the regular files in a tree, so that a modified executable (e.g. {@code gradlew} or a
+     * shell script) keeps its executable bit. Best effort: when the tree cannot be read, or GitHub truncates
+     * it, files that are missing from the result are committed as {@value #REGULAR_FILE_MODE}.
+     */
+    private Map<String, String> fileModes(String treeSha) throws IOException {
+        Map<String, String> modes = new HashMap<>();
+        HttpRequest request = baseRequest(repoUrl() + "/git/trees/" + treeSha + "?recursive=1").GET().build();
+        HttpResponse<String> response = sendWithRetry(request, 3);
+        if (response.statusCode() != 200) {
+            return modes;
+        }
+        for (JsonNode entry : MAPPER.readTree(response.body()).path("tree")) {
+            String mode = entry.path("mode").asText();
+            if ("blob".equals(entry.path("type").asText())
+                    && (REGULAR_FILE_MODE.equals(mode) || EXECUTABLE_FILE_MODE.equals(mode))) {
+                modes.put(entry.path("path").asText(), mode);
+            }
+        }
+        return modes;
     }
 
     private String getRefSha(String ref) throws IOException {

@@ -71,7 +71,7 @@ public class BitbucketApiClient implements ScmApiClient {
     }
 
     @Override
-    public void createBranch(String branchName, String fromBranch) throws IOException {
+    public String createBranch(String branchName, String fromBranch) throws IOException {
         // 1. Get the HEAD hash of fromBranch
         JsonNode branchNode = getJson(repoUrl() + "/refs/branches/" + fromBranch);
         String hash = branchNode.path("target").path("hash").asText();
@@ -89,11 +89,12 @@ public class BitbucketApiClient implements ScmApiClient {
             throw new IOException(
                     "Bitbucket createBranch failed [" + response.statusCode() + "]: " + response.body());
         }
+        return branchName;
     }
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String url = repoUrl() + "/src/" + branch + "/" + filePath;
+        String url = repoUrl() + "/src/" + branch + "/" + ScmUrls.path(filePath);
         HttpRequest request = baseRequest(url).GET().build();
         HttpResponse<String> response = sendWithRetry(request, 3);
         if (response.statusCode() == 404) {

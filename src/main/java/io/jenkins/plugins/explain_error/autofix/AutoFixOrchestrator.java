@@ -341,9 +341,14 @@ public class AutoFixOrchestrator {
         listener.getLogger().println("[AutoFix] Default branch: " + defaultBranch);
 
         // Step 8 — Create fix branch
-        String branchName = branchName(run.getNumber(), suggestion.title(), System.currentTimeMillis());
-        listener.getLogger().println("[AutoFix] Creating branch: " + branchName);
-        client.createBranch(branchName, defaultBranch);
+        String requestedBranch = branchName(run.getNumber(), suggestion.title(), System.currentTimeMillis());
+        listener.getLogger().println("[AutoFix] Creating branch: " + requestedBranch);
+        // The client picks another name when the requested branch already exists; everything below must use
+        // that one, or the fix lands on (and a rollback deletes) the existing branch.
+        String branchName = client.createBranch(requestedBranch, defaultBranch);
+        if (!branchName.equals(requestedBranch)) {
+            listener.getLogger().println("[AutoFix] Branch already exists, created: " + branchName);
+        }
         createdBranchRef[0] = branchName;
 
         // Step 9 — Apply diffs, collect new file contents
@@ -695,12 +700,12 @@ public class AutoFixOrchestrator {
                 switch (forcedType) {
                     case GITHUB:
                         baseUrl = (githubEnterpriseUrl != null && !githubEnterpriseUrl.isBlank())
-                                ? githubEnterpriseUrl.stripTrailing() + "/api/v3"
+                                ? serverUrl(githubEnterpriseUrl) + "/api/v3"
                                 : "https://api.github.com";
                         break;
                     case GITLAB:
                         baseUrl = (gitlabUrl != null && !gitlabUrl.isBlank())
-                                ? gitlabUrl.stripTrailing() + "/api/v4"
+                                ? serverUrl(gitlabUrl) + "/api/v4"
                                 : "https://gitlab.com/api/v4";
                         break;
                     case BITBUCKET:
@@ -711,7 +716,7 @@ public class AutoFixOrchestrator {
                             throw new IllegalArgumentException(
                                     "autoFixBitbucketUrl must be set when scmTypeOverride is 'bitbucketserver'");
                         }
-                        baseUrl = bitbucketUrl.stripTrailing() + "/rest/api/1.0";
+                        baseUrl = serverUrl(bitbucketUrl) + "/rest/api/1.0";
                         break;
                     default:
                         baseUrl = null; // unreachable
@@ -724,16 +729,25 @@ public class AutoFixOrchestrator {
 
         // Apply enterprise base-URL overrides when the host was auto-detected
         if (repo.scmType() == ScmType.GITHUB && githubEnterpriseUrl != null && !githubEnterpriseUrl.isBlank()) {
-            repo = repo.withBaseUrl(githubEnterpriseUrl.stripTrailing() + "/api/v3");
+            repo = repo.withBaseUrl(serverUrl(githubEnterpriseUrl) + "/api/v3");
         } else if (repo.scmType() == ScmType.GITLAB && gitlabUrl != null && !gitlabUrl.isBlank()) {
-            repo = repo.withBaseUrl(gitlabUrl.stripTrailing() + "/api/v4");
+            repo = repo.withBaseUrl(serverUrl(gitlabUrl) + "/api/v4");
         } else if (repo.scmType() == ScmType.BITBUCKET && bitbucketUrl != null && !bitbucketUrl.isBlank()) {
             repo = repo.withBaseUrl(resolveCloudBitbucketBaseUrl(bitbucketUrl));
         } else if (repo.scmType() == ScmType.BITBUCKET_SERVER && bitbucketUrl != null && !bitbucketUrl.isBlank()) {
-            repo = repo.withBaseUrl(bitbucketUrl.stripTrailing() + "/rest/api/1.0");
+            repo = repo.withBaseUrl(serverUrl(bitbucketUrl) + "/rest/api/1.0");
         }
 
         return repo;
+    }
+
+    /** A configured server URL without trailing blanks or slashes, so the API path is not joined with "//". */
+    private static String serverUrl(String url) {
+        String normalized = url.stripTrailing();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     String resolveCloudBitbucketBaseUrl(String bitbucketUrl) {
@@ -741,7 +755,7 @@ public class AutoFixOrchestrator {
             return "https://api.bitbucket.org/2.0";
         }
 
-        String normalized = bitbucketUrl.stripTrailing();
+        String normalized = serverUrl(bitbucketUrl);
         URI uri = URI.create(normalized);
         String host = uri.getHost();
         if (host == null) {
@@ -765,19 +779,26 @@ public class AutoFixOrchestrator {
         StringBuilder sb = new StringBuilder();
         String[] lines = unifiedDiff.split("\r?\n", -1);
         boolean inHunk = false;
+        boolean lastWasAdded = false;
         for (String line : lines) {
             if (line.startsWith("@@ ")) {
                 inHunk = true;
+                lastWasAdded = false;
                 continue;
             }
-            if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+            // Once in a hunk, "+++ " is an added line that starts with "++ ", not a file header
+            if (!inHunk && (line.startsWith("+++ ") || line.startsWith("--- "))) {
                 continue;
             }
             if (inHunk && line.startsWith("+")) {
-                if (sb.length() > 0) {
-                    sb.append("\n");
-                }
-                sb.append(line.substring(1));
+                sb.append(line.substring(1)).append("\n");
+                lastWasAdded = true;
+            } else if (lastWasAdded && line.startsWith("\\")) {
+                // "\ No newline at end of file" after the last added line
+                sb.setLength(sb.length() - 1);
+                lastWasAdded = false;
+            } else if (!line.isEmpty()) {
+                lastWasAdded = false;
             }
         }
         return sb.toString();

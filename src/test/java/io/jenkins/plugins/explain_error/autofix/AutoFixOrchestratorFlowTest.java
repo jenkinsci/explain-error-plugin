@@ -9,6 +9,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.patch;
+import static com.github.tomakehurst.wiremock.client.WireMock.patchRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.stubbing.Scenario;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
 import hudson.model.Item;
@@ -155,6 +157,44 @@ class AutoFixOrchestratorFlowTest {
     }
 
     @Test
+    void existingBranch_commitsAndOpensThePrOnTheBranchTheClientCreated() throws Exception {
+        aiSuggests(fileChange("pom.xml", "modify", POM_DIFF, "Bump version"));
+        stubRepository(true);
+        stubBranchCollision();
+        stubFileContent("pom.xml", POM);
+        stubCommitAndPullRequest();
+
+        AutoFixResult result = attempt(withToken("scm-token"), List.of("pom.xml"), 30, null);
+
+        assertEquals(AutoFixStatus.CREATED, result.getStatus(), log());
+        String branch = result.getBranchName();
+        assertTrue(branch.matches(BRANCH_PATTERN + "-[0-9a-f]{4}"), branch);
+        server.verify(postRequestedFor(urlEqualTo(REPO_API + "/git/refs"))
+                .withRequestBody(matchingJsonPath("$.ref", equalTo("refs/heads/" + branch))));
+        server.verify(patchRequestedFor(urlEqualTo(REPO_API + "/git/refs/heads/" + branch)));
+        server.verify(postRequestedFor(urlEqualTo(REPO_API + "/pulls"))
+                .withRequestBody(matchingJsonPath("$.head", equalTo(branch))));
+        assertTrue(log().contains("[AutoFix] Branch already exists, created: " + branch), log());
+    }
+
+    @Test
+    void existingBranch_rollbackDeletesOnlyTheBranchTheClientCreated() throws Exception {
+        aiSuggests(fileChange("pom.xml", "modify", POM_DIFF, "Bump version"));
+        stubRepository(true);
+        stubBranchCollision();
+        server.stubFor(get(urlEqualTo(REPO_API + "/contents/pom.xml?ref=main"))
+                .willReturn(aResponse().withStatus(404)));
+        stubBranchDeletion(204);
+
+        AutoFixResult result = attempt(withToken("scm-token"), List.of("pom.xml"), 30, null);
+
+        assertEquals(AutoFixStatus.FAILED, result.getStatus());
+        server.verify(1, deleteRequestedFor(urlPathMatching(REPO_API + "/git/refs/heads/" + BRANCH_PATTERN)));
+        server.verify(1, deleteRequestedFor(
+                urlPathMatching(REPO_API + "/git/refs/heads/" + BRANCH_PATTERN + "-[0-9a-f]{4}")));
+    }
+
+    @Test
     void titledFix_namesThePullRequestCommitAndBranchAfterTheChange() throws Exception {
         when(fixAssistant.suggestFix(anyString())).thenReturn(MAPPER.writeValueAsString(new FixSuggestion(
                 true, "Bump the version", "high", "dependency",
@@ -232,7 +272,7 @@ class AutoFixOrchestratorFlowTest {
 
         assertEquals(AutoFixStatus.CREATED, result.getStatus(), log());
         server.verify(postRequestedFor(urlEqualTo(REPO_API + "/git/blobs"))
-                .withRequestBody(matchingJsonPath("$.content", equalTo("retries: 3\ntimeout: 30"))));
+                .withRequestBody(matchingJsonPath("$.content", equalTo("retries: 3\ntimeout: 30\n"))));
         server.verify(postRequestedFor(urlEqualTo(REPO_API + "/git/trees"))
                 .withRequestBody(matchingJsonPath("$.tree[0].path", equalTo("config/app.yml"))));
         server.verify(postRequestedFor(urlEqualTo(REPO_API + "/pulls"))
@@ -819,6 +859,22 @@ class AutoFixOrchestratorFlowTest {
     }
 
     @Test
+    void buildScmRepo_ignoresATrailingSlashInServerUrls() throws Exception {
+        String remote = "https://git.internal.example/acme/app.git";
+
+        assertRepo(buildScmRepo(remote, "github", "https://ghe.example/", null, null),
+                ScmType.GITHUB, "https://ghe.example/api/v3");
+        assertRepo(buildScmRepo(remote, "gitlab", null, "https://gitlab.internal.example/ ", null),
+                ScmType.GITLAB, "https://gitlab.internal.example/api/v4");
+        assertRepo(buildScmRepo(remote, "bitbucketserver", null, null, "https://bitbucket.internal.example/"),
+                ScmType.BITBUCKET_SERVER, "https://bitbucket.internal.example/rest/api/1.0");
+        assertRepo(buildScmRepo("https://github.com/acme/app.git", null, "https://ghe.example//", null, null),
+                ScmType.GITHUB, "https://ghe.example/api/v3");
+        assertEquals("https://proxy.example/bitbucket/2.0",
+                new AutoFixOrchestrator().resolveCloudBitbucketBaseUrl("https://proxy.example/bitbucket/2.0/"));
+    }
+
+    @Test
     void resolveCloudBitbucketBaseUrl_validatesAndKeepsExplicitApiUrls() {
         AutoFixOrchestrator orchestrator = new AutoFixOrchestrator();
 
@@ -835,7 +891,7 @@ class AutoFixOrchestratorFlowTest {
     void extractNewContent_ignoresLinesOutsideHunks() {
         String diff = "+not part of a hunk\n--- /dev/null\n+++ b/a.txt\n@@ -0,0 +1 @@\n+kept";
 
-        assertEquals("kept", new AutoFixOrchestrator().extractNewContent(diff));
+        assertEquals("kept\n", new AutoFixOrchestrator().extractNewContent(diff));
     }
 
     @Test
@@ -904,6 +960,21 @@ class AutoFixOrchestratorFlowTest {
         server.stubFor(get(urlEqualTo(REPO_API + "/git/ref/heads/main"))
                 .willReturn(okJson("{\"object\":{\"sha\":\"base-sha\"}}")));
         server.stubFor(post(urlEqualTo(REPO_API + "/git/refs"))
+                .willReturn(aResponse().withStatus(201).withBody("{}")));
+    }
+
+    /** The first fix branch the client asks for already exists; the retry with a suffixed name succeeds. */
+    private void stubBranchCollision() {
+        server.stubFor(get(urlEqualTo(REPO_API + "/git/ref/heads/main"))
+                .willReturn(okJson("{\"object\":{\"sha\":\"base-sha\"}}")));
+        server.stubFor(post(urlEqualTo(REPO_API + "/git/refs"))
+                .inScenario("existing branch")
+                .whenScenarioStateIs(Scenario.STARTED)
+                .willReturn(aResponse().withStatus(422).withBody("{\"message\":\"Reference already exists\"}"))
+                .willSetStateTo("retry"));
+        server.stubFor(post(urlEqualTo(REPO_API + "/git/refs"))
+                .inScenario("existing branch")
+                .whenScenarioStateIs("retry")
                 .willReturn(aResponse().withStatus(201).withBody("{}")));
     }
 

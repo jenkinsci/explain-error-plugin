@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
@@ -82,7 +83,7 @@ class GitHubApiClientTest {
         stubFor(post(urlEqualTo("/repos/owner/repo/git/refs"))
                 .willReturn(aResponse().withStatus(201).withBody("{}")));
 
-        assertDoesNotThrow(() -> client.createBranch("fix/test", "main"));
+        assertEquals("fix/test", client.createBranch("fix/test", "main"));
     }
 
     @Test
@@ -101,7 +102,11 @@ class GitHubApiClientTest {
                 .whenScenarioStateIs("retry")
                 .willReturn(aResponse().withStatus(201).withBody("{}")));
 
-        assertDoesNotThrow(() -> client.createBranch("fix/test", "main"));
+        String created = client.createBranch("fix/test", "main");
+
+        assertTrue(created.matches("fix/test-[0-9a-f]{4}"), created);
+        verify(postRequestedFor(urlEqualTo("/repos/owner/repo/git/refs"))
+                .withRequestBody(matchingJsonPath("$.ref", equalTo("refs/heads/" + created))));
     }
 
     // -----------------------------------------------------------------------
@@ -124,6 +129,41 @@ class GitHubApiClientTest {
                 .willReturn(okJson("{}")));
 
         assertDoesNotThrow(() -> client.commitFiles("fix-branch", "fix: test commit", Map.of("pom.xml", "<project/>")));
+    }
+
+    @Test
+    void commitFiles_keepsTheModeOfExecutableFiles() throws Exception {
+        stubFor(get(urlEqualTo("/repos/owner/repo/git/ref/heads/fix-branch"))
+                .willReturn(okJson("{\"object\": {\"sha\": \"commit123\"}}")));
+        stubFor(get(urlEqualTo("/repos/owner/repo/git/commits/commit123"))
+                .willReturn(okJson("{\"tree\": {\"sha\": \"tree123\"}}")));
+        stubFor(get(urlEqualTo("/repos/owner/repo/git/trees/tree123?recursive=1"))
+                .willReturn(okJson("{\"truncated\": false, \"tree\": ["
+                        + "{\"path\": \"gradlew\", \"mode\": \"100755\", \"type\": \"blob\"},"
+                        + "{\"path\": \"scripts\", \"mode\": \"040000\", \"type\": \"tree\"},"
+                        + "{\"path\": \"scripts/build.sh\", \"mode\": \"100755\", \"type\": \"blob\"},"
+                        + "{\"path\": \"build.gradle\", \"mode\": \"100644\", \"type\": \"blob\"}]}")));
+        stubFor(post(urlEqualTo("/repos/owner/repo/git/blobs"))
+                .willReturn(aResponse().withStatus(201).withBody("{\"sha\": \"blob123\"}")));
+        stubFor(post(urlEqualTo("/repos/owner/repo/git/trees"))
+                .willReturn(aResponse().withStatus(201).withBody("{\"sha\": \"newtree123\"}")));
+        stubFor(post(urlEqualTo("/repos/owner/repo/git/commits"))
+                .willReturn(aResponse().withStatus(201).withBody("{\"sha\": \"newcommit123\"}")));
+        stubFor(patch(urlEqualTo("/repos/owner/repo/git/refs/heads/fix-branch"))
+                .willReturn(okJson("{}")));
+
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("gradlew", "#!/bin/sh\n");
+        files.put("scripts/build.sh", "#!/bin/sh\n");
+        files.put("build.gradle", "plugins {}\n");
+        files.put("config/new.yml", "a: 1\n");
+        client.commitFiles("fix-branch", "fix: test commit", files);
+
+        verify(postRequestedFor(urlEqualTo("/repos/owner/repo/git/trees"))
+                .withRequestBody(matchingJsonPath("$.tree[0].mode", equalTo("100755")))
+                .withRequestBody(matchingJsonPath("$.tree[1].mode", equalTo("100755")))
+                .withRequestBody(matchingJsonPath("$.tree[2].mode", equalTo("100644")))
+                .withRequestBody(matchingJsonPath("$.tree[3].mode", equalTo("100644"))));
     }
 
     // -----------------------------------------------------------------------
@@ -215,5 +255,14 @@ class GitHubApiClientTest {
                 .willReturn(aResponse().withStatus(404).withBody("{\"message\": \"Not Found\"}")));
 
         assertNull(client.getFileContent("missing.txt", "main"));
+    }
+
+    @Test
+    void getFileContent_pathWithSpace_isPercentEncoded() throws Exception {
+        String encoded = java.util.Base64.getEncoder().encodeToString("notes\n".getBytes());
+        stubFor(get(urlEqualTo("/repos/owner/repo/contents/docs/Release%20Notes.md?ref=release%2F1.x"))
+                .willReturn(okJson("{\"content\": \"" + encoded + "\"}")));
+
+        assertEquals("notes\n", client.getFileContent("docs/Release Notes.md", "release/1.x"));
     }
 }

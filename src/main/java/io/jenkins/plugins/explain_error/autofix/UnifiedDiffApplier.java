@@ -57,7 +57,7 @@ public class UnifiedDiffApplier {
 
             // Collect hunk body lines
             List<String> hunkLines = new ArrayList<>();
-            while (i < diffLines.length && !diffLines[i].startsWith("@@ ") && !diffLines[i].startsWith("--- ") && !diffLines[i].startsWith("+++ ")) {
+            while (i < diffLines.length && !diffLines[i].startsWith("@@ ") && !isFileHeader(diffLines, i)) {
                 hunkLines.add(diffLines[i]);
                 i++;
             }
@@ -78,7 +78,8 @@ public class UnifiedDiffApplier {
             if (startOld == 0) {
                 actualPos = 0;
             } else {
-                int expectedPos = (startOld - 1) + offset;
+                // A hunk that removes and keeps nothing (-5,0) names the line it inserts after, not before
+                int expectedPos = (countOld == 0 ? startOld : startOld - 1) + offset;
                 // Extract context lines from hunk to find actual position (fuzzy match ±3)
                 actualPos = findActualPosition(result, hunkLines, expectedPos, countOld);
             }
@@ -125,7 +126,16 @@ public class UnifiedDiffApplier {
             result.add("");
         }
 
-        return String.join("\n", result);
+        return String.join(lineSeparator(originalContent), result);
+    }
+
+    /**
+     * The line ending of {@code content}: {@code \r\n} when its first line ends with one, otherwise {@code \n}.
+     * Lines are split on both, so joining with {@code \n} alone would rewrite every line of a CRLF file.
+     */
+    private static String lineSeparator(String content) {
+        int newline = content == null ? -1 : content.indexOf('\n');
+        return newline > 0 && content.charAt(newline - 1) == '\r' ? "\r\n" : "\n";
     }
 
     /**
@@ -190,6 +200,15 @@ public class UnifiedDiffApplier {
             // Keep it: join("\n") on ["a","b",""] => "a\nb\n"
         }
         return list;
+    }
+
+    /**
+     * Whether the line at {@code i} starts a file header: a {@code ---} line followed by a {@code +++} line.
+     * Inside a hunk, a {@code ---} or {@code +++} line on its own is a removed {@code -- ...} or an added
+     * {@code ++ ...} line, as in an SQL or Lua comment.
+     */
+    private static boolean isFileHeader(String[] diffLines, int i) {
+        return diffLines[i].startsWith("--- ") && i + 1 < diffLines.length && diffLines[i + 1].startsWith("+++ ");
     }
 
     /**

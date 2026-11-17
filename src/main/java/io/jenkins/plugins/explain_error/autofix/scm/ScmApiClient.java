@@ -18,9 +18,11 @@ public interface ScmApiClient {
      *
      * @param branchName the name of the new branch
      * @param fromBranch the branch to create from
+     * @return the name of the branch that was created, which differs from {@code branchName} when that
+     *         branch already existed and a suffixed name was used instead
      * @throws IOException if the API call fails
      */
-    void createBranch(String branchName, String fromBranch) throws IOException;
+    String createBranch(String branchName, String fromBranch) throws IOException;
 
     /**
      * Returns the current file content as a UTF-8 string, or null if the file does not exist.

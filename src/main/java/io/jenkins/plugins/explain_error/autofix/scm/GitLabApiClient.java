@@ -60,14 +60,16 @@ public class GitLabApiClient implements ScmApiClient {
     }
 
     @Override
-    public void createBranch(String branchName, String fromBranch) throws IOException {
+    public String createBranch(String branchName, String fromBranch) throws IOException {
         try {
             doCreateBranch(branchName, fromBranch);
+            return branchName;
         } catch (IOException e) {
             if (e.getMessage() != null && e.getMessage().contains("400")) {
                 // Branch may already exist – retry with a random suffix
                 String suffixed = branchName + "-" + randomHex4();
                 doCreateBranch(suffixed, fromBranch);
+                return suffixed;
             } else {
                 throw e;
             }
@@ -76,8 +78,8 @@ public class GitLabApiClient implements ScmApiClient {
 
     @Override
     public String getFileContent(String filePath, String branch) throws IOException {
-        String encodedPath = URLEncoder.encode(filePath, StandardCharsets.UTF_8);
-        String url = projectIdUrl() + "/repository/files/" + encodedPath + "?ref=" + branch;
+        String url = projectIdUrl() + "/repository/files/" + ScmUrls.pathSegment(filePath)
+                + "?ref=" + ScmUrls.queryValue(branch);
         HttpRequest request = baseRequest(url).GET().build();
         HttpResponse<String> response = sendWithRetry(request, 3);
         if (response.statusCode() == 404) {
