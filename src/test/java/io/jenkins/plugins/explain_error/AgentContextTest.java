@@ -28,7 +28,6 @@ import org.htmlunit.Page;
 import org.htmlunit.WebRequest;
 import org.htmlunit.html.HtmlElement;
 import org.htmlunit.html.HtmlPage;
-import org.htmlunit.html.HtmlTextArea;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -202,10 +201,12 @@ class AgentContextTest {
             client.waitForBackgroundJavaScript(5_000);
 
             // HtmlUnit offers no clipboard, so the text is shown to be copied by hand
-            HtmlTextArea text = console.querySelector("textarea.eep-agent-context");
+            HtmlElement text = console.querySelector("pre.eep-agent-context");
             assertNotNull(text, "the text is shown in a dialog");
-            assertTrue(text.getText().startsWith("The Jenkins build "), text.getText());
-            assertTrue(text.getText().contains("ERROR: tests failed"), text.getText());
+            assertTrue(text.getTextContent().startsWith("The Jenkins build "), text.getTextContent());
+            assertTrue(text.getTextContent().contains("ERROR: tests failed"), text.getTextContent());
+            assertNotNull(console.querySelector(".jenkins-dialog .jenkins-copy-button"),
+                    "core's copy button is next to it");
         }
     }
 

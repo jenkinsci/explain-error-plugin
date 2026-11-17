@@ -251,41 +251,15 @@ function copyForAgent(container) {
 }
 
 function showAgentContext(container, text) {
-  const content = document.createElement('div');
-  const hint = document.createElement('p');
-  hint.textContent = container.dataset.labelAgentHint;
-  const area = document.createElement('textarea');
-  area.className = 'jenkins-input eep-agent-context';
-  area.readOnly = true;
-  area.rows = 20;
-  area.value = text;
-  const copy = document.createElement('button');
-  copy.type = 'button';
-  copy.className = 'jenkins-button jenkins-button--primary eep-agent-copy';
-  copy.textContent = container.dataset.labelAgentCopy;
-  copy.addEventListener('click', () => {
-    area.focus();
-    area.select();
-    // A click on the page may copy what is selected, even where the clipboard API is not offered
-    const done = navigator.clipboard && window.isSecureContext
-      ? navigator.clipboard.writeText(text)
-      : Promise.resolve().then(() => {
-        if (!document.execCommand('copy')) {
-          throw new Error('copy refused');
-        }
-      });
-    done.then(() => notificationBar.show(container.dataset.labelAgentCopied, notificationBar.SUCCESS),
-      () => notificationBar.show(container.dataset.labelAgentHint, notificationBar.WARNING));
-  });
-  const actions = document.createElement('div');
-  actions.className = 'eep-agent-actions';
-  actions.append(copy);
-  content.append(hint, area, actions);
+  // Core's own copy pattern, rendered by Jelly in a template: its copy button reads the text at click
+  // time, and disables itself with an explanation on plain HTTP, where the text is copied by hand
+  const content = document.getElementById('eep-agent-template').content.firstElementChild.cloneNode(true);
+  content.querySelector('pre').textContent = text;
   // Jenkins makes a dialog at least 450px wide, wider than a phone
   dialog.modal(content, { title: container.dataset.labelAgentDialog, maxWidth: '960px',
     minWidth: 'min(450px, calc(100vw - 2rem))' });
-  area.focus();
-  area.select();
+  // dialog.modal does not run behaviours on its content; the copy button needs them for its click handler
+  Behaviour.applySubtree(content, true);
 }
 
 function createButton(text, className, onClick, providerName) {

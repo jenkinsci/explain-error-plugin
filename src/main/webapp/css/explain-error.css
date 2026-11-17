@@ -119,13 +119,18 @@
   /* As wide as the log on a desktop, within the screen on a phone */
   width: min(900px, calc(100vw - 6rem));
   min-width: 0;
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
   font-family: var(--font-family-mono, monospace);
   font-size: var(--font-size-xs, 0.8rem);
   white-space: pre-wrap;
 }
 
-.eep-agent-actions {
+/* The hint above it, with core's copy button at the end of the line */
+.eep-agent-hint {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
