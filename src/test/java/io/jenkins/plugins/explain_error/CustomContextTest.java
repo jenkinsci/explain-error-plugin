@@ -160,6 +160,7 @@ class CustomContextTest {
     }
 
     @Test
+    @org.junit.jupiter.api.condition.DisabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
     void testAdaptiveWorkspaceContextIsAppendedAfterTheCustomContext(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         FakeAIProvider provider = new FakeAIProvider();

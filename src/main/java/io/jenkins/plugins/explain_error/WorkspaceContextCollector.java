@@ -78,6 +78,10 @@ class WorkspaceContextCollector {
             if (path == null) {
                 continue;
             }
+            if (isLinkedPath(workspace, path)) {
+                log(listener, "Skipping workspace context file '" + path + "': symbolic links are not allowed");
+                continue;
+            }
             FilePath file = workspace.child(path);
             if (!file.exists() || file.isDirectory()) {
                 continue;
@@ -112,17 +116,39 @@ class WorkspaceContextCollector {
             if (path == null || !seen.add(path)) {
                 continue;
             }
-            FilePath file = workspace.child(path);
-            if (!file.exists() || file.isDirectory()) {
+            if (isLinkedPath(workspace, path)) {
+                LOGGER.fine("Skipping workspace file '" + path + "': symbolic links are not allowed");
                 continue;
             }
-            if (file.readLink() != null) {
-                LOGGER.fine("Skipping workspace file '" + path + "': symbolic links are not allowed");
+            FilePath file = workspace.child(path);
+            if (!file.exists() || file.isDirectory()) {
                 continue;
             }
             selected.add(path);
         }
         return selected;
+    }
+
+    /**
+     * Whether any component of the path is a symbolic link. A link in a parent directory can point
+     * outside the workspace even when the leaf file is not itself a link.
+     */
+    private boolean isLinkedPath(FilePath workspace, String relativePath)
+            throws IOException, InterruptedException {
+        StringBuilder prefix = new StringBuilder();
+        for (String segment : relativePath.split("/")) {
+            if (segment.isEmpty() || segment.equals(".")) {
+                continue;
+            }
+            if (prefix.length() > 0) {
+                prefix.append('/');
+            }
+            prefix.append(segment);
+            if (workspace.child(prefix.toString()).readLink() != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The first safety problem of an explicit relative path, or {@code null}. */

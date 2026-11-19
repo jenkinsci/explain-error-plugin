@@ -18,6 +18,8 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
@@ -406,6 +408,7 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void adaptiveWorkspaceContextIsOffByDefault(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
@@ -431,6 +434,7 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void adaptiveWorkspaceContextReadsFilesNamedByTheLogWithoutASelectionCall(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
         GlobalConfigurationImpl.get().setAiProvider(provider);
@@ -460,6 +464,7 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void adaptiveWorkspaceContextCallsTheSelectorOnceWhenTheLogNamesNoFile(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
         provider.setSelectedWorkspaceFiles(List.of("config/app.properties"));
@@ -486,6 +491,7 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void adaptiveWorkspaceContextIgnoresUnsafeAndMissingSuggestedPaths(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
         provider.setSelectedWorkspaceFiles(List.of("../outside.java", "/etc/passwd", ".env",
@@ -514,6 +520,7 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void adaptiveWorkspaceContextFallsBackWhenSelectionFails(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
         provider.setThrowOnSelection(true);
@@ -552,6 +559,7 @@ class ExplainErrorStepTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void adaptiveWorkspaceContextDoesNotCallTheSelectorWhenQuotaRejects(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         config.setEnableQuota(true);

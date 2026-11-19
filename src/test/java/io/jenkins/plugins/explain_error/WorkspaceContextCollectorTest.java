@@ -267,6 +267,29 @@ class WorkspaceContextCollectorTest {
     }
 
     @Test
+    void selectExisting_rejectsSymlinkedDirectories() throws Exception {
+        write("real/secret.java", "class Secret {}");
+        createSymlink(tempDir.resolve("linkdir"), tempDir.resolve("real"));
+
+        List<String> selected = new WorkspaceContextCollector().selectExisting(new FilePath(tempDir.toFile()),
+                List.of("linkdir/secret.java", "real/secret.java"), 5);
+
+        assertEquals(List.of("real/secret.java"), selected);
+    }
+
+    @Test
+    void collectFiles_rejectsPathsThroughASymlinkedDirectory() throws Exception {
+        write("real/secret.java", "class Secret {}");
+        createSymlink(tempDir.resolve("linkdir"), tempDir.resolve("real"));
+
+        String context = new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of("linkdir/secret.java", "real/secret.java"), 20_000, null);
+
+        assertTrue(context.contains("### real/secret.java"), context);
+        assertFalse(context.contains("### linkdir/secret.java"), context);
+    }
+
+    @Test
     void pathError_reportsTheFirstSafetyProblem() {
         WorkspaceContextCollector collector = new WorkspaceContextCollector();
 
@@ -284,5 +307,13 @@ class WorkspaceContextCollectorTest {
         Path file = tempDir.resolve(relativePath);
         Files.createDirectories(file.getParent());
         Files.writeString(file, content);
+    }
+
+    private void createSymlink(Path link, Path target) {
+        try {
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | java.io.IOException e) {
+            assumeTrue(false, "symbolic links are not supported on this platform");
+        }
     }
 }
