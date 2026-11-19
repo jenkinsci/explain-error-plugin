@@ -517,6 +517,39 @@ class CustomOktaAIProviderTest {
         assertEquals(FormValidation.Kind.OK, descriptor.doCheckTimeoutSeconds(600).kind);
     }
 
+    @Test
+    void workspaceFileSelectorUsesTheOktaTokenAndParsesPaths() throws Exception {
+        AtomicReference<String> chatBody = new AtomicReference<>();
+        server.createContext("/token", new JsonHandler(exchange -> "{\"access_token\":\"okta-token\"}"));
+        server.createContext("/chat/", new JsonHandler(exchange -> {
+            chatBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return chatResponse("{\"paths\":[\"pom.xml\"]}");
+        }));
+
+        WorkspaceFileSelection selection = newProvider(baseUrl() + "/chat/", "m")
+                .createWorkspaceFileSelector().selectFiles("ERROR: boom");
+
+        assertEquals(List.of("pom.xml"), selection.paths());
+        JsonNode payload = OBJECT_MAPPER.readTree(chatBody.get());
+        assertEquals(300, payload.path("max_tokens").asInt());
+        assertTrue(chatBody.get().contains("workspace-relative"), chatBody.get());
+        assertTrue(chatBody.get().contains("ERROR: boom"), chatBody.get());
+    }
+
+    @Test
+    void workspaceFileSelectorWrapsFailures() {
+        String tokenUrl = baseUrl() + "/token";
+        CustomOktaAIProvider provider = new CustomOktaAIProvider("http://127.0.0.1:1/chat/", tokenUrl, "m",
+                "my-client-id", Secret.fromString("my-client-secret"));
+        server.stop(0);
+        server = null;
+
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> provider.createWorkspaceFileSelector().selectFiles("ERROR: boom"));
+
+        assertTrue(e.getMessage().contains("Failed to communicate with Custom Okta AI provider"), e.getMessage());
+    }
+
     private CustomOktaAIProvider newProvider(String chatUrl, String model) {
         return new CustomOktaAIProvider(chatUrl, baseUrl() + "/token", model, "my-client-id",
                 Secret.fromString("my-client-secret"));

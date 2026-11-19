@@ -65,6 +65,21 @@ class PromptTest {
     }
 
     @Test
+    void workspaceSelectionPromptAsksForSafeRelativePaths() {
+        String prompt = WorkspaceFileSelector.SYSTEM_PROMPT;
+
+        assertTrue(prompt.contains("workspace-relative"), prompt);
+        assertTrue(prompt.contains("at most five"), prompt);
+        assertTrue(prompt.contains("absolute"), prompt);
+        assertTrue(prompt.contains(".."), prompt);
+        assertTrue(prompt.contains(".env"), prompt);
+        assertTrue(prompt.contains("node_modules"), prompt);
+        assertTrue(prompt.contains("empty list"), prompt);
+        assertTrue(WorkspaceFileSelector.userPrompt("ERROR: boom").contains("ERROR: boom"));
+        assertEquals("", WorkspaceFileSelector.userPrompt(null).replace("ERROR LOGS:", "").trim());
+    }
+
+    @Test
     void logsWithoutDownstreamSectionsGetNoDownstreamGuidance(JenkinsRule jenkins) throws Exception {
         FakeAIProvider provider = new FakeAIProvider();
 

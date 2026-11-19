@@ -5,6 +5,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.JenkinsLogAnalysis;
+import java.util.List;
 
 import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -22,6 +23,11 @@ public class FakeAIProvider extends OpenAIProvider {
     private String lastLanguage;
     private String lastCustomContext;
     private Double lastTemperature;
+
+    private List<String> selectedWorkspaceFiles = List.of();
+    private boolean throwOnSelection = false;
+    private String lastSelectionErrorLogs;
+    private int selectionCallCount;
 
     @DataBoundConstructor
     public FakeAIProvider() {
@@ -47,6 +53,39 @@ public class FakeAIProvider extends OpenAIProvider {
                 return answerMessage;
             }
         };
+    }
+
+    @Override
+    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull hudson.model.Item item,
+                                                             @CheckForNull org.springframework.security.core.Authentication authentication) {
+        return errorLogs -> {
+            lastSelectionErrorLogs = errorLogs;
+            countSelectionCall();
+            if (throwOnSelection) {
+                throw new RuntimeException("Selection failed.");
+            }
+            return new WorkspaceFileSelection(selectedWorkspaceFiles);
+        };
+    }
+
+    public void setSelectedWorkspaceFiles(List<String> selectedWorkspaceFiles) {
+        this.selectedWorkspaceFiles = selectedWorkspaceFiles == null ? List.of() : List.copyOf(selectedWorkspaceFiles);
+    }
+
+    public void setThrowOnSelection(boolean throwOnSelection) {
+        this.throwOnSelection = throwOnSelection;
+    }
+
+    public synchronized int getSelectionCallCount() {
+        return selectionCallCount;
+    }
+
+    private synchronized void countSelectionCall() {
+        selectionCallCount++;
+    }
+
+    public String getLastSelectionErrorLogs() {
+        return lastSelectionErrorLogs;
     }
 
     public void setThrowError(boolean throwError) {

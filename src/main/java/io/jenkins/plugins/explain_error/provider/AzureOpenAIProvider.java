@@ -53,6 +53,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private static final int ANALYSIS_MAX_OUTPUT_TOKENS = 1000;
     private static final int FIX_MAX_OUTPUT_TOKENS = 2000;
     private static final int TEST_MAX_OUTPUT_TOKENS = 32;
+    private static final int SELECTION_MAX_OUTPUT_TOKENS = 300;
 
     /**
      * The Azure OpenAI API type to use for requests.
@@ -130,6 +131,18 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     }
 
     @Override
+    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull Item item,
+                                                             @CheckForNull Authentication authentication) {
+        return errorLogs -> {
+            try {
+                return requestWorkspaceFileSelection(errorLogs, item, authentication);
+            } catch (ExplanationException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        };
+    }
+
+    @Override
     public boolean isNotValid(@CheckForNull TaskListener listener) {
         return isNotValid(listener, null, null);
     }
@@ -196,6 +209,74 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             Thread.currentThread().interrupt();
             throw new ExplanationException("error", "Interrupted while communicating with Azure OpenAI", e);
         }
+    }
+
+    private WorkspaceFileSelection requestWorkspaceFileSelection(String errorLogs, @CheckForNull Item item,
+                                                                 @CheckForNull Authentication authentication)
+            throws ExplanationException {
+        HttpClient client = newJenkinsHttpClientBuilder()
+                .connectTimeout(Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS))
+                .build();
+        try {
+            String content = requestRawContent(client, buildSelectionRequestBody(errorLogs), item, authentication);
+            return parseWorkspaceFileSelection(content);
+        } catch (IOException e) {
+            throw new ExplanationException("error", "Failed to communicate with Azure OpenAI", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ExplanationException("error", "Interrupted while communicating with Azure OpenAI", e);
+        }
+    }
+
+    private String buildSelectionRequestBody(String errorLogs) throws IOException {
+        if (getApiType() == ApiType.RESPONSES) {
+            return buildResponsesSelectionRequest(errorLogs);
+        }
+        return buildChatCompletionsSelectionRequest(errorLogs);
+    }
+
+    private String buildChatCompletionsSelectionRequest(String errorLogs) throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("max_tokens", SELECTION_MAX_OUTPUT_TOKENS);
+
+        ArrayNode messages = payload.putArray("messages");
+        messages.addObject()
+                .put("role", "system")
+                .put("content", WorkspaceFileSelector.SYSTEM_PROMPT);
+        messages.addObject()
+                .put("role", "user")
+                .put("content", WorkspaceFileSelector.userPrompt(errorLogs)
+                        + "\n\nReturn ONLY valid JSON with one key: paths (an array of strings).");
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private String buildResponsesSelectionRequest(String errorLogs) throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getDeployment());
+        payload.put("store", false);
+        payload.put("max_output_tokens", SELECTION_MAX_OUTPUT_TOKENS);
+        addGpt5LatencyControls(payload);
+
+        ArrayNode input = payload.putArray("input");
+        input.addObject()
+                .put("role", "system")
+                .put("content", WorkspaceFileSelector.SYSTEM_PROMPT);
+        input.addObject()
+                .put("role", "user")
+                .put("content", WorkspaceFileSelector.userPrompt(errorLogs)
+                        + "\n\nReturn ONLY valid JSON with one key: paths (an array of strings).");
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private WorkspaceFileSelection parseWorkspaceFileSelection(String content) throws IOException {
+        JsonNode json = tryParseJson(content);
+        if (json == null) {
+            return new WorkspaceFileSelection(List.of());
+        }
+        JsonNode paths = json.isArray() ? json : json.path("paths");
+        return new WorkspaceFileSelection(toStringList(paths));
     }
 
     private void testConfiguration(@CheckForNull Item item) throws ExplanationException {
