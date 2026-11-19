@@ -26,6 +26,7 @@ public class FakeAIProvider extends OpenAIProvider {
 
     private List<String> selectedWorkspaceFiles = List.of();
     private boolean throwOnSelection = false;
+    private long selectionDelayMillis;
     private String lastSelectionErrorLogs;
     private int selectionCallCount;
 
@@ -64,8 +65,20 @@ public class FakeAIProvider extends OpenAIProvider {
             if (throwOnSelection) {
                 throw new RuntimeException("Selection failed.");
             }
+            if (selectionDelayMillis > 0) {
+                try {
+                    Thread.sleep(selectionDelayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Selection interrupted.", e);
+                }
+            }
             return new WorkspaceFileSelection(selectedWorkspaceFiles);
         };
+    }
+
+    public void setSelectionDelayMillis(long selectionDelayMillis) {
+        this.selectionDelayMillis = selectionDelayMillis;
     }
 
     public void setSelectedWorkspaceFiles(List<String> selectedWorkspaceFiles) {
