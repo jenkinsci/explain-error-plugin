@@ -188,7 +188,8 @@ class CustomContextTest {
         assertNotNull(context);
         assertTrue(context.contains("Focus on the failing method"), context);
         assertTrue(context.contains("### src/main/java/com/example/App.java"), context);
-        assertTrue(context.indexOf("Focus on the failing method") < context.indexOf("### src/main/java/com/example/App.java"),
+        assertTrue(context.indexOf("Focus on the failing method")
+                        < context.indexOf("### src/main/java/com/example/App.java"),
                 "the user's instructions come before the adaptive workspace files: " + context);
     }
 

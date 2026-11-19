@@ -57,8 +57,9 @@ public class FakeAIProvider extends OpenAIProvider {
     }
 
     @Override
-    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull hudson.model.Item item,
-                                                             @CheckForNull org.springframework.security.core.Authentication authentication) {
+    public WorkspaceFileSelector createWorkspaceFileSelector(
+            @CheckForNull hudson.model.Item item,
+            @CheckForNull org.springframework.security.core.Authentication authentication) {
         return errorLogs -> {
             lastSelectionErrorLogs = errorLogs;
             countSelectionCall();
