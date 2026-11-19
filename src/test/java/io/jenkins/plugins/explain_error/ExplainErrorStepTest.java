@@ -355,6 +355,7 @@ class ExplainErrorStepTest {
         assertEquals(new ExplainErrorStep().getAutoFixTimeoutSeconds(), step.getAutoFixTimeoutSeconds(),
                 "0 falls back to the same default as a step that does not set it");
         assertEquals("", step.getAutoFixPrTemplate());
+        assertFalse(step.isAdaptiveWorkspaceContext());
     }
 
     @Test
@@ -365,6 +366,7 @@ class ExplainErrorStepTest {
         step.setIncludeWorkspaceContext(true);
         step.setWorkspaceContextPaths("pom.xml");
         step.setWorkspaceContextMaxBytes(512);
+        step.setAdaptiveWorkspaceContext(true);
         step.setAutoFix(true);
         step.setAutoFixCredentialsId("scm-token");
         step.setAutoFixRemoteUrl("https://github.com/acme/app.git");
@@ -395,11 +397,182 @@ class ExplainErrorStepTest {
         assertEquals(30, step.getAutoFixTimeoutSeconds());
         assertEquals("{explanation}", step.getAutoFixPrTemplate());
         assertTrue(step.isReturnStructured());
+        assertTrue(step.isAdaptiveWorkspaceContext());
 
         ExplainErrorStep.DescriptorImpl descriptor = new ExplainErrorStep.DescriptorImpl();
         assertEquals("explainError", descriptor.getFunctionName());
         assertEquals("Explain Error with AI", descriptor.getDisplayName());
         assertEquals(Set.of(Run.class, TaskListener.class), descriptor.getRequiredContext());
+    }
+
+    @Test
+    void adaptiveWorkspaceContextIsOffByDefault(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-off");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'src/main/java/com/example/App.java', text: 'class App {}'
+                    try {
+                        sh '''set +x
+                echo "\tat com.example.App.main(App.java:7)"
+                exit 1'''
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, workspaceContextPaths: 'pom.xml')
+                    }
+                }
+                """, true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertFalse(provider.getLastCustomContext().contains("src/main/java/com/example/App.java"),
+                provider.getLastCustomContext());
+        assertEquals(0, provider.getSelectionCallCount());
+    }
+
+    @Test
+    void adaptiveWorkspaceContextReadsFilesNamedByTheLogWithoutASelectionCall(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-anchor");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'src/main/java/com/example/App.java',
+                            text: 'class App { void fail() {} }'
+                    try {
+                        sh '''set +x
+                echo "\tat com.example.App.fail(App.java:7)"
+                echo "BUILD FAILED"
+                exit 1'''
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)
+                    }
+                }
+                """, true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        String context = provider.getLastCustomContext();
+        assertTrue(context.contains("### src/main/java/com/example/App.java"), context);
+        assertTrue(context.contains("class App { void fail() {} }"), context);
+        assertEquals(0, provider.getSelectionCallCount());
+        jenkins.assertLogContains("workspace file(s) named by the failure log", run);
+    }
+
+    @Test
+    void adaptiveWorkspaceContextCallsTheSelectorOnceWhenTheLogNamesNoFile(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setSelectedWorkspaceFiles(List.of("config/app.properties"));
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-selector");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'config/app.properties', text: 'retries=3'
+                    try {
+                        sh 'echo "BUILD FAILED"; exit 1'
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)
+                    }
+                }
+                """, true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        String context = provider.getLastCustomContext();
+        assertTrue(context.contains("### config/app.properties"), context);
+        assertTrue(context.contains("retries=3"), context);
+        assertEquals(1, provider.getSelectionCallCount());
+        jenkins.assertLogContains("selected by the AI provider", run);
+    }
+
+    @Test
+    void adaptiveWorkspaceContextIgnoresUnsafeAndMissingSuggestedPaths(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setSelectedWorkspaceFiles(List.of("../outside.java", "/etc/passwd", ".env",
+                "target/generated.java", "missing.java", "config/app.properties"));
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-unsafe");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'config/app.properties', text: 'retries=3'
+                    writeFile file: '.env', text: 'TOKEN=secret'
+                    try {
+                        sh 'echo "BUILD FAILED"; exit 1'
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)
+                    }
+                }
+                """, true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        String context = provider.getLastCustomContext();
+        assertTrue(context.contains("### config/app.properties"), context);
+        assertFalse(context.contains("TOKEN=secret"), context);
+        assertFalse(context.contains("missing.java"), context);
+        assertEquals(1, provider.getSelectionCallCount());
+    }
+
+    @Test
+    void adaptiveWorkspaceContextFallsBackWhenSelectionFails(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setThrowOnSelection(true);
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-failure");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    try {
+                        sh 'echo "BUILD FAILED"; exit 1'
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)
+                    }
+                }
+                """, true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertNotNull(run.getAction(ErrorExplanationAction.class), "the explanation must still be saved");
+        assertEquals(1, provider.getCallCount());
+        jenkins.assertLogContains("Workspace file selection failed", run);
+    }
+
+    @Test
+    void adaptiveWorkspaceContextWithoutAWorkspaceIsSkipped(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-no-workspace");
+        job.setDefinition(new CpsFlowDefinition(
+                "explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        jenkins.assertLogContains("Adaptive workspace context skipped: no workspace is available.", run);
+        assertNotNull(run.getAction(ErrorExplanationAction.class));
+        assertEquals(0, provider.getSelectionCallCount());
+    }
+
+    @Test
+    void adaptiveWorkspaceContextDoesNotCallTheSelectorWhenQuotaRejects(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        config.setEnableQuota(true);
+        config.setMaxProviderCallsPerWindow(0);
+        FakeAIProvider provider = new FakeAIProvider();
+        config.setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "adaptive-quota");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    try {
+                        sh 'echo "BUILD FAILED"; exit 1'
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)
+                    }
+                }
+                """, true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertEquals(0, provider.getCallCount());
+        assertEquals(0, provider.getSelectionCallCount());
     }
 
     @Test

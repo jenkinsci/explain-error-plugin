@@ -50,6 +50,11 @@
                  description="Maximum total bytes of workspace context to include (default: 20000).">
             <f:number min="1" default="20000" />
         </f:entry>
+
+        <f:entry title="Adaptive Workspace Context" field="adaptiveWorkspaceContext"
+                 description="Read workspace files named by stack frames, compiler errors or tracebacks in the failure log. When none are named, one small AI call selects paths. Every path is validated and read within the remaining workspace context budget. Disabled by default.">
+            <f:checkbox />
+        </f:entry>
     </f:optionalBlock>
 
     <f:optionalBlock field="autoFix" title="Enable AI Auto-Fix (create PR)" inline="true">

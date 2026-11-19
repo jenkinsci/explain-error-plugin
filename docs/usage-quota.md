@@ -17,6 +17,7 @@ Usage quotas let administrators cap the number of real AI provider calls the plu
 | **Real-time config changes** | Changing the limit takes effect immediately — no Jenkins restart needed |
 | **Thread safety** | The counter is synchronized, so concurrent builds on the same controller share the same window correctly |
 | **Automatic explanation limit** | Automatic explanations of failed builds also have their own hourly limit (default 30), checked before this quota. See [Automatic Explanation of Failed Builds](auto-explain.md) |
+| **Adaptive workspace selection** | `adaptiveWorkspaceContext` makes at most one extra provider call, only after the explanation's quota slot is acquired. It shares that slot and is not counted separately; a quota-rejected explanation makes no selection call |
 
 ---
 

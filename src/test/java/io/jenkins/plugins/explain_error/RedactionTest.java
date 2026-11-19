@@ -91,6 +91,38 @@ class RedactionTest {
 
     @Test
     @DisabledOnOs(OS.WINDOWS)
+    void adaptiveWorkspaceFilesAreMaskedToo() throws Exception {
+        explain("adaptive", "explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)",
+                "writeFile file: 'src/main/java/p/Leaky.java', "
+                        + "text: 'String url = \"https://ci:adaptive-secret@host\";'\n"
+                        + "sh '''set +x\necho \"\tat p.Leaky.m(Leaky.java:7)\"\n"
+                        + "echo \"BUILD FAILED\"\nexit 1'''");
+
+        String context = provider.getLastCustomContext();
+        assertFalse(context.contains("adaptive-secret"), context);
+        assertTrue(context.contains("### src/main/java/p/Leaky.java"), context);
+        assertTrue(context.contains("https://ci:[REDACTED]@host"), context);
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void nothingIsSentWhenAnAdaptiveFileWasMaskedAndTheConfigurationSaysSo() throws Exception {
+        GlobalConfigurationImpl.get().setBlockWhenRedacted(true);
+
+        WorkflowRun run = explain("adaptive-block",
+                "explainError(includeWorkspaceContext: true, adaptiveWorkspaceContext: true)",
+                "writeFile file: 'src/main/java/p/Leaky.java', "
+                        + "text: 'String url = \"https://ci:adaptive-secret@host\";'\n"
+                        + "sh '''set +x\necho \"\tat p.Leaky.m(Leaky.java:7)\"\n"
+                        + "echo \"BUILD FAILED\"\nexit 1'''");
+
+        jenkins.assertLogContains(ErrorExplainer.BLOCKED, run);
+        assertEquals(0, provider.getCallCount());
+        assertNull(run.getAction(ErrorExplanationAction.class));
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
     void withMaskingOffTheLogIsSentAsItIs() throws Exception {
         GlobalConfigurationImpl.get().setRedactSecrets(false);
 
