@@ -175,7 +175,7 @@ class ProviderTestConfigurationTest {
         assertEquals(FormValidation.Kind.ERROR,
                 qwen.doTestConfiguration(folder, null, "jenkins-only", url("/openai"), "qwen-test").kind);
         assertEquals(FormValidation.Kind.ERROR, azure.doTestConfiguration(folder, url("/azure"), "gpt",
-                "2025-01-01-preview", "jenkins-only", "CHAT_COMPLETIONS").kind);
+                "2025-01-01-preview", "jenkins-only", "CHAT_COMPLETIONS", null, null).kind);
         assertTrue(lastAuthorization.isEmpty(), "no request may carry the credential: " + lastAuthorization);
 
         // One the folder can use is, as a build in the folder would send it
@@ -184,7 +184,7 @@ class ProviderTestConfigurationTest {
         assertOk(qwen.doTestConfiguration(folder, null, "shared", url("/openai"), "qwen-test"));
         assertEquals("Bearer shared-key", lastAuthorization.get("openai"));
         assertOk(azure.doTestConfiguration(folder, url("/azure"), "gpt", "2025-01-01-preview", "shared",
-                "CHAT_COMPLETIONS"));
+                "CHAT_COMPLETIONS", null, null));
         assertEquals("shared-key", lastAuthorization.get("azure"));
     }
 

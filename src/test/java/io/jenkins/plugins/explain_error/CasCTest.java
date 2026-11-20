@@ -77,6 +77,8 @@ public class CasCTest {
         assertEquals("2025-01-01-preview", azure.getApiVersion());
         assertEquals("azure-openai-key", azure.getCredentialsId());
         assertEquals(AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS, azure.getApiType());
+        assertNull(azure.getReasoningEffort());
+        assertNull(azure.getVerbosity());
     }
 
     @Test

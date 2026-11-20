@@ -25,6 +25,14 @@
     <f:select />
   </f:entry>
 
+  <f:entry title="Reasoning Effort" field="reasoningEffort">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="Verbosity" field="verbosity">
+    <f:textbox/>
+  </f:entry>
+
   <f:validateButton title="Test Configuration" progress="Testing..."
-                    method="testConfiguration" with="endpoint,deployment,apiVersion,credentialsId,apiType" />
+                    method="testConfiguration" with="endpoint,deployment,apiVersion,credentialsId,apiType,reasoningEffort,verbosity" />
 </j:jelly>

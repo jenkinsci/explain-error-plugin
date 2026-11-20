@@ -154,8 +154,8 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
         assertEquals(1000, payload.path("max_output_tokens").asInt());
-        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
-        assertEquals("low", payload.path("text").path("verbosity").asText());
+        assertFalse(payload.has("reasoning"));
+        assertFalse(payload.has("text"));
         assertTrue(payload.has("store"));
         assertFalse(payload.path("store").asBoolean(true));
         assertNotNull(payload.path("input"));
@@ -277,6 +277,8 @@ class AzureOpenAIProviderTest {
                 "2025-01-01-preview",
                 "azure-fix-responses-key",
                 AzureOpenAIProvider.ApiType.RESPONSES);
+        provider.setReasoningEffort(" high ");
+        provider.setVerbosity("medium");
 
         FixAssistant assistant = provider.createFixAssistant();
         String result = assistant.suggestFix("FAILURE: obscure error");
@@ -286,8 +288,8 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-fix", payload.path("model").asText());
         assertEquals(2000, payload.path("max_output_tokens").asInt());
-        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
-        assertEquals("low", payload.path("text").path("verbosity").asText());
+        assertEquals("high", payload.path("reasoning").path("effort").asText());
+        assertEquals("medium", payload.path("text").path("verbosity").asText());
         assertTrue(payload.has("store"));
         assertFalse(payload.path("store").asBoolean(true));
         assertTrue(result.contains("\"fixable\":false"));
@@ -352,7 +354,9 @@ class AzureOpenAIProviderTest {
                 "gpt-5-pro",
                 "2025-01-01-preview",
                 "azure-test-responses-key",
-                AzureOpenAIProvider.ApiType.RESPONSES.name());
+                AzureOpenAIProvider.ApiType.RESPONSES.name(),
+                "xhigh",
+                "low");
 
         assertEquals(FormValidation.Kind.OK, validation.kind);
         assertEquals("/openai/v1/responses", requestPath.get());
@@ -360,7 +364,7 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
         assertEquals(32, payload.path("max_output_tokens").asInt());
-        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
+        assertEquals("xhigh", payload.path("reasoning").path("effort").asText());
         assertEquals("low", payload.path("text").path("verbosity").asText());
         assertEquals("Test the connection.", payload.path("input").asText());
         assertFalse(requestBody.get().contains("Return ONLY valid JSON"));
@@ -401,7 +405,9 @@ class AzureOpenAIProviderTest {
                 "gpt-5-pro",
                 "2025-01-01-preview",
                 "azure-item-context-key",
-                AzureOpenAIProvider.ApiType.RESPONSES.name());
+                AzureOpenAIProvider.ApiType.RESPONSES.name(),
+                "",
+                null);
 
         assertEquals(FormValidation.Kind.OK, validation.kind);
         assertEquals("/openai/v1/responses", requestPath.get());
@@ -409,8 +415,8 @@ class AzureOpenAIProviderTest {
         JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals("gpt-5-pro", payload.path("model").asText());
         assertEquals(32, payload.path("max_output_tokens").asInt());
-        assertEquals("minimal", payload.path("reasoning").path("effort").asText());
-        assertEquals("low", payload.path("text").path("verbosity").asText());
+        assertFalse(payload.has("reasoning"));
+        assertFalse(payload.has("text"));
         assertEquals("Test the connection.", payload.path("input").asText());
         assertFalse(requestBody.get().contains("Return ONLY valid JSON"));
     }
@@ -675,13 +681,13 @@ class AzureOpenAIProviderTest {
                 fixFailure.getMessage());
 
         FormValidation failedTest = descriptor.doTestConfiguration(null, endpoint(), "dep", "2025-01-01-preview",
-                "azure-failures", "CHAT_COMPLETIONS");
+                "azure-failures", "CHAT_COMPLETIONS", null, null);
         assertEquals(FormValidation.Kind.ERROR, failedTest.kind);
         assertTrue(failedTest.renderHtml().contains("Configuration test failed:"), failedTest.renderHtml());
 
         status.set(200);
         FormValidation passedTest = descriptor.doTestConfiguration(null, endpoint(), "dep", "2025-01-01-preview",
-                "azure-failures", " ");
+                "azure-failures", " ", null, null);
         assertEquals(FormValidation.Kind.OK, passedTest.kind, passedTest.renderHtml());
         JsonNode testPayload = OBJECT_MAPPER.readTree(requestBody.get());
         assertEquals(32, testPayload.path("max_tokens").asInt());
@@ -689,12 +695,12 @@ class AzureOpenAIProviderTest {
                 testPayload.path("messages").get(0).path("content").asText());
 
         FormValidation invalidType = descriptor.doTestConfiguration(null, endpoint(), "dep", "2025-01-01-preview",
-                "azure-failures", "BOGUS");
+                "azure-failures", "BOGUS", null, null);
         assertEquals(FormValidation.Kind.ERROR, invalidType.kind);
         assertEquals("Invalid API type.", invalidType.getMessage());
 
         FormValidation noCredentials = descriptor.doTestConfiguration(null, endpoint(), "dep", "2025-01-01-preview",
-                " ", "CHAT_COMPLETIONS");
+                " ", "CHAT_COMPLETIONS", null, null);
         assertEquals(FormValidation.Kind.ERROR, noCredentials.kind);
         assertTrue(noCredentials.renderHtml().contains("Azure OpenAI credentials not found for ID: null"),
                 noCredentials.renderHtml());
@@ -706,7 +712,7 @@ class AzureOpenAIProviderTest {
                 () -> provider.createFixAssistant(job, null).suggestFix("ERROR: boom"));
         assertTrue(fixIo.getMessage().contains("Failed to communicate with Azure OpenAI"), fixIo.getMessage());
         FormValidation unreachable = descriptor.doTestConfiguration(null, provider.getEndpoint(), "dep",
-                "2025-01-01-preview", "azure-failures", null);
+                "2025-01-01-preview", "azure-failures", null, null, null);
         assertEquals(FormValidation.Kind.ERROR, unreachable.kind);
         assertTrue(unreachable.renderHtml().contains("Failed to communicate with Azure OpenAI"),
                 unreachable.renderHtml());
