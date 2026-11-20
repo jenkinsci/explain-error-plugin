@@ -9,18 +9,93 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.cloudbees.hudson.plugins.folder.Folder;
+import hudson.FilePath;
+import hudson.console.AnnotatedLargeText;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
+import hudson.model.Result;
 import hudson.model.TaskListener;
 import hudson.util.Secret;
 import io.jenkins.plugins.explain_error.provider.OpenAIProvider;
 import io.jenkins.plugins.explain_error.provider.FakeAIProvider;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 @WithJenkins
 class ErrorExplainerTest {
+
+    @TempDir
+    private Path tempDir;
+
+    @Test
+    void adaptiveWorkspaceContextIsReadAndExposed(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setEnableExplanation(true);
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        FilePath workspace = new FilePath(tempDir.toFile());
+        workspace.child("src/main/java/com/example/App.java")
+                .write("class App { void fail() {} }", StandardCharsets.UTF_8.name());
+        FreeStyleProject project = jenkins.createFreeStyleProject("adaptive-explainer");
+        FreeStyleBuild build = buildWithLog(project,
+                "java.lang.RuntimeException: boom\n\tat com.example.App.fail(App.java:7)\n");
+        ErrorExplainer explainer = new ErrorExplainer();
+
+        String explanation = explainer.explainError(build, jenkins.createTaskListener(), "", 100,
+                null, null, false, null, null, null,
+                UsageEvent.EntryPoint.PIPELINE_STEP,
+                new AdaptiveWorkspaceContextRequest(workspace, 20_000));
+
+        assertNotNull(explanation);
+        assertTrue(provider.getLastCustomContext().contains("### src/main/java/com/example/App.java"),
+                provider.getLastCustomContext());
+        assertTrue(provider.getLastCustomContext().contains("class App { void fail() {} }"),
+                provider.getLastCustomContext());
+        assertNotNull(explainer.getLastAdaptiveWorkspaceContext());
+        assertTrue(explainer.getLastAdaptiveWorkspaceContext().contains("class App"),
+                explainer.getLastAdaptiveWorkspaceContext());
+        assertEquals(0, provider.getSelectionCallCount());
+    }
+
+    @Test
+    void adaptiveWorkspaceIsNotUsedWithoutARequest(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl.get().setEnableExplanation(true);
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        FreeStyleProject project = jenkins.createFreeStyleProject("no-adaptive");
+        FreeStyleBuild build = buildWithLog(project,
+                "java.lang.RuntimeException: boom\n\tat com.example.App.fail(App.java:7)\n");
+        ErrorExplainer explainer = new ErrorExplainer();
+
+        assertNotNull(explainer.explainError(build, jenkins.createTaskListener(), "", 100));
+        assertNull(explainer.getLastAdaptiveWorkspaceContext());
+        assertEquals(0, provider.getSelectionCallCount());
+    }
+
+    private static FreeStyleBuild buildWithLog(FreeStyleProject project, String logs) throws Exception {
+        FreeStyleBuild build = org.mockito.Mockito.mock(FreeStyleBuild.class);
+        org.mockito.Mockito.when(build.getParent()).thenReturn(project);
+        org.mockito.Mockito.when(build.getNumber()).thenReturn(1);
+        org.mockito.Mockito.when(build.getResult()).thenReturn(Result.FAILURE);
+        byte[] bytes = logs.getBytes(StandardCharsets.UTF_8);
+        @SuppressWarnings("unchecked")
+        AnnotatedLargeText<FreeStyleBuild> logText = org.mockito.Mockito.mock(AnnotatedLargeText.class);
+        org.mockito.Mockito.when(logText.length()).thenReturn((long) bytes.length);
+        org.mockito.Mockito.when(logText.writeRawLogTo(org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any(OutputStream.class)))
+                .thenAnswer(invocation -> {
+                    OutputStream out = invocation.getArgument(1);
+                    out.write(bytes);
+                    return (long) bytes.length;
+                });
+        org.mockito.Mockito.when(build.getLogText()).thenReturn(logText);
+        org.mockito.Mockito.when(build.getCharset()).thenReturn(StandardCharsets.UTF_8);
+        return build;
+    }
 
     @Test
     void testErrorExplainerBasicFunctionality(JenkinsRule jenkins) throws Exception {

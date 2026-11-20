@@ -103,6 +103,18 @@ public class LangGraphProvider extends BaseAIProvider {
     }
 
     @Override
+    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull Item item,
+                                                             @CheckForNull Authentication authentication) {
+        return errorLogs -> {
+            try {
+                return requestWorkspaceFileSelection(errorLogs);
+            } catch (ExplanationException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        };
+    }
+
+    @Override
     public boolean isNotValid(@CheckForNull TaskListener listener) {
         String urlValue = Util.fixEmptyAndTrim(getUrl());
         String keyValue = Util.fixEmptyAndTrim(Secret.toString(getApiKey()));
@@ -115,6 +127,51 @@ public class LangGraphProvider extends BaseAIProvider {
             }
         }
         return urlValue == null || keyValue == null;
+    }
+
+    private WorkspaceFileSelection requestWorkspaceFileSelection(String errorLogs) throws ExplanationException {
+        HttpClient client = newJenkinsHttpClientBuilder()
+            .connectTimeout(Duration.ofSeconds(resolveTimeout()))
+            .build();
+
+        try {
+            String body = buildSelectionRunRequestBody(errorLogs);
+            String content = sendRequest(client, body);
+            return parseWorkspaceFileSelection(content);
+        } catch (IOException e) {
+            LOGGER.warning("LangGraph Platform communication failed (selection request): " + e);
+            throw new ExplanationException("error",
+                    "Failed to communicate with LangGraph Platform: " + e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ExplanationException("error", "Interrupted while communicating with LangGraph Platform", e);
+        }
+    }
+
+    private String buildSelectionRunRequestBody(String errorLogs) throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("assistant_id", getModel());
+
+        ObjectNode configurable = payload.putObject("config").putObject("configurable");
+        configurable.put("system_prompt", WorkspaceFileSelector.SYSTEM_PROMPT);
+
+        ObjectNode input = payload.putObject("input");
+        ArrayNode messages = input.putArray("messages");
+        messages.addObject()
+                .put("role", "human")
+                .put("content", WorkspaceFileSelector.userPrompt(errorLogs)
+                        + "\n\nReturn ONLY valid JSON with one key: paths (an array of strings).");
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private WorkspaceFileSelection parseWorkspaceFileSelection(String content) throws IOException {
+        JsonNode json = tryParseJson(content);
+        if (json == null) {
+            return new WorkspaceFileSelection(List.of());
+        }
+        JsonNode paths = json.isArray() ? json : json.path("paths");
+        return new WorkspaceFileSelection(toStringList(paths));
     }
 
     private JenkinsLogAnalysis analyzeWithLangGraph(String errorLogs, String language, String customContext,

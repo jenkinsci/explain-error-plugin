@@ -90,6 +90,7 @@ through the REST API at `<build-url>/error-explanation/api/json`.
 | `includeWorkspaceContext` | Include selected files from the workspace | `false` |
 | `workspaceContextPaths` | Comma-separated paths or glob patterns of the files to include | `pom.xml,build.gradle,build.gradle.kts,package.json,Jenkinsfile,Dockerfile,*.yml,*.yaml,*.properties` |
 | `workspaceContextMaxBytes` | Maximum total bytes of workspace files to include; each file is cut to 8,000 bytes | `20000` |
+| `adaptiveWorkspaceContext` | Read workspace files named by the failure log, with one AI selection call as a fallback. Requires `includeWorkspaceContext`. See [Adaptive workspace files](#adaptive-workspace-files) | `false` |
 | `returnStructured` | Return a `Map` of the analysis instead of the text | `false` |
 | `autoFix` and `autoFix*` | Open a pull request with an AI-generated fix. See [AI Auto-Fix](auto-fix.md) | `false` |
 
@@ -141,3 +142,38 @@ known shape, so leave out any files that hold secrets.
 
 The files travel with the step's `customContext`. While `includeWorkspaceContext` is on and the step sets no
 `customContext`, the folder and global Custom Context are not sent; set `customContext` on the step to keep them.
+
+### Adaptive workspace files
+
+`adaptiveWorkspaceContext: true` adds the files the failure log itself names, instead of relying on patterns the user
+guessed:
+
+```groovy
+explainError(
+    includeWorkspaceContext: true,
+    adaptiveWorkspaceContext: true,
+    workspaceContextMaxBytes: 30000
+)
+```
+
+The log is parsed locally first. Source files are found from Java, Kotlin, Scala and Groovy stack frames, Maven and
+Gradle compiler errors, Python tracebacks and pytest node ids, Node/TypeScript locations, Go and Rust locations, and
+bare `path:line` references. Java and JVM frames are looked up under `src/main/<lang>` and `src/test/<lang>`; a frame
+in a multi-module layout (`module/src/main/java/...`) is not guessed, so the AI fallback may suggest it instead.
+
+Only when no file named in the log exists in the workspace does the plugin make one small AI call to select paths.
+That call sees only the masked log, tailed to 12,000 bytes, and returns at most five workspace-relative paths. A
+selection that fails, times out after 30 seconds or is unsupported by the provider never fails the step: the
+configured workspace context is still sent.
+
+Every suggested path is checked again: absolute paths, `..`, glob patterns, directories, symbolic links, missing
+files, secret files (`.env*`, `credentials*`, `secrets*`) and build output directories (`.git/`, `.gradle/`,
+`target/`, `build/`, `dist/`, `node_modules/`) are refused. Files are read with the same per-file cap, truncation and
+format as the configured paths, using the bytes left in `workspaceContextMaxBytes` after the configured files, so the
+two together never exceed that limit. Secrets in the selected files are [masked](configuration.md#masking-secrets); with
+**Do not send a log in which something was masked** on, the whole request is blocked and no main provider call is made.
+
+The selection call runs only after the explanation's quota slot is acquired, so a quota-rejected explanation makes no
+selection call; it shares that slot and is not counted a second time. The selected files are also sent to the auto-fix
+request. Adaptive retrieval is available only in the `explainError` step, not in the console button or automatic
+explanations.

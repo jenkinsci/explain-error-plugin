@@ -65,6 +65,27 @@ class AnalysisSchemaTest {
     }
 
     @Test
+    void workspaceFileSelectionSchemaRequiresPaths() {
+        SchemaModel model = new SchemaModel("{\"paths\": [\"pom.xml\", \"src/main/java/App.java\"]}");
+
+        WorkspaceFileSelection selection = AiServices.create(WorkspaceFileSelector.class, model)
+                .selectFiles("ERROR: build failed");
+
+        JsonObjectSchema schema = (JsonObjectSchema) model.request.parameters().responseFormat().jsonSchema()
+                .rootElement();
+        assertEquals(List.of("paths"), schema.required());
+        assertEquals(List.of("pom.xml", "src/main/java/App.java"), selection.paths());
+    }
+
+    @Test
+    void aSelectionWithoutPathsIsRejected() {
+        WorkspaceFileSelector selector = AiServices.create(WorkspaceFileSelector.class,
+                new SchemaModel("{\"unexpected\": true}"));
+
+        assertThrows(OutputParsingException.class, () -> selector.selectFiles("logs"));
+    }
+
+    @Test
     void geminiIsSentTheSchema() {
         ChatModel gemini = new GeminiProvider(null, "gemini-2.5-flash", Secret.fromString("key"))
                 .createChatModel(null, null, null);

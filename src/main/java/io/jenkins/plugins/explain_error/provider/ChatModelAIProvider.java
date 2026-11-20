@@ -47,4 +47,10 @@ public abstract class ChatModelAIProvider extends BaseAIProvider {
         return AiServices.create(io.jenkins.plugins.explain_error.autofix.FixAssistant.class,
                 createChatModel(item, authentication, null));
     }
+
+    @Override
+    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull Item item,
+                                                             @CheckForNull Authentication authentication) {
+        return AiServices.create(WorkspaceFileSelector.class, createChatModel(item, authentication, null));
+    }
 }

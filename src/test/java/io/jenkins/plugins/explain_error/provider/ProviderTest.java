@@ -672,6 +672,26 @@ class ProviderTest {
         assertNull(BaseAIProvider.proxyAuthorizationHeaderOrNull());
     }
 
+    @Test
+    void providersWithoutASelectorReturnAnEmptySelection() {
+        WorkspaceFileSelection selection = new ProxyAwareProvider()
+                .createWorkspaceFileSelector().selectFiles("ERROR: boom");
+
+        assertEquals(List.of(), selection.paths());
+    }
+
+    @Test
+    void theFakeProviderSelectionIsConfigurable() {
+        FakeAIProvider provider = new FakeAIProvider();
+        provider.setSelectedWorkspaceFiles(List.of("pom.xml"));
+
+        WorkspaceFileSelection selection = provider.createWorkspaceFileSelector().selectFiles("ERROR: boom");
+
+        assertEquals(List.of("pom.xml"), selection.paths());
+        assertEquals(1, provider.getSelectionCallCount());
+        assertEquals("ERROR: boom", provider.getLastSelectionErrorLogs());
+    }
+
     private static final class ProxyAwareProvider extends BaseAIProvider {
 
         private ProxyAwareProvider() {

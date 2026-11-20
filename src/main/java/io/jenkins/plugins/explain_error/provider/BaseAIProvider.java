@@ -185,6 +185,24 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
     public abstract io.jenkins.plugins.explain_error.autofix.FixAssistant createFixAssistant(
             @CheckForNull Item item, @CheckForNull Authentication authentication);
 
+    /**
+     * Returns a selector for workspace files that could help explain a failure. Providers that do
+     * not support selection return an empty selection; the caller then falls back to the configured
+     * workspace paths. The default keeps third-party providers source- and binary-compatible.
+     *
+     * @param item           the item defining the credentials scope, or {@code null}
+     * @param authentication the authentication for credentials lookup, or {@code null}
+     * @return the workspace file selector
+     */
+    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull Item item,
+                                                             @CheckForNull Authentication authentication) {
+        return errorLogs -> new WorkspaceFileSelection(List.of());
+    }
+
+    public final WorkspaceFileSelector createWorkspaceFileSelector() {
+        return createWorkspaceFileSelector(null, null);
+    }
+
     public abstract boolean isNotValid(@CheckForNull TaskListener listener);
 
     public String getUrl() {

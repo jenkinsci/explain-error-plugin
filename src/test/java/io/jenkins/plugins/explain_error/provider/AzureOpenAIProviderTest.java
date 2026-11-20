@@ -752,6 +752,61 @@ class AzureOpenAIProviderTest {
         }
     }
 
+    @Test
+    void workspaceFileSelectorUsesChatCompletionsEndpoint(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-selection-key", "test-selection-key");
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server.createContext("/openai/deployments/selection-deployment/chat/completions", new JsonHandler(exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return chatResponse(OBJECT_MAPPER.readTree(
+                    "\"{\\\"paths\\\":[\\\"pom.xml\\\",\\\"src/main/java/App.java\\\"]}\""));
+        }));
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(endpoint(), "selection-deployment",
+                "2025-01-01-preview", "azure-selection-key", AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS);
+
+        WorkspaceFileSelection selection = provider.createWorkspaceFileSelector()
+                .selectFiles("ERROR: cannot find symbol");
+
+        assertEquals(List.of("pom.xml", "src/main/java/App.java"), selection.paths());
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals(300, payload.path("max_tokens").asInt());
+        assertTrue(requestBody.get().contains("workspace-relative"), requestBody.get());
+        assertTrue(requestBody.get().contains("cannot find symbol"), requestBody.get());
+    }
+
+    @Test
+    void workspaceFileSelectorUsesResponsesEndpoint(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-selection-responses-key", "test-selection-responses-key");
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        server.createContext("/openai/v1/responses", new JsonHandler(exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            return "{\"output_text\":\"{\\\"paths\\\":[\\\"src/app.ts\\\"]}\"}";
+        }));
+        AzureOpenAIProvider provider = new AzureOpenAIProvider(endpoint(), "selection-deployment",
+                "2025-01-01-preview", "azure-selection-responses-key", AzureOpenAIProvider.ApiType.RESPONSES);
+
+        WorkspaceFileSelection selection = provider.createWorkspaceFileSelector().selectFiles("ERROR: boom");
+
+        assertEquals(List.of("src/app.ts"), selection.paths());
+        JsonNode payload = OBJECT_MAPPER.readTree(requestBody.get());
+        assertEquals(300, payload.path("max_output_tokens").asInt());
+        assertTrue(requestBody.get().contains("workspace-relative"), requestBody.get());
+    }
+
+    @Test
+    void workspaceFileSelectorWrapsCommunicationFailures(JenkinsRule jenkins) throws Exception {
+        addStringCredential("azure-selection-failure", "test-selection-failure");
+        server.stop(0);
+        server = null;
+        AzureOpenAIProvider provider = new AzureOpenAIProvider("http://127.0.0.1:1", "dep",
+                "2025-01-01-preview", "azure-selection-failure", AzureOpenAIProvider.ApiType.CHAT_COMPLETIONS);
+
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> provider.createWorkspaceFileSelector().selectFiles("ERROR: boom"));
+
+        assertTrue(e.getMessage().contains("Failed to communicate with Azure OpenAI"), e.getMessage());
+    }
+
     private String endpoint() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
