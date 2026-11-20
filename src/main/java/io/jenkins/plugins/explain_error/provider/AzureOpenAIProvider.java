@@ -34,6 +34,7 @@ import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 import org.springframework.security.core.Authentication;
@@ -75,6 +76,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private final String apiVersion;
     private final String credentialsId;
     private final ApiType apiType;
+    private String reasoningEffort;
+    private String verbosity;
 
     @DataBoundConstructor
     public AzureOpenAIProvider(String endpoint, String deployment, String apiVersion,
@@ -103,6 +106,24 @@ public class AzureOpenAIProvider extends BaseAIProvider {
 
     public ApiType getApiType() {
         return apiType != null ? apiType : ApiType.CHAT_COMPLETIONS;
+    }
+
+    public String getReasoningEffort() {
+        return reasoningEffort;
+    }
+
+    @DataBoundSetter
+    public void setReasoningEffort(String reasoningEffort) {
+        this.reasoningEffort = Util.fixEmptyAndTrim(reasoningEffort);
+    }
+
+    public String getVerbosity() {
+        return verbosity;
+    }
+
+    @DataBoundSetter
+    public void setVerbosity(String verbosity) {
+        this.verbosity = Util.fixEmptyAndTrim(verbosity);
     }
 
     @Override
@@ -299,7 +320,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         if (temperature != null) {
             payload.put("temperature", temperature);
         }
-        addGpt5LatencyControls(payload);
+        addReasoningControls(payload);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -342,7 +363,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         payload.put("model", getDeployment());
         payload.put("store", false);
         payload.put("max_output_tokens", FIX_MAX_OUTPUT_TOKENS);
-        addGpt5LatencyControls(payload);
+        addReasoningControls(payload);
 
         ArrayNode input = payload.putArray("input");
         input.addObject()
@@ -383,20 +404,21 @@ public class AzureOpenAIProvider extends BaseAIProvider {
         payload.put("model", getDeployment());
         payload.put("store", false);
         payload.put("max_output_tokens", TEST_MAX_OUTPUT_TOKENS);
-        addGpt5LatencyControls(payload);
+        addReasoningControls(payload);
         payload.put("instructions", "Reply with exactly: Configuration test successful");
         payload.put("input", "Test the connection.");
 
         return OBJECT_MAPPER.writeValueAsString(payload);
     }
 
-    private void addGpt5LatencyControls(ObjectNode payload) {
-        String deployment = Util.fixEmptyAndTrim(getDeployment());
-        if (deployment == null || !deployment.toLowerCase().startsWith("gpt-5")) {
-            return;
+    // Supported values differ per model, so nothing is sent unless the user configures it.
+    private void addReasoningControls(ObjectNode payload) {
+        if (reasoningEffort != null) {
+            payload.putObject("reasoning").put("effort", reasoningEffort);
         }
-        payload.putObject("reasoning").put("effort", "minimal");
-        payload.putObject("text").put("verbosity", "low");
+        if (verbosity != null) {
+            payload.putObject("text").put("verbosity", verbosity);
+        }
     }
 
     private static String getFixSystemPrompt() {
@@ -671,7 +693,9 @@ public class AzureOpenAIProvider extends BaseAIProvider {
                                                   @QueryParameter("deployment") String deployment,
                                                   @QueryParameter("apiVersion") String apiVersion,
                                                   @QueryParameter("credentialsId") String credentialsId,
-                                                  @QueryParameter("apiType") String apiType)
+                                                  @QueryParameter("apiType") String apiType,
+                                                  @QueryParameter("reasoningEffort") String reasoningEffort,
+                                                  @QueryParameter("verbosity") String verbosity)
                 throws ExplanationException {
             checkConfigurePermission(context);
 
@@ -683,6 +707,8 @@ public class AzureOpenAIProvider extends BaseAIProvider {
             }
             AzureOpenAIProvider provider = new AzureOpenAIProvider(endpoint, deployment, apiVersion,
                     credentialsId, selectedApiType);
+            provider.setReasoningEffort(reasoningEffort);
+            provider.setVerbosity(verbosity);
             try {
                 provider.testConfiguration(credentialsContext(context));
                 return FormValidation.ok("Configuration test successful! API connection is working properly.");

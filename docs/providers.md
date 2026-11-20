@@ -96,6 +96,9 @@ unclassified:
   support Chat Completions
 - **API Version**: used by the Chat Completions API. The Responses API uses the v1 endpoint, but the field is still
   required
+- **Reasoning Effort** and **Verbosity**: optional, Responses API only. When set, they are sent as `reasoning.effort`
+  and `text.verbosity`; when empty, neither is sent and the model's defaults apply. Supported values depend on the
+  model, for example gpt-5.6 models accept `none`, `low`, `medium`, `high`, `xhigh` and `max`
 
 ```yaml
 unclassified:
@@ -107,6 +110,8 @@ unclassified:
         apiVersion: "2025-01-01-preview"
         credentialsId: "azure-openai-key" # Secret text credential
         # apiType: "RESPONSES"         # Responses API for newer models; defaults to Chat Completions
+        # reasoningEffort: "low"       # Optional, Responses API only; empty sends no reasoning.effort
+        # verbosity: "low"             # Optional, Responses API only; empty sends no text.verbosity
     enableExplanation: true
 ```
 
