@@ -18,6 +18,9 @@ through a long console to find the one line that matters.
 
 - **Explain Error button** on the console page of a failed build, and for each stage on the Stages page of
   [Pipeline Graph View](https://plugins.jenkins.io/pipeline-graph-view/)
+- **Copy for AI agent** on the console page: the failure, written up for Claude Code, Codex or another coding agent
+  (repository, branch, commit, the stage and command that failed, the log of the steps that failed, secrets masked),
+  ready to paste where the agent can read the code and fix it. It needs no AI provider in Jenkins
 - **`explainError()` Pipeline step** that returns the explanation as text or as a map of fields, for notifications and
   routing
 - **Automatic explanation** of every failed build, with no pipeline change, within hourly and concurrency limits
@@ -32,7 +35,8 @@ through a long console to find the one line that matters.
 
 ## Getting started
 
-Requirements: Jenkins 2.528.3 or newer, and an AI provider you can reach from the controller.
+Requirements: Jenkins 2.528.3 or newer, and for explanations an AI provider you can reach from the controller.
+[Copy for AI agent](#with-a-coding-agent) works as soon as the plugin is installed, with no provider and no key.
 
 1. Install **Explain Error** from **Manage Jenkins → Plugins → Available plugins**. Without internet access, download
    the `.hpi` from the [releases](https://plugins.jenkins.io/explain-error/releases/) and upload it under
@@ -76,6 +80,27 @@ and a **Try again** button.
 Asking for a new explanation needs the **Job/Build** permission, because it calls the AI provider. Users who can only
 read the job see the explanation a build already has, and no button when it has none. The same applies on the Stages
 page.
+
+### With a coding agent
+
+A coding agent such as Claude Code or Codex can fix what an explanation only describes, because it works in a
+checkout of the repository: it reads the code, runs the command that failed and changes what is wrong. What it lacks is
+the failure, which is in Jenkins, often behind a login or on a network the agent cannot reach.
+
+On the console page of a failed build, **Copy for AI agent** copies the failure, written up for the agent:
+
+- the build, its result, and where its code came from: repository, branch, commit and, for a multibranch pull
+  request, the pull request
+- the log of the steps that failed, each with its stage and the command it ran, as the **Explain Error** button reads
+  it (the global **Max Log Lines** and **Log Pattern** apply)
+- the explanation the build has, if any, marked as possibly wrong
+- what to do: reproduce the failure, fix the cause, and say how the fix was checked
+
+Paste it into the agent, in a checkout of the repository. Secrets are [masked](docs/configuration.md#masking-secrets)
+first, as for the provider. No AI provider is called, so the button is there without one, for anyone who can read the
+build, and nothing is counted against the quota. Where the browser does not allow the page to write to the clipboard,
+as on a Jenkins served over plain HTTP, the text opens in a dialog to be copied from. **Enable AI Error Explanation**,
+and a folder's **Turn off AI error explanation**, also turn the button off.
 
 ### On the Stages page
 

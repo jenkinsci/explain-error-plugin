@@ -112,3 +112,25 @@
 #explain-error-container[data-surface="graph-view"] {
   margin-bottom: 0.75rem;
 }
+
+/* The failure context for a coding agent, shown to be copied by hand */
+.eep-agent-context {
+  box-sizing: border-box;
+  /* As wide as the log on a desktop, within the screen on a phone */
+  width: min(900px, calc(100vw - 6rem));
+  min-width: 0;
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs, 0.8rem);
+  white-space: pre-wrap;
+}
+
+/* The hint above it, with core's copy button at the end of the line */
+.eep-agent-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}

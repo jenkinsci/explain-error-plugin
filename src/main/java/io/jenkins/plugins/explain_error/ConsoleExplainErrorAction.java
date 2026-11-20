@@ -188,6 +188,27 @@ public class ConsoleExplainErrorAction implements RunAction2 {
     }
 
     /**
+     * The failed build written up for a coding agent ({@link AgentContext}), as plain text, for the "Copy for AI
+     * agent" button. No AI provider is called, so anyone who can read the build's log can have it, also where no
+     * provider is configured; where explanation is turned off for the job, nobody can. POST only, as it reads and
+     * masks as many lines as the button may send.
+     */
+    @RequirePOST
+    public void doAgentContext(StaplerRequest2 req, StaplerResponse2 rsp) throws IOException {
+        run.checkPermission(Item.READ);
+        rsp.setContentType("text/plain;charset=UTF-8");
+        if (!new ErrorExplainer().isExplanationEnabled(run)) {
+            rsp.setStatus(403);
+            rsp.getWriter().print(ErrorExplainer.TURNED_OFF);
+            return;
+        }
+        String context = AgentContext.of(run, maxLines(req.getParameter("maxLines")));
+        LOGGER.fine(() -> "Failure context of " + run.getExternalizableId() + " for a coding agent: "
+                + ErrorExplainer.countLines(context) + " lines.");
+        rsp.getWriter().print(context);
+    }
+
+    /**
      * The number of log lines asked for, within {@link #MAX_LINES_LIMIT}; the default when the request does
      * not say or says something that is not a number.
      */
