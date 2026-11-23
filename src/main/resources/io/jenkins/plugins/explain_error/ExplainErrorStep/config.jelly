@@ -50,6 +50,11 @@
                  description="Maximum total bytes of workspace context to include (default: 20000).">
             <f:number min="1" default="20000" />
         </f:entry>
+
+        <f:entry title="Include Files Named by the Failure Log" field="includeFilesNamedInLog"
+                 description="Also read the workspace files that stack frames, compiler errors or tracebacks in the failure log name, around the lines they name. Disabled by default.">
+            <f:checkbox />
+        </f:entry>
     </f:optionalBlock>
 
     <f:optionalBlock field="autoFix" title="Enable AI Auto-Fix (create PR)" inline="true">

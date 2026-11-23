@@ -1,5 +1,6 @@
 package io.jenkins.plugins.explain_error;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.model.Run;
@@ -50,6 +51,7 @@ public class ExplainErrorStep extends Step {
     private boolean includeWorkspaceContext = false;
     private String workspaceContextPaths = WorkspaceContextCollector.DEFAULT_PATHS;
     private int workspaceContextMaxBytes = WorkspaceContextCollector.DEFAULT_MAX_BYTES;
+    private boolean includeFilesNamedInLog = false;
 
     // Auto-fix fields
     private boolean autoFix = false;
@@ -167,6 +169,15 @@ public class ExplainErrorStep extends Step {
     public void setWorkspaceContextMaxBytes(int workspaceContextMaxBytes) {
         this.workspaceContextMaxBytes = workspaceContextMaxBytes > 0
                 ? workspaceContextMaxBytes : WorkspaceContextCollector.DEFAULT_MAX_BYTES;
+    }
+
+    public boolean isIncludeFilesNamedInLog() {
+        return includeFilesNamedInLog;
+    }
+
+    @DataBoundSetter
+    public void setIncludeFilesNamedInLog(boolean includeFilesNamedInLog) {
+        this.includeFilesNamedInLog = includeFilesNamedInLog;
     }
 
     public boolean isAutoFix() {
@@ -318,7 +329,8 @@ public class ExplainErrorStep extends Step {
             TaskListener listener = getContext().get(TaskListener.class);
 
             ErrorExplainer explainer = new ErrorExplainer();
-            String workspaceContext = collectWorkspaceContext(listener);
+            FilePath workspace = getContext().get(FilePath.class);
+            String workspaceContext = collectWorkspaceContext(listener, workspace);
             // Workspace files come on top of the instructions the step would get without them, its own or
             // else the folder's or the global ones
             String instructions = workspaceContext == null || workspaceContext.isBlank()
@@ -328,14 +340,17 @@ public class ExplainErrorStep extends Step {
 
             String explanation = explainer.explainError(run, listener, step.getLogPattern(), step.getMaxLines(),
                     step.getLanguage(), effectiveCustomContext, step.isCollectDownstreamLogs(),
-                    step.getDownstreamJobPattern(), Jenkins.getAuthentication2(), step.getTemperature());
+                    step.getDownstreamJobPattern(), Jenkins.getAuthentication2(), step.getTemperature(),
+                    UsageEvent.EntryPoint.PIPELINE_STEP, logNamedFilesRequest(workspace));
             Object result = toStepResult(explanation, explainer.getLastAnalysis());
 
             if (step.isAutoFix()) {
                 // The log was masked when it was explained; the workspace files are masked here
                 String errorLogs = explainer.getLastErrorLogs();
+                String autoFixWorkspaceContext = mergeCustomContext(workspaceContext,
+                        explainer.getLastLogNamedFilesContext());
                 String autoFixLogs = LogRedactor.fromConfiguration()
-                        .redact(appendWorkspaceContext(errorLogs, workspaceContext));
+                        .redact(appendWorkspaceContext(errorLogs, autoFixWorkspaceContext));
                 BaseAIProvider provider = explainer.getResolvedProvider(run);
 
                 if (errorLogs == null) {
@@ -401,12 +416,23 @@ public class ExplainErrorStep extends Step {
             return values == null ? new ArrayList<>() : new ArrayList<>(values);
         }
 
-        private String collectWorkspaceContext(TaskListener listener)
+        /**
+         * What the explainer needs to add the files the failure log names, or {@code null} to add none.
+         * They have a budget of their own, so the configured files never crowd them out.
+         */
+        @CheckForNull
+        private LogNamedFilesRequest logNamedFilesRequest(@CheckForNull FilePath workspace) {
+            if (!step.isIncludeWorkspaceContext() || !step.isIncludeFilesNamedInLog() || workspace == null) {
+                return null;
+            }
+            return new LogNamedFilesRequest(workspace, step.getWorkspaceContextMaxBytes());
+        }
+
+        private String collectWorkspaceContext(TaskListener listener, @CheckForNull FilePath workspace)
                 throws java.io.IOException, InterruptedException {
             if (!step.isIncludeWorkspaceContext()) {
                 return "";
             }
-            FilePath workspace = getContext().get(FilePath.class);
             if (workspace == null) {
                 listener.getLogger().println("[explain-error] Workspace context skipped: no workspace is available.");
                 return "";

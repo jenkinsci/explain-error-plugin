@@ -8,7 +8,8 @@
 
 When a build fails and `autoFix: true` is set, the plugin runs this workflow automatically:
 
-1. Sends the error logs to your configured AI provider and asks for a fix suggestion
+1. Sends the error logs to your configured AI provider and asks for a fix suggestion. Workspace files included with
+   `includeWorkspaceContext` and `includeFilesNamedInLog` travel with the logs
 2. Validates every proposed file path (no path traversal, must match the allow-list)
 3. Validates every unified diff before touching any branch
 4. Creates a new branch (`fix/jenkins-ai-<build#>-<what-the-change-does>-<suffix>`) via the SCM REST API
