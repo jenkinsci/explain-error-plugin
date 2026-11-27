@@ -10,6 +10,7 @@ import hudson.AbortException;
 import hudson.model.Result;
 import java.nio.file.NoSuchFileException;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -113,6 +114,25 @@ class FailedStepLogsTest {
         assertTrue(sent.contains(PipelineLogExtractor.ERROR_PREFIX) && sent.contains("does-not-exist"), sent);
         assertFalse(result.fallbackToBuildLog(), "the failed step is named, not the end of the console: " + sent);
         assertEquals(1, result.failedStepCount());
+    }
+
+    @Test
+    void aFailedBlockStepIsSentOnceNotByItsStartAndEndNodes(JenkinsRule jenkins) throws Exception {
+        // withCredentials fails before its body runs; both its start and its end node carry the error
+        WorkflowRun run = build(jenkins, "block-no-log", "node {\n"
+                + " stage('Build') { sh 'echo built' }\n"
+                + " stage('Publish') { withCredentials([string(credentialsId: 'does-not-exist', variable: 'TOKEN')])"
+                + " { sh 'echo publishing' } } }");
+
+        PipelineLogExtractor.ExtractionResult result = new PipelineLogExtractor(run, 100).extractFailedStepLog();
+
+        String sent = String.join("\n", result.logLines());
+        String error = PipelineLogExtractor.ERROR_PREFIX + "Could not find credentials entry with ID 'does-not-exist'";
+        assertEquals(1, sent.split(Pattern.quote(error), -1).length - 1, sent);
+        assertEquals(1, result.failedStepCount(), sent);
+
+        String stageSent = String.join("\n", new PipelineLogExtractor(run, 100).extractNodeLog(stage(run, "Publish")));
+        assertEquals(1, stageSent.split(Pattern.quote(error), -1).length - 1, stageSent);
     }
 
     @Test

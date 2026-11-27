@@ -7,6 +7,7 @@ import hudson.model.Item;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
@@ -447,8 +448,10 @@ public class PipelineLogExtractor {
                     logNode = parent;
                     nodeLogAction = parent.getAction(LogAction.class);
                 } else if (message != null && error.getError() != null
-                        && Objects.equals(resolveOrigin(error.getError(), execution), node)) {
-                    // The step failed without a log of its own; its error is all there is to send
+                        && isOrigin(resolveOrigin(error.getError(), execution), node)) {
+                    // The step failed without a log of its own; its error is all there is to send. A block
+                    // step counts once, by its start node, not once more by its end node
+                    logNode = blockStart(node);
                     nodeLogAction = null;
                 } else {
                     continue;
@@ -460,6 +463,16 @@ public class PipelineLogExtractor {
             }
         }
         return steps;
+    }
+
+    /** Whether the error that failed {@code node} was thrown there, counting a block's start and end as one. */
+    private static boolean isOrigin(@CheckForNull FlowNode origin, FlowNode node) {
+        return origin != null && blockStart(origin).equals(blockStart(node));
+    }
+
+    /** The start node of a block's end node, so that a block counts once; any other node as it is. */
+    private static FlowNode blockStart(FlowNode node) {
+        return node instanceof BlockEndNode<?> end ? end.getStartNode() : node;
     }
 
     /** Whether the step failed with an error and wrote nothing, so that its error is all there is to send. */
@@ -578,6 +591,9 @@ public class PipelineLogExtractor {
                 }
             } else {
                 origin = resolveOrigin(errorAction.getError(), execution);
+                if (origin != null) {
+                    origin = blockStart(origin);
+                }
                 if (origin == null || seenOriginIds.contains(origin.getId())) {
                     continue;
                 }
