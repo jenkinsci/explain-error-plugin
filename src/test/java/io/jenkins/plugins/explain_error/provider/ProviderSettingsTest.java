@@ -145,9 +145,11 @@ class ProviderSettingsTest {
 
     @Test
     void modelAutoCompletionFiltersByPrefix() {
-        assertEquals(List.of("gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-pro"),
-                new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("GPT-5").getValues());
-        assertEquals(List.of("claude-opus-4-7", "claude-opus-4-6"),
+        assertEquals(List.of("gpt-6.1-sol", "gpt-6.1-terra"),
+                new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("GPT-6.1").getValues());
+        assertEquals(List.of(), new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("gpt-5").getValues());
+        assertEquals(List.of(), new AnthropicProvider.DescriptorImpl().doAutoCompleteModel("claude-3").getValues());
+        assertEquals(List.of("claude-opus-5-5", "claude-opus-4-7", "claude-opus-4-6"),
                 new AnthropicProvider.DescriptorImpl().doAutoCompleteModel("claude-opus").getValues());
         assertEquals(List.of("deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"),
                 new DeepSeekProvider.DescriptorImpl().doAutoCompleteModel(null).getValues());

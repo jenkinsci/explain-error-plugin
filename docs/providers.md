@@ -135,7 +135,7 @@ unclassified:
       customOkta:
         url: "https://chat-ai.example.com/openai/deployments/{model}/chat/completions" # Required
         tokenUrl: "https://id.example.com/oauth2/default/v1/token"                     # Required
-        model: "gpt-5-nano"                                                            # Required
+        model: "gpt-6-luna"                                                            # Required
         clientId: "${OKTA_CLIENT_ID}"                                                  # Required
         clientSecret: "${OKTA_CLIENT_SECRET}"                                          # Required
         scope: "custom.scope"                                                          # Optional
@@ -243,7 +243,8 @@ unclassified:
 
 ## OpenAI
 
-- **Models**: `gpt-5`, `gpt-5-mini`, `gpt-4.1` (default), `gpt-4.1-mini`
+- **Models**: `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna` (default); see the OpenAI
+  [deprecations page](https://developers.openai.com/api/docs/deprecations) before picking an older model
 - **Key**: from the [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: leave empty for the OpenAI API, or give the URL of an OpenAI-compatible service
 
@@ -253,7 +254,7 @@ unclassified:
     aiProvider:
       openai:
         apiKey: "${OPENAI_API_KEY}"
-        model: "gpt-5-mini"
+        model: "gpt-6.1-terra"
         # url: "" # Optional, empty for the OpenAI API
     enableExplanation: true
 ```

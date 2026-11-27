@@ -44,7 +44,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     private static final Logger LOGGER = Logger.getLogger(CustomOktaAIProvider.class.getName());
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public static final String DEFAULT_MODEL = "gpt-5-nano";
+    public static final String DEFAULT_MODEL = "gpt-6-luna";
     public static final String DEFAULT_ACCESS_TOKEN_HEADER = "Authorization";
     public static final String DEFAULT_ACCESS_TOKEN_PREFIX = "";
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
