@@ -27,7 +27,7 @@ public class DeepSeekProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(DeepSeekProvider.class.getName());
     public static final String DEFAULT_URL = "https://api.deepseek.com";
-    public static final String DEFAULT_MODEL = "deepseek-v4-flash";
+    public static final String DEFAULT_MODEL = "deepseek-flash";
 
     private Secret apiKey;
 
@@ -86,10 +86,8 @@ public class DeepSeekProvider extends ChatModelAIProvider {
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
         private static final String[] MODELS = new String[]{
-                "deepseek-v4-flash",
-                "deepseek-v4-pro",
-                "deepseek-chat",
-                "deepseek-reasoner"
+                "deepseek-flash",
+                "deepseek-v4-pro"
         };
 
         @NonNull

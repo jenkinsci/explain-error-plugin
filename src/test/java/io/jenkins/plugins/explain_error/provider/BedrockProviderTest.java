@@ -385,7 +385,7 @@ class BedrockProviderTest {
         BedrockProvider.DescriptorImpl descriptor = new BedrockProvider.DescriptorImpl();
 
         assertEquals("AWS Bedrock", descriptor.getDisplayName());
-        assertEquals("eu.anthropic.claude-3-5-sonnet-20240620-v1:0", descriptor.getDefaultModel());
+        assertEquals("eu.anthropic.claude-sonnet-4-6", descriptor.getDefaultModel());
         assertEquals("eu-west-1", descriptor.getDefaultRegion());
         assertEquals(FormValidation.Kind.OK, descriptor.doCheckUrl("vpce.example.com").kind);
         assertEquals(FormValidation.Kind.ERROR, descriptor.doCheckUrl("ftp://vpce.example.com").kind);

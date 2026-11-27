@@ -37,7 +37,7 @@ import org.kohsuke.stapler.verb.POST;
  * <p>Unlike {@link OpenAIProvider}, the API key is optional so that
  * unauthenticated local gateways and proxies can be used without one.
  * The model name is free text because gateway model names are defined by the
- * gateway (e.g. {@code gpt-4o}, {@code azure/gpt-4o}, {@code claude-sonnet-4-6}).
+ * gateway (e.g. {@code gpt-6.1-terra}, {@code azure/gpt-5.1}, {@code claude-sonnet-4-6}).
  * Requests use the Chat Completions API by default, or the Responses API for
  * gateways and models that only support that one.
  */

@@ -57,7 +57,7 @@ unclassified:
     aiProvider:
       openai:
         apiKey: "${AI_API_KEY}"
-        model: "gpt-4o"
+        model: "gpt-6-luna"
     enableAutoExplainOnFailure: true
     autoExplainMaxLogLines: 100
     autoExplainMaxPerHour: 30

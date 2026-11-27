@@ -61,7 +61,7 @@ unclassified:
     aiProvider:
       openai:
         apiKey: "${AI_API_KEY}"
-        model: "gpt-4o"
+        model: "gpt-6-luna"
     enableQuota: true
     quotaWindow: HOURLY
     maxProviderCallsPerWindow: 50

@@ -379,7 +379,7 @@ public class BedrockProvider extends ChatModelAIProvider {
         }
 
         public String getDefaultModel() {
-            return "eu.anthropic.claude-3-5-sonnet-20240620-v1:0";
+            return "eu.anthropic.claude-sonnet-4-6";
         }
 
         public String getDefaultRegion() {
