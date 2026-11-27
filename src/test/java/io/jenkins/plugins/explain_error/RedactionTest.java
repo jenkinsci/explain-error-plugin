@@ -91,6 +91,38 @@ class RedactionTest {
 
     @Test
     @DisabledOnOs(OS.WINDOWS)
+    void filesNamedInTheLogAreMaskedToo() throws Exception {
+        explain("log-named", "explainError(includeWorkspaceContext: true, includeFilesNamedInLog: true)",
+                "writeFile file: 'src/main/java/p/Leaky.java', "
+                        + "text: 'String url = \"https://ci:log-named-secret@host\";'\n"
+                        + "sh '''set +x\necho \"\tat p.Leaky.m(Leaky.java:7)\"\n"
+                        + "echo \"BUILD FAILED\"\nexit 1'''");
+
+        String context = provider.getLastCustomContext();
+        assertFalse(context.contains("log-named-secret"), context);
+        assertTrue(context.contains("### src/main/java/p/Leaky.java"), context);
+        assertTrue(context.contains("https://ci:[REDACTED]@host"), context);
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void nothingIsSentWhenAFileNamedInTheLogWasMaskedAndTheConfigurationSaysSo() throws Exception {
+        GlobalConfigurationImpl.get().setBlockWhenRedacted(true);
+
+        WorkflowRun run = explain("log-named-block",
+                "explainError(includeWorkspaceContext: true, includeFilesNamedInLog: true)",
+                "writeFile file: 'src/main/java/p/Leaky.java', "
+                        + "text: 'String url = \"https://ci:log-named-secret@host\";'\n"
+                        + "sh '''set +x\necho \"\tat p.Leaky.m(Leaky.java:7)\"\n"
+                        + "echo \"BUILD FAILED\"\nexit 1'''");
+
+        jenkins.assertLogContains(ErrorExplainer.BLOCKED, run);
+        assertEquals(0, provider.getCallCount());
+        assertNull(run.getAction(ErrorExplanationAction.class));
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
     void withMaskingOffTheLogIsSentAsItIs() throws Exception {
         GlobalConfigurationImpl.get().setRedactSecrets(false);
 

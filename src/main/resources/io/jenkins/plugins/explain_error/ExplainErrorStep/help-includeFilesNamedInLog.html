@@ -1,0 +1,16 @@
+<div>
+    Also reads the workspace files that the failure log names, such as the source files of stack
+    frames, compiler errors, failed tests or tracebacks. The log is read on the controller; no extra
+    AI call is made.
+    <p>
+        Where the log names a line, the 40 lines before it and the 20 after it are sent, numbered,
+        instead of the beginning of the file. At most 8 files are read, with the same safety rules as
+        the configured workspace paths: absolute paths, path traversal, directories, symbolic links,
+        secret files and build output directories are refused. These files have a budget of their own,
+        the size of <code>workspaceContextMaxBytes</code>.
+    </p>
+    <p>
+        Requires <b>Include Workspace Context</b>. Secrets in the files are masked like every other
+        piece of context, and the files are also sent with an auto-fix request.
+    </p>
+</div>

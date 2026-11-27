@@ -29,6 +29,7 @@ public class ErrorExplainer {
     private String providerName;
     private String urlString;
     private String lastErrorLogs;
+    private String lastLogNamedFilesContext;
     private JenkinsLogAnalysis lastAnalysis;
     private boolean providerCalled;
     private final UsageRecorder usageRecorder;
@@ -60,6 +61,15 @@ public class ErrorExplainer {
      */
     public String getLastErrorLogs() {
         return lastErrorLogs;
+    }
+
+    /**
+     * Returns the workspace files named by the failure log that the last call to {@link #explainError}
+     * added to the context, before masking, or {@code null} if it added none.
+     */
+    @CheckForNull
+    String getLastLogNamedFilesContext() {
+        return lastLogNamedFilesContext;
     }
 
     /**
@@ -128,6 +138,15 @@ public class ErrorExplainer {
                         String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
                         Authentication authentication, @CheckForNull Double stepTemperature,
                         UsageEvent.EntryPoint entryPoint) {
+        return explainError(run, listener, logPattern, maxLines, language, customContext, collectDownstreamLogs,
+                downstreamJobPattern, authentication, stepTemperature, entryPoint, null);
+    }
+
+    String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
+                        String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
+                        Authentication authentication, @CheckForNull Double stepTemperature,
+                        UsageEvent.EntryPoint entryPoint, @CheckForNull LogNamedFilesRequest logNamedFiles) {
+        this.lastLogNamedFilesContext = null;
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         long startTimeNanos = System.nanoTime();
         ProviderResolution providerResolution = resolveProvider(run);
@@ -178,6 +197,15 @@ public class ErrorExplainer {
             // Resolve custom context: step → folder → global
             String effectiveCustomContext = resolveEffectiveCustomContext(run, customContext);
             logToConsole(listener, "Custom context source: " + resolveCustomContextSource(run, customContext) + ".");
+
+            // Workspace files the failure log names come after the other context, and are masked with it
+            if (logNamedFiles != null) {
+                String files = collectLogNamedFiles(logNamedFiles, errorLogs, listener);
+                if (StringUtils.isNotBlank(files)) {
+                    effectiveCustomContext = appendContext(effectiveCustomContext, files);
+                    this.lastLogNamedFilesContext = files;
+                }
+            }
 
             // Resolve temperature: step → folder → global → null (provider defaults apply)
             Double effectiveTemperature = resolveEffectiveTemperature(run, stepTemperature);
@@ -282,6 +310,38 @@ public class ErrorExplainer {
         return "Masked " + count + (count == 1 ? " secret" : " secrets") + " in what is sent to the AI provider.";
     }
 
+    private String collectLogNamedFiles(LogNamedFilesRequest request, String errorLogs,
+                                        TaskListener listener) {
+        if (StringUtils.isBlank(errorLogs) || request.maxBytes() <= 0) {
+            return "";
+        }
+        try {
+            List<WorkspacePathAnchorExtractor.Anchor> anchors =
+                    WorkspacePathAnchorExtractor.extract(errorLogs, request.workspace().getRemote());
+            String files = new WorkspaceContextCollector().collectAnchors(request.workspace(), anchors,
+                    request.maxBytes(), listener);
+            logToConsole(listener, files.isBlank()
+                    ? "The failure log names no file found in the workspace."
+                    : "Adding workspace files named by the failure log.");
+            return files;
+        } catch (IOException e) {
+            LOGGER.log(Level.FINE, "Could not read the workspace files named by the failure log", e);
+            logToConsole(listener, "Could not read the workspace files named by the failure log: "
+                    + e.getMessage());
+            return "";
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "";
+        }
+    }
+
+    private static String appendContext(@CheckForNull String context, String addition) {
+        if (StringUtils.isBlank(context)) {
+            return addition;
+        }
+        return context.stripTrailing() + "\n\n" + addition;
+    }
+
     /** The system log line that records a request: what was sent, to which model, and how much was masked. */
     private static String describeRequest(String jobInfo, BaseAIProvider provider, int lineCount,
                                           int redactedCount) {
@@ -364,6 +424,7 @@ public class ErrorExplainer {
     ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull Run<?, ?> run,
                                             UsageEvent.EntryPoint entryPoint)
             throws IOException, ExplanationException {
+        this.lastLogNamedFilesContext = null;
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
         long startTimeNanos = System.nanoTime();
         int inputLogLineCount = countLines(errorText);

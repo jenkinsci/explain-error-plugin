@@ -160,6 +160,41 @@ class CustomContextTest {
     }
 
     @Test
+    @org.junit.jupiter.api.condition.DisabledOnOs(org.junit.jupiter.api.condition.OS.WINDOWS)
+    void testFilesNamedInTheLogAreAppendedAfterTheCustomContext(JenkinsRule jenkins) throws Exception {
+        GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
+        FakeAIProvider provider = new FakeAIProvider();
+        config.setAiProvider(provider);
+        config.setEnableExplanation(true);
+
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-log-named-files-order");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'src/main/java/com/example/App.java',
+                            text: 'class App { void fail() {} }'
+                    try {
+                        sh '''set +x
+                echo "\tat com.example.App.fail(App.java:7)"
+                exit 1'''
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, includeFilesNamedInLog: true,
+                                customContext: 'Focus on the failing method')
+                    }
+                }
+                """, true));
+
+        jenkins.assertBuildStatus(hudson.model.Result.SUCCESS, job.scheduleBuild2(0));
+
+        String context = provider.getLastCustomContext();
+        assertNotNull(context);
+        assertTrue(context.contains("Focus on the failing method"), context);
+        assertTrue(context.contains("### src/main/java/com/example/App.java"), context);
+        assertTrue(context.indexOf("Focus on the failing method")
+                        < context.indexOf("### src/main/java/com/example/App.java"),
+                "the user's instructions come before the files named in the log: " + context);
+    }
+
+    @Test
     void testGlobalLanguageAndTemperature(JenkinsRule jenkins) throws Exception {
         GlobalConfigurationImpl config = GlobalConfigurationImpl.get();
         FakeAIProvider provider = new FakeAIProvider();

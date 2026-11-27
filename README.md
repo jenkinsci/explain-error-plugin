@@ -104,8 +104,8 @@ post {
 }
 ```
 
-The step can read more lines, filter them with a pattern, include downstream builds and workspace files, or return a
-map of fields with `returnStructured: true`. See [The explainError Pipeline Step](docs/pipeline-step.md).
+The step can read more lines, filter them with a pattern, include downstream builds and workspace files, add the
+source files the failure log names, or return a map of fields with `returnStructured: true`. See [The explainError Pipeline Step](docs/pipeline-step.md).
 
 ### Automatically
 

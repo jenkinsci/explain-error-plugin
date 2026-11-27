@@ -90,6 +90,7 @@ through the REST API at `<build-url>/error-explanation/api/json`.
 | `includeWorkspaceContext` | Include selected files from the workspace | `false` |
 | `workspaceContextPaths` | Comma-separated paths or glob patterns of the files to include | `pom.xml,build.gradle,build.gradle.kts,package.json,Jenkinsfile,Dockerfile,*.yml,*.yaml,*.properties` |
 | `workspaceContextMaxBytes` | Maximum total bytes of workspace files to include; each file is cut to 8,000 bytes | `20000` |
+| `includeFilesNamedInLog` | Also include the workspace files the failure log names, around the lines it names. Requires `includeWorkspaceContext`. See [Files named by the failure log](#files-named-by-the-failure-log) | `false` |
 | `returnStructured` | Return a `Map` of the analysis instead of the text | `false` |
 | `autoFix` and `autoFix*` | Open a pull request with an AI-generated fix. See [AI Auto-Fix](auto-fix.md) | `false` |
 
@@ -141,3 +142,30 @@ known shape, so leave out any files that hold secrets.
 
 The files travel with the step's `customContext`. While `includeWorkspaceContext` is on and the step sets no
 `customContext`, the folder and global Custom Context are not sent; set `customContext` on the step to keep them.
+
+### Files named by the failure log
+
+The files that fail are rarely the ones you can list in advance. With `includeFilesNamedInLog: true`, the step also
+reads the workspace files the failure log itself names:
+
+```groovy
+explainError(
+    includeWorkspaceContext: true,
+    includeFilesNamedInLog: true
+)
+```
+
+The log is read on the controller, with no extra AI call. Paths come from Java, Kotlin, Scala and Groovy stack frames,
+Maven and Gradle compiler errors, Python tracebacks and pytest node ids, Node and TypeScript locations, Go and Rust
+locations, and other `path:line` references. Frames of the JDK, test frameworks, build tools and Jenkins are left out,
+since their sources are not in the workspace. A stack frame is looked for under `src/main/<language>` and
+`src/test/<language>` and at its package path; a frame of a module in a multi-module build
+(`module/src/main/java/...`) is found only if the log also names that path.
+
+At most 8 files are read, in the order the log names them, each with the same rules as `workspaceContextPaths`:
+absolute paths, `..`, directories, symbolic links in any part of the path, missing files, secret files and build
+output directories are refused. When the log names a line, the AI gets the 40 lines before it and the 20 after it,
+numbered, with that line marked, instead of the beginning of the file. These files have a budget of their own, the
+size of `workspaceContextMaxBytes`, so the configured files never crowd them out. They are
+[masked](configuration.md#masking-secrets) as everything else is, are sent with an auto-fix request too, and are
+available only in the `explainError` step.

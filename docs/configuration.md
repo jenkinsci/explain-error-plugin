@@ -28,7 +28,7 @@ folder that sets it), then global.
 ## Masking secrets
 
 Everything sent to the AI provider is masked first: the log lines, the Custom Context, the workspace files of
-`includeWorkspaceContext` and what auto-fix sends. This happens for automatic explanations, the Explain Error button
+`includeWorkspaceContext` and `includeFilesNamedInLog` and what auto-fix sends. This happens for automatic explanations, the Explain Error button
 on the console and Stages pages, and the `explainError()` step alike. Jenkins already masks the credentials a build
 binds with `withCredentials`; masking catches the secrets that never went through a credential, such as a token in an
 environment dump, a password in a clone URL or a key a script printed.

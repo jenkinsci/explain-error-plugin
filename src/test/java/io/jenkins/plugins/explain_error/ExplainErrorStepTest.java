@@ -18,6 +18,8 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
@@ -355,6 +357,7 @@ class ExplainErrorStepTest {
         assertEquals(new ExplainErrorStep().getAutoFixTimeoutSeconds(), step.getAutoFixTimeoutSeconds(),
                 "0 falls back to the same default as a step that does not set it");
         assertEquals("", step.getAutoFixPrTemplate());
+        assertFalse(step.isIncludeFilesNamedInLog());
     }
 
     @Test
@@ -365,6 +368,7 @@ class ExplainErrorStepTest {
         step.setIncludeWorkspaceContext(true);
         step.setWorkspaceContextPaths("pom.xml");
         step.setWorkspaceContextMaxBytes(512);
+        step.setIncludeFilesNamedInLog(true);
         step.setAutoFix(true);
         step.setAutoFixCredentialsId("scm-token");
         step.setAutoFixRemoteUrl("https://github.com/acme/app.git");
@@ -395,11 +399,82 @@ class ExplainErrorStepTest {
         assertEquals(30, step.getAutoFixTimeoutSeconds());
         assertEquals("{explanation}", step.getAutoFixPrTemplate());
         assertTrue(step.isReturnStructured());
+        assertTrue(step.isIncludeFilesNamedInLog());
 
         ExplainErrorStep.DescriptorImpl descriptor = new ExplainErrorStep.DescriptorImpl();
         assertEquals("explainError", descriptor.getFunctionName());
         assertEquals("Explain Error with AI", descriptor.getDisplayName());
         assertEquals(Set.of(Run.class, TaskListener.class), descriptor.getRequiredContext());
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void filesNamedInTheLogAreNotReadByDefault(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "log-named-off");
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'src/main/java/com/example/App.java', text: 'class App {}'
+                    try {
+                        sh '''set +x
+                echo "\tat com.example.App.main(App.java:7)"
+                exit 1'''
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, workspaceContextPaths: 'pom.xml')
+                    }
+                }
+                """, true));
+
+        jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertFalse(provider.getLastCustomContext().contains("src/main/java/com/example/App.java"),
+                provider.getLastCustomContext());
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    void filesNamedInTheLogAreReadAroundTheNamedLine(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "log-named-on");
+        String source = java.util.stream.IntStream.rangeClosed(1, 200)
+                .mapToObj(i -> "// line " + i).collect(java.util.stream.Collectors.joining("\\n"));
+        job.setDefinition(new CpsFlowDefinition("""
+                node {
+                    writeFile file: 'src/main/java/com/example/App.java', text: '%s'
+                    try {
+                        sh '''set +x
+                echo "\tat com.example.App.fail(App.java:150)"
+                echo "BUILD FAILED"
+                exit 1'''
+                    } catch (e) {
+                        explainError(includeWorkspaceContext: true, includeFilesNamedInLog: true)
+                    }
+                }
+                """.formatted(source), true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        String context = provider.getLastCustomContext();
+        assertTrue(context.contains("### src/main/java/com/example/App.java (lines 110-170"), context);
+        assertTrue(context.contains("150 > // line 150"), context);
+        assertFalse(context.contains("// line 1\n"), context);
+        jenkins.assertLogContains("Adding workspace files named by the failure log.", run);
+    }
+
+    @Test
+    void filesNamedInTheLogNeedAWorkspace(JenkinsRule jenkins) throws Exception {
+        FakeAIProvider provider = new FakeAIProvider();
+        GlobalConfigurationImpl.get().setAiProvider(provider);
+        WorkflowJob job = jenkins.createProject(WorkflowJob.class, "log-named-no-workspace");
+        job.setDefinition(new CpsFlowDefinition(
+                "explainError(includeWorkspaceContext: true, includeFilesNamedInLog: true)", true));
+
+        WorkflowRun run = jenkins.assertBuildStatus(Result.SUCCESS, job.scheduleBuild2(0));
+
+        assertNotNull(run.getAction(ErrorExplanationAction.class));
+        jenkins.assertLogNotContains("named by the failure log", run);
     }
 
     @Test
