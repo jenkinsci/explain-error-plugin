@@ -58,8 +58,8 @@ function checkBuildStatus(callback) {
 // explanation: what the server says the build has now ("ready", "pending" or "none"). The page
 // may have been rendered while the build was still running, so this wins over its own markup.
 function addExplainErrorButton(explanation) {
-  // Check if button already exists to prevent duplicates
-  if (document.querySelector('.explain-error-btn')) {
+  // Check if the buttons already exist to prevent duplicates
+  if (document.querySelector('.explain-error-btn, .explain-error-agent-btn')) {
     return;
   }
 
@@ -104,38 +104,39 @@ function addExplainErrorButton(explanation) {
   const providerName = container.dataset.providerName;
   const hasExplanation = container.dataset.hasExplanation === 'true';
   const enabled = container.dataset.pluginEnabled === 'true';
+  const agentContext = container.dataset.agentContext === 'true';
   const state = explanation || (hasExplanation ? 'ready' : 'none');
-  if (!enabled && state === 'none') {
+  // Explain Error asks the provider, or shows what it said; Copy for AI agent needs no provider
+  const explainBtn = enabled || state !== 'none'
+    ? createButton(container.dataset.labelExplain, 'jenkins-button explain-error-btn', openExplanation,
+      providerName)
+    : null;
+  const buttons = [explainBtn, agentContext ? createAgentButton(container) : null,
+    enabled ? createPreviewLink(container) : null].filter(Boolean);
+  if (buttons.length === 0) {
       return;
   }
-  const explainBtn = createButton(container.dataset.labelExplain, 'jenkins-button explain-error-btn',
-    openExplanation, providerName);
 
-  const previewLink = enabled ? createPreviewLink(container) : null;
-
-  // If we found the button container, add our button there
+  // If we found the button container, add our buttons there
   if (buttonContainer) {
-    buttonContainer.insertBefore(explainBtn, buttonContainer.firstChild);
-    if (previewLink) {
-      explainBtn.after(previewLink);
-    }
+    const first = buttonContainer.firstChild;
+    buttons.forEach(button => buttonContainer.insertBefore(button, first));
     Behaviour.applySubtree(buttonContainer, true);
   } else {
     // Fallback: create a simple container above console output
-    const container = document.createElement('div');
-    container.className = 'explain-error-container';
-    container.style.marginBottom = '10px';
-    container.appendChild(explainBtn);
-    if (previewLink) {
-      container.appendChild(previewLink);
-    }
-    consoleOutput.parentNode.insertBefore(container, consoleOutput);
-    Behaviour.applySubtree(container, true);
+    const box = document.createElement('div');
+    box.className = 'explain-error-container';
+    box.style.marginBottom = '10px';
+    buttons.forEach(button => box.appendChild(button));
+    consoleOutput.parentNode.insertBefore(box, consoleOutput);
+    Behaviour.applySubtree(box, true);
   }
 
-  setButtonState(state);
-  if (state === 'pending') {
-    waitForPendingExplanation();
+  if (explainBtn) {
+    setButtonState(state);
+    if (state === 'pending') {
+      waitForPendingExplanation();
+    }
   }
 }
 
@@ -201,6 +202,64 @@ function createPreviewLink(container) {
   button.setAttribute('tooltip', container.dataset.tooltipPreview);
   form.appendChild(button);
   return form;
+}
+
+// Copies the failed build, written up for a coding agent, to the clipboard. No AI provider is called.
+function createAgentButton(container) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'jenkins-button explain-error-agent-btn';
+  button.textContent = container.dataset.labelAgent;
+  button.setAttribute('tooltip', container.dataset.tooltipAgent);
+  button.addEventListener('click', () => copyForAgent(container));
+  return button;
+}
+
+function fetchAgentContext(container) {
+  const rootURL = document.head.getAttribute('data-rooturl');
+  return fetch(rootURL + '/' + container.dataset.runUrl + 'console-explain-error/agentContext', {
+    method: 'POST',
+    headers: crumb.wrap({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    body: ''
+  }).then(response => response.text().then(text => {
+    if (!response.ok) {
+      throw new Error(text || response.statusText);
+    }
+    return text;
+  }));
+}
+
+function copyForAgent(container) {
+  const copied = () => notificationBar.show(container.dataset.labelAgentCopied, notificationBar.SUCCESS);
+  const failed = error => notificationBar.show(
+    container.dataset.labelAgentFailed.replace('{0}', error.message), notificationBar.ERROR);
+  // The clipboard takes the text while it is still being fetched, so that the click still counts as the
+  // user's own. Where there is no clipboard (a Jenkins served over plain HTTP) or it refuses, the text is
+  // shown to be copied by hand.
+  if (window.isSecureContext && navigator.clipboard && window.ClipboardItem) {
+    let text = null;
+    const blob = fetchAgentContext(container).then(fetched => {
+      text = fetched;
+      return new Blob([fetched], { type: 'text/plain' });
+    });
+    navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })])
+      .then(copied)
+      .catch(() => blob.then(() => showAgentContext(container, text), failed));
+    return;
+  }
+  fetchAgentContext(container).then(text => showAgentContext(container, text), failed);
+}
+
+function showAgentContext(container, text) {
+  // Core's own copy pattern, rendered by Jelly in a template: its copy button reads the text at click
+  // time, and disables itself with an explanation on plain HTTP, where the text is copied by hand
+  const content = document.getElementById('eep-agent-template').content.firstElementChild.cloneNode(true);
+  content.querySelector('pre').textContent = text;
+  // Jenkins makes a dialog at least 450px wide, wider than a phone
+  dialog.modal(content, { title: container.dataset.labelAgentDialog, maxWidth: '960px',
+    minWidth: 'min(450px, calc(100vw - 2rem))' });
+  // dialog.modal does not run behaviours on its content; the copy button needs them for its click handler
+  Behaviour.applySubtree(content, true);
 }
 
 function createButton(text, className, onClick, providerName) {

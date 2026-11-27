@@ -76,8 +76,11 @@ class LogPatternTest {
 
         explain("step-wins", "explainError(logPattern: 'info 299')", EARLY_ERROR);
 
-        assertTrue(provider.getLastErrorLogs().contains("info 299"), provider.getLastErrorLogs());
-        assertFalse(provider.getLastErrorLogs().contains("EARLY_ERROR"), provider.getLastErrorLogs());
+        // The step's header names the command, which has the text; the pattern picks log lines
+        String sent = provider.getLastErrorLogs();
+        String logLines = sent.substring(sent.indexOf("--- LOG CONTENT ---"));
+        assertTrue(logLines.contains("info 299"), provider.getLastErrorLogs());
+        assertFalse(logLines.contains("EARLY_ERROR"), provider.getLastErrorLogs());
     }
 
     @Test

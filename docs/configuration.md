@@ -11,7 +11,7 @@ folder that sets it), then global.
 
 | Setting | Description | Default |
 |---|---|---|
-| **Enable AI Error Explanation** | Turns the plugin on for every job. A folder with a provider of its own keeps explanation on while this is off | On |
+| **Enable AI Error Explanation** | Turns the plugin on for every job, [Copy for AI agent](../README.md#with-a-coding-agent) included, which needs no provider. A folder with a provider of its own keeps explanation on while this is off | On |
 | **AI Provider** | The provider, its key, endpoint and model. See [AI Providers](providers.md) for each provider's fields. **Test Configuration** sends a short request and shows a connection diagnostics report when it fails | OpenAI, `gpt-4.1` |
 | **Custom Context** | Additional instructions for the AI, such as links to your knowledge base or how your team handles certain failures. Explanations are short by default (a summary of one or two sentences, up to four resolution steps, up to two best practices); ask here for more or less detail | Empty |
 | **Language** | Language of the explanations, such as `English`, `中文` or `日本語`. The section labels around the explanation follow it for English, Chinese (Simplified and Traditional), Japanese, Spanish, French and German; other languages get English labels | English |
@@ -89,8 +89,8 @@ it and whether that would stop the request, but does not show it.
 Teams can use their own provider, model, language and instructions. In a folder's **Configure** page, check **Set AI
 error explanation for this folder** under **Properties** and set:
 
-- **Turn off AI error explanation for jobs in this folder**: no Explain Error button, no automatic explanation, and
-  `explainError()` does nothing, whatever the global setting says
+- **Turn off AI error explanation for jobs in this folder**: no Explain Error or Copy for AI agent button, no
+  automatic explanation, and `explainError()` does nothing, whatever the global setting says
 - **Use a different AI provider for this folder**: check it to use another provider; leave it unchecked to keep the
   provider of the parent folder or the global configuration. A folder with a provider of its own has explanation on
   even while the global **Enable AI Error Explanation** is off

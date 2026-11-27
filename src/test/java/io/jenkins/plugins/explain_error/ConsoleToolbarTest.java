@@ -66,7 +66,8 @@ class ConsoleToolbarTest {
             assertEquals(download.getParentNode(), button.getParentNode());
 
             // The same toolbar as a translated Jenkins renders it, and the button placed again
-            page.executeJavaScript("document.querySelector('.explain-error-btn').remove();"
+            page.executeJavaScript("document.querySelectorAll('.explain-error-btn, .explain-error-agent-btn,"
+                    + " .explain-error-preview').forEach(function (e) { e.remove(); });"
                     + "document.querySelectorAll('.jenkins-app-bar__controls a, .jenkins-app-bar__controls button')"
                     + ".forEach(function (e) { e.textContent = 'ダウンロード'; });"
                     + "addExplainErrorButton();");
