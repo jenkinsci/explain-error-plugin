@@ -3,16 +3,21 @@ package io.jenkins.plugins.explain_error;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import hudson.AbortException;
 import hudson.model.Result;
+import java.nio.file.NoSuchFileException;
 import java.util.List;
+import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -94,9 +99,77 @@ class FailedStepLogsTest {
         assertFalse(sent.contains("\u001B"), "no escape character is sent: " + sent);
     }
 
+    @Test
+    void theErrorOfAStepWithoutALogIsSent(JenkinsRule jenkins) throws Exception {
+        // As with withCredentials and an unknown credentials ID: the step fails before it writes anything, and
+        // Jenkins writes its error to the console only once the build is over, after post has run
+        WorkflowRun run = build(jenkins, "no-log", "node {\n"
+                + " stage('Build') { sh 'echo built' }\n"
+                + " stage('Publish') { unstash 'does-not-exist' } }");
+
+        PipelineLogExtractor.ExtractionResult result = new PipelineLogExtractor(run, 100).extractFailedStepLog();
+
+        String sent = String.join("\n", result.logLines());
+        assertTrue(sent.contains(PipelineLogExtractor.ERROR_PREFIX) && sent.contains("does-not-exist"), sent);
+        assertFalse(result.fallbackToBuildLog(), "the failed step is named, not the end of the console: " + sent);
+        assertEquals(1, result.failedStepCount());
+    }
+
+    @Test
+    void theErrorIsSentBeforeJenkinsWritesItToTheConsole(JenkinsRule jenkins) throws Exception {
+        // As explainError() in post { failure }: the build is still running, and its console does not have the
+        // error yet
+        WorkflowRun run = build(jenkins, "post", "node {\n"
+                + " try { sh 'echo built'; unstash 'does-not-exist' }\n"
+                + " finally {\n"
+                + "  def sent = new io.jenkins.plugins.explain_error.PipelineLogExtractor(currentBuild.rawBuild, 100)"
+                + ".getFailedStepLog().join('\\n')\n"
+                + "  echo(sent.contains('does-not-exist') ? 'CAUSE_SENT' : 'CAUSE_MISSING:\\n' + sent)\n"
+                + " } }", false);
+
+        jenkins.assertLogContains("CAUSE_SENT", run);
+    }
+
+    @Test
+    void theErrorOfAStepWithALogIsSentWithIt(JenkinsRule jenkins) throws Exception {
+        WorkflowRun run = build(jenkins, "with-log", "node { sh 'echo SH_OUTPUT; exit 3' }");
+
+        String sent = String.join("\n", new PipelineLogExtractor(run, 100).getFailedStepLog());
+
+        assertTrue(sent.contains("SH_OUTPUT"), sent);
+        assertTrue(sent.contains(PipelineLogExtractor.ERROR_PREFIX + "script returned exit code 3"), sent);
+    }
+
+    @Test
+    void aStageWhoseStepFailedWithoutALogExplainsTheError(JenkinsRule jenkins) throws Exception {
+        WorkflowRun run = build(jenkins, "stage-no-log", "node { stage('Publish') { unstash 'does-not-exist' } }");
+
+        String sent = String.join("\n", new PipelineLogExtractor(run, 100).extractNodeLog(stage(run, "Publish")));
+
+        assertTrue(sent.contains(PipelineLogExtractor.ERROR_PREFIX) && sent.contains("does-not-exist"), sent);
+    }
+
+    @Test
+    void theErrorIsOneShortLineAndOnlyWhenItSaysWhy(JenkinsRule jenkins) {
+        assertEquals("Could not find credentials entry with ID 'x'", PipelineLogExtractor.errorMessage(
+                new ErrorAction(new AbortException("Could not find credentials entry with ID 'x'"))));
+        assertEquals("java.nio.file.NoSuchFileException: a b", PipelineLogExtractor.errorMessage(
+                new ErrorAction(new NoSuchFileException("a\n   b"))));
+        String longMessage = PipelineLogExtractor.errorMessage(new ErrorAction(new AbortException("x".repeat(5000))));
+        assertEquals(PipelineLogExtractor.MAX_ERROR_LENGTH + 3, longMessage.length());
+        assertNull(PipelineLogExtractor.errorMessage(new ErrorAction(new FlowInterruptedException(Result.ABORTED))));
+        assertNull(PipelineLogExtractor.errorMessage(new ErrorAction(new AbortException(" "))));
+        assertNull(PipelineLogExtractor.errorMessage(null));
+    }
+
     private static WorkflowRun build(JenkinsRule jenkins, String name, String script) throws Exception {
+        return build(jenkins, name, script, true);
+    }
+
+    private static WorkflowRun build(JenkinsRule jenkins, String name, String script, boolean sandbox)
+            throws Exception {
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, name);
-        job.setDefinition(new CpsFlowDefinition(script, true));
+        job.setDefinition(new CpsFlowDefinition(script, sandbox));
         return jenkins.assertBuildStatus(Result.FAILURE, job.scheduleBuild2(0));
     }
 

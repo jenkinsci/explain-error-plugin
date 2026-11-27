@@ -65,13 +65,26 @@ class FailureOutputLinkTest {
     }
 
     @Test
-    void aPipelineWhoseFailingStepHasNoOutputLinksToItsConsole() throws Exception {
-        // error() leaves no log of its own, so the whole build log is explained
-        WorkflowRun run = pipeline("no-step-output", "stage('Load') { echo 'connecting'; error 'boom' }");
+    void aPipelineWithoutAFailedStepLinksToItsConsole() throws Exception {
+        // No step failed, so the whole build log is explained
+        WorkflowRun run = pipeline("no-failed-step",
+                "stage('Load') { echo 'connecting'; currentBuild.result = 'FAILURE' }");
 
         String url = linkFor(run);
 
         assertEquals(jenkins.jenkins.getRootUrl() + run.getUrl() + "console", url);
+        assertPageExists(url);
+    }
+
+    @Test
+    void aPipelineWhoseFailingStepHasNoOutputLinksToThatStep() throws Exception {
+        // error() leaves no log of its own; its error is sent with the output of the step before it
+        WorkflowRun run = pipeline("no-step-output", "stage('Load') { echo 'connecting'; error 'boom' }");
+
+        String url = linkFor(run);
+
+        String prefix = jenkins.jenkins.getRootUrl() + run.getUrl() + graphViewPage(run) + "?selected-node=";
+        assertTrue(url.startsWith(prefix), url);
         assertPageExists(url);
     }
 
