@@ -56,8 +56,8 @@ unclassified:
   dependency is optional, so that installations that do not use Bedrock do not carry the AWS SDK; **AWS Bedrock
   appears in the AI Provider list only after you install that plugin** under **Manage Jenkins → Plugins → Available
   plugins**
-- **Models**: a Bedrock model ID or inference profile, such as `us.anthropic.claude-sonnet-4-5-20250929-v1:0`,
-  `eu.anthropic.claude-sonnet-4-5-20250929-v1:0` or `us.amazon.nova-lite-v1:0`; copy the exact ID from the Bedrock
+- **Models**: a Bedrock model ID or inference profile, such as `us.anthropic.claude-sonnet-4-6`,
+  `eu.anthropic.claude-sonnet-4-6` or `us.amazon.nova-lite-v1:0`; copy the exact ID from the Bedrock
   console of your region
 - **Credentials**: no API key; the AWS credential chain is used (instance profile, environment variables, and so on)
 - **Region**: optional, AWS SDK region resolution when empty. The form suggests `eu-west-1`
@@ -77,7 +77,7 @@ unclassified:
   explainError:
     aiProvider:
       bedrock:
-        model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+        model: "us.anthropic.claude-sonnet-4-6"
         region: "us-east-1" # Optional, AWS SDK region resolution when empty
         # url: "vpce-1234567890abcdef.bedrock-runtime.us-east-1.vpce.amazonaws.com" # Optional private endpoint
         # roleArn: "arn:aws:iam::123456789012:role/JenkinsBedrockInvokeRole"         # Optional cross-account role
@@ -106,7 +106,7 @@ unclassified:
     aiProvider:
       azureOpenai:
         endpoint: "https://my-resource.openai.azure.com"
-        deployment: "gpt-4o"           # Azure OpenAI deployment name
+        deployment: "gpt-5.1"          # Azure OpenAI deployment name
         apiVersion: "2025-01-01-preview"
         credentialsId: "azure-openai-key" # Secret text credential
         # apiType: "RESPONSES"         # Responses API for newer models; defaults to Chat Completions
@@ -135,7 +135,7 @@ unclassified:
       customOkta:
         url: "https://chat-ai.example.com/openai/deployments/{model}/chat/completions" # Required
         tokenUrl: "https://id.example.com/oauth2/default/v1/token"                     # Required
-        model: "gpt-5-nano"                                                            # Required
+        model: "gpt-6-luna"                                                            # Required
         clientId: "${OKTA_CLIENT_ID}"                                                  # Required
         clientSecret: "${OKTA_CLIENT_SECRET}"                                          # Required
         scope: "custom.scope"                                                          # Optional
@@ -150,7 +150,7 @@ unclassified:
 
 ## DeepSeek
 
-- **Models**: `deepseek-v4-flash` (default), `deepseek-v4-pro`
+- **Models**: `deepseek-flash` (default), `deepseek-v4-pro`
 - **Key**: from the [DeepSeek Platform](https://platform.deepseek.com/)
 - **Endpoint**: defaults to `https://api.deepseek.com`; set another for a DeepSeek-compatible service
 
@@ -160,14 +160,14 @@ unclassified:
     aiProvider:
       deepseek:
         apiKey: "${DEEPSEEK_API_KEY}"
-        model: "deepseek-v4-flash"
+        model: "deepseek-flash"
         # url: "https://api.deepseek.com" # Optional, the official endpoint by default
     enableExplanation: true
 ```
 
 ## Google Gemini
 
-- **Models**: `gemini-2.5-flash`, `gemini-2.5-pro`, and other Gemini models
+- **Models**: `gemini-3.6-flash` (default), `gemini-3.8-flash`, `gemini-3.5-flash-lite`, and other Gemini models
 - **Key**: from [Google AI Studio](https://aistudio.google.com/app/apikey)
 - **Endpoint**: leave empty for the Google AI API, or give the URL of a Gemini-compatible service
 
@@ -177,7 +177,7 @@ unclassified:
     aiProvider:
       gemini:
         apiKey: "${GEMINI_API_KEY}"
-        model: "gemini-2.5-flash"
+        model: "gemini-3.6-flash"
         # url: "" # Optional, empty for the Google AI API
     enableExplanation: true
 ```
@@ -218,7 +218,7 @@ unclassified:
     aiProvider:
       microsoftFoundry:
         apiKey: "${MICROSOFT_FOUNDRY_API_KEY}"
-        model: "gpt-4o" # Foundry model deployment name
+        model: "gpt-5.1" # Foundry model deployment name
         url: "https://my-resource.services.ai.azure.com" # /openai/v1 is appended automatically
     enableExplanation: true
 ```
@@ -243,7 +243,8 @@ unclassified:
 
 ## OpenAI
 
-- **Models**: `gpt-5`, `gpt-5-mini`, `gpt-4.1` (default), `gpt-4.1-mini`
+- **Models**: `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna` (default); see the OpenAI
+  [deprecations page](https://developers.openai.com/api/docs/deprecations) before picking an older model
 - **Key**: from the [OpenAI Platform](https://platform.openai.com/settings)
 - **Endpoint**: leave empty for the OpenAI API, or give the URL of an OpenAI-compatible service
 
@@ -253,7 +254,7 @@ unclassified:
     aiProvider:
       openai:
         apiKey: "${OPENAI_API_KEY}"
-        model: "gpt-5-mini"
+        model: "gpt-6.1-terra"
         # url: "" # Optional, empty for the OpenAI API
     enableExplanation: true
 ```
@@ -262,7 +263,7 @@ unclassified:
 
 For AI gateways, proxies and self-hosted platforms such as LiteLLM or OpenWebUI.
 
-- **Models**: any model name your gateway exposes, such as `gpt-4o`, `azure/gpt-4o`, `claude-sonnet-4-6` or
+- **Models**: any model name your gateway exposes, such as `gpt-6.1-terra`, `azure/gpt-5.1`, `claude-sonnet-4-6` or
   `llama-3.1-70b`
 - **Key**: optional; sent as an `Authorization: Bearer` header. Leave it empty for unauthenticated gateways
 - **Endpoint**: required; the gateway's base URL, such as `https://litellm.example.com` (LiteLLM) or
@@ -279,7 +280,7 @@ unclassified:
     aiProvider:
       openaiCompatible:
         url: "https://litellm.example.com" # Required: base URL of your gateway
-        model: "azure/gpt-4o"              # Any model name the gateway exposes
+        model: "azure/gpt-5.1"             # Any model name the gateway exposes
         # apiKey: "${GATEWAY_API_KEY}"     # Optional, sent as a Bearer token
         # apiType: RESPONSES               # Optional: CHAT_COMPLETIONS (default) or RESPONSES
     enableExplanation: true
@@ -287,7 +288,7 @@ unclassified:
 
 ## Qwen
 
-- **Models**: `qwen-plus` (default), `qwen-flash`, `qwen3-max`, and other Model Studio models
+- **Models**: `qwen-plus` (default), `qwen3.7-plus`, `qwen4-max`, `qwen3.8-flash`, `qwen-flash`, and other Model Studio models
 - **Key**: an API key from Alibaba Cloud Model Studio (DashScope), or the ID of a Secret text credential, which wins
   over the key when both are set
 - **Endpoint**: defaults to the China (Beijing) endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`; set the

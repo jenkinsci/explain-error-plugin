@@ -26,7 +26,7 @@ import org.kohsuke.stapler.verb.POST;
 public class OpenAIProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(OpenAIProvider.class.getName());
-    public static final String DEFAULT_MODEL = "gpt-4.1";
+    public static final String DEFAULT_MODEL = "gpt-6-luna";
 
     protected Secret apiKey;
 
@@ -82,16 +82,12 @@ public class OpenAIProvider extends ChatModelAIProvider {
     @Symbol("openai")
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
+        // Only models the OpenAI API still serves; shutdowns are listed at
+        // https://developers.openai.com/api/docs/deprecations
         private static final String[] MODELS = new String[]{
-                "gpt-5",
-                "gpt-5-mini",
-                "gpt-5-nano",
-                "gpt-5-pro",
-                "gpt-4.1",
-                "gpt-4.1-mini",
-                "gpt-4.1-nano",
-                "gpt-4-turbo",
-                "gpt-3.5-turbo"
+                "gpt-6.1-sol",
+                "gpt-6.1-terra",
+                "gpt-6-luna"
         };
 
         @NonNull

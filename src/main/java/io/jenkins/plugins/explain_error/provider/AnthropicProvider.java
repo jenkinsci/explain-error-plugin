@@ -206,7 +206,13 @@ public class AnthropicProvider extends ChatModelAIProvider {
     @Symbol("anthropic")
     public static class DescriptorImpl extends BaseProviderDescriptor {
 
+        // Only models the Claude API still serves; retired ones are listed at
+        // https://platform.claude.com/docs/en/about-claude/model-deprecations
         private static final String[] MODELS = new String[]{
+                // Claude 5.5 (temperature deprecated)
+                "claude-opus-5-5",
+                "claude-sonnet-5-5",
+                "claude-haiku-5-5",
                 // Claude 4.7 (temperature deprecated)
                 "claude-opus-4-7",
                 // Claude 4.6
@@ -214,11 +220,6 @@ public class AnthropicProvider extends ChatModelAIProvider {
                 "claude-sonnet-4-6",
                 // Claude 4.5
                 "claude-haiku-4-5-20251001",
-                "claude-sonnet-4-5-20250929",
-                // Claude 3.x (legacy, for reference)
-                "claude-3-5-sonnet-20241022",
-                "claude-3-5-haiku-20241022",
-                "claude-3-opus-20240229",
         };
 
         @NonNull

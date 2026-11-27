@@ -51,7 +51,7 @@ unclassified:
     aiProvider:
       openai:
         apiKey: "${OPENAI_API_KEY}"
-        model: "gpt-5-mini"
+        model: "gpt-6.1-terra"
     enableExplanation: true
 ```
 

@@ -63,7 +63,7 @@ This guide will help you get started with development and contribution.
    - **Enable AI Error Explanation**
    - **API Key**: Your OpenAI API key (get from [OpenAI Dashboard](https://platform.openai.com/api-keys))
    - **API URL**: `https://api.openai.com/v1/chat/completions` (default)
-   - **Model**: `gpt-3.5-turbo` or `gpt-4`
+   - **Model**: `gpt-6-luna` or `gpt-6.1-terra`
 
 3. **Test your configuration:**
    - Click "Test Configuration" button

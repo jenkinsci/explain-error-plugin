@@ -145,17 +145,21 @@ class ProviderSettingsTest {
 
     @Test
     void modelAutoCompletionFiltersByPrefix() {
-        assertEquals(List.of("gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-pro"),
-                new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("GPT-5").getValues());
-        assertEquals(List.of("claude-opus-4-7", "claude-opus-4-6"),
+        assertEquals(List.of("gpt-6.1-sol", "gpt-6.1-terra"),
+                new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("GPT-6.1").getValues());
+        assertEquals(List.of(), new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("gpt-5").getValues());
+        assertEquals(List.of(), new AnthropicProvider.DescriptorImpl().doAutoCompleteModel("claude-3").getValues());
+        assertEquals(List.of("claude-opus-5-5", "claude-opus-4-7", "claude-opus-4-6"),
                 new AnthropicProvider.DescriptorImpl().doAutoCompleteModel("claude-opus").getValues());
-        assertEquals(List.of("deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"),
+        assertEquals(List.of("deepseek-flash", "deepseek-v4-pro"),
                 new DeepSeekProvider.DescriptorImpl().doAutoCompleteModel(null).getValues());
-        assertEquals(List.of("deepseek-reasoner"),
-                new DeepSeekProvider.DescriptorImpl().doAutoCompleteModel("deepseek-r").getValues());
-        assertEquals(List.of("qwen3-max", "qwen3.5-plus", "qwen3.5-flash", "qwen3-coder-plus", "qwen3-coder-flash"),
+        assertEquals(List.of("deepseek-v4-pro"),
+                new DeepSeekProvider.DescriptorImpl().doAutoCompleteModel("deepseek-v").getValues());
+        assertEquals(List.of(), new DeepSeekProvider.DescriptorImpl().doAutoCompleteModel("deepseek-r").getValues());
+        assertEquals(List.of("qwen3.7-plus", "qwen3.8-flash", "qwen3-max", "qwen3.5-plus", "qwen3.5-flash",
+                        "qwen3-coder-plus", "qwen3-coder-flash"),
                 new QwenProvider.DescriptorImpl().doAutoCompleteModel("Qwen3").getValues());
-        assertEquals(11, new QwenProvider.DescriptorImpl().doAutoCompleteModel(null).getValues().size());
+        assertEquals(14, new QwenProvider.DescriptorImpl().doAutoCompleteModel(null).getValues().size());
         assertTrue(new OpenAIProvider.DescriptorImpl().doAutoCompleteModel("unknown").getValues().isEmpty());
     }
 
@@ -174,7 +178,7 @@ class ProviderSettingsTest {
         assertEquals("Qwen", new QwenProvider.DescriptorImpl().getDisplayName());
         assertTrue(new QwenProvider.DescriptorImpl().getDefaultUrl().startsWith("https://"));
         assertEquals("Google Gemini", new GeminiProvider.DescriptorImpl().getDisplayName());
-        assertEquals("gemini-2.0-flash", new GeminiProvider.DescriptorImpl().getDefaultModel());
+        assertEquals("gemini-3.6-flash", new GeminiProvider.DescriptorImpl().getDefaultModel());
         assertEquals("Ollama", new OllamaProvider.DescriptorImpl().getDisplayName());
         assertEquals("gemma3:1b", new OllamaProvider.DescriptorImpl().getDefaultModel());
         assertEquals("Microsoft Foundry", new MicrosoftFoundryProvider.DescriptorImpl().getDisplayName());

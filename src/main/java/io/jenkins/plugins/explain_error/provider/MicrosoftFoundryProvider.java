@@ -24,7 +24,7 @@ import org.kohsuke.stapler.verb.POST;
 public class MicrosoftFoundryProvider extends ChatModelAIProvider {
 
     private static final Logger LOGGER = Logger.getLogger(MicrosoftFoundryProvider.class.getName());
-    public static final String DEFAULT_MODEL = "gpt-4o";
+    public static final String DEFAULT_MODEL = "gpt-5.1";
     private static final String OPENAI_V1_PATH = "/openai/v1";
 
     private final Secret apiKey;

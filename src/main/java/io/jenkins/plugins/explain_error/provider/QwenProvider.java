@@ -153,6 +153,9 @@ public class QwenProvider extends ChatModelAIProvider {
 
         private static final String[] MODELS = new String[]{
                 "qwen-plus",
+                "qwen3.7-plus",
+                "qwen4-max",
+                "qwen3.8-flash",
                 "qwen-plus-latest",
                 "qwen-flash",
                 "qwen-flash-latest",

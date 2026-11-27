@@ -47,7 +47,7 @@ public class AzureOpenAIProvider extends BaseAIProvider {
     private static final Logger LOGGER = Logger.getLogger(AzureOpenAIProvider.class.getName());
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public static final String DEFAULT_DEPLOYMENT = "gpt-4o";
+    public static final String DEFAULT_DEPLOYMENT = "gpt-5.1";
     public static final String DEFAULT_API_VERSION = "2025-01-01-preview";
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
     private static final String RESPONSES_API_PATH = "/openai/v1/responses";
