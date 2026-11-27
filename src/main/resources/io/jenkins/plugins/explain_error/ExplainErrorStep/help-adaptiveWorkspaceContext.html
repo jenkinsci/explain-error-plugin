@@ -1,0 +1,21 @@
+<div>
+    Reads workspace files that the failure log names, such as source files from stack frames,
+    compiler errors, test failures or tracebacks. The log is parsed locally first. Only when no
+    readable file is named does the plugin make one small AI call to select paths.
+    <p>
+        Every suggested path must exist inside the workspace and passes the same safety rules as
+        the configured workspace paths: absolute paths, path traversal, glob patterns, directories,
+        secret files and build output directories are rejected. Files are read within the remaining
+        <code>workspaceContextMaxBytes</code> budget, with the same per-file cap and truncation.
+    </p>
+    <p>
+        The selection call sees only the masked log, tailed to a small size. A failed or timed-out
+        selection never fails the step; the configured workspace context is still used. Secrets in
+        the selected files are masked like every other piece of context.
+    </p>
+    <p>
+        Requires <b>Include Workspace Context</b>. The selected files are also sent to the auto-fix
+        request. This option is off by default and applies only to the <code>explainError</code>
+        step, not to the console button or automatic explanations.
+    </p>
+</div>

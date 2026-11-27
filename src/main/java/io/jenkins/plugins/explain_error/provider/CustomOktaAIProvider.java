@@ -48,6 +48,7 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     public static final String DEFAULT_ACCESS_TOKEN_HEADER = "Authorization";
     public static final String DEFAULT_ACCESS_TOKEN_PREFIX = "";
     public static final int DEFAULT_TIMEOUT_SECONDS = 180;
+    private static final int SELECTION_MAX_OUTPUT_TOKENS = 300;
 
     private String tokenUrl;
     private String apiVersion;
@@ -173,6 +174,18 @@ public class CustomOktaAIProvider extends BaseAIProvider {
     }
 
     @Override
+    public WorkspaceFileSelector createWorkspaceFileSelector(@CheckForNull Item item,
+                                                             @CheckForNull Authentication authentication) {
+        return errorLogs -> {
+            try {
+                return requestWorkspaceFileSelection(errorLogs);
+            } catch (ExplanationException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        };
+    }
+
+    @Override
     public boolean isNotValid(@CheckForNull TaskListener listener) {
         String urlValue = Util.fixEmptyAndTrim(getUrl());
         String tokenUrlValue = Util.fixEmptyAndTrim(getTokenUrl());
@@ -196,6 +209,54 @@ public class CustomOktaAIProvider extends BaseAIProvider {
 
         return urlValue == null || tokenUrlValue == null || modelValue == null
                 || clientIdValue == null || clientSecretValue == null;
+    }
+
+    private WorkspaceFileSelection requestWorkspaceFileSelection(String errorLogs) throws ExplanationException {
+        HttpClient client = newJenkinsHttpClientBuilder()
+                .connectTimeout(Duration.ofSeconds(resolveTimeoutSeconds()))
+                .build();
+
+        try {
+            String accessToken = fetchAccessToken(client);
+            String content = requestRawContent(client, accessToken, buildSelectionRequestBody(errorLogs));
+            return parseWorkspaceFileSelection(content);
+        } catch (IOException e) {
+            throw new ExplanationException("error", "Failed to communicate with Custom Okta AI provider", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ExplanationException("error", "Interrupted while communicating with Custom Okta AI provider", e);
+        }
+    }
+
+    private String buildSelectionRequestBody(String errorLogs) throws IOException {
+        ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("model", getModel());
+        payload.put("max_tokens", SELECTION_MAX_OUTPUT_TOKENS);
+
+        ArrayNode messages = payload.putArray("messages");
+        messages.addObject()
+                .put("role", "system")
+                .put("content", WorkspaceFileSelector.SYSTEM_PROMPT);
+        messages.addObject()
+                .put("role", "user")
+                .put("content", WorkspaceFileSelector.userPrompt(errorLogs)
+                        + "\n\nReturn ONLY valid JSON with one key: paths (an array of strings).");
+
+        String userMetadata = buildUserMetadata();
+        if (userMetadata != null) {
+            payload.put("user", userMetadata);
+        }
+
+        return OBJECT_MAPPER.writeValueAsString(payload);
+    }
+
+    private WorkspaceFileSelection parseWorkspaceFileSelection(String content) throws IOException {
+        JsonNode json = tryParseJson(content);
+        if (json == null) {
+            return new WorkspaceFileSelection(List.of());
+        }
+        JsonNode paths = json.isArray() ? json : json.path("paths");
+        return new WorkspaceFileSelection(toStringList(paths));
     }
 
     private JenkinsLogAnalysis analyzeWithOkta(String errorLogs, String language, String customContext,

@@ -390,6 +390,38 @@ class LangGraphProviderTest {
         assertEquals(LangGraphProvider.DEFAULT_MODEL, descriptor.getDefaultModel());
     }
 
+    @Test
+    void workspaceFileSelectorSendsTheSelectionPromptAndParsesPaths() throws Exception {
+        AtomicReference<String> body = new AtomicReference<>();
+        server.createContext("/runs/wait", exchange -> {
+            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            respond(exchange, 200, aiMessages("{\"paths\":[\"src/main/java/App.java\"]}"));
+        });
+
+        WorkspaceFileSelection selection = newProvider()
+                .createWorkspaceFileSelector().selectFiles("ERROR: boom");
+
+        assertEquals(List.of("src/main/java/App.java"), selection.paths());
+        JsonNode payload = OBJECT_MAPPER.readTree(body.get());
+        assertEquals("build-doctor", payload.path("assistant_id").asText());
+        assertEquals(WorkspaceFileSelector.SYSTEM_PROMPT,
+                payload.path("config").path("configurable").path("system_prompt").asText());
+        assertTrue(payload.path("input").path("messages").get(0).path("content").asText()
+                .contains("ERROR: boom"));
+    }
+
+    @Test
+    void workspaceFileSelectorWrapsFailures() {
+        LangGraphProvider provider = newProvider();
+        server.stop(0);
+        server = null;
+
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> provider.createWorkspaceFileSelector().selectFiles("ERROR: boom"));
+
+        assertTrue(e.getMessage().contains("Failed to communicate with LangGraph Platform"), e.getMessage());
+    }
+
     private LangGraphProvider newProvider() {
         return new LangGraphProvider(baseUrl(), "build-doctor", Secret.fromString("lg-api-key"));
     }

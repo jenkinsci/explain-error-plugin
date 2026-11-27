@@ -29,6 +29,7 @@ public class ErrorExplainer {
     private String providerName;
     private String urlString;
     private String lastErrorLogs;
+    private String lastAdaptiveWorkspaceContext;
     private JenkinsLogAnalysis lastAnalysis;
     private boolean providerCalled;
     private final UsageRecorder usageRecorder;
@@ -60,6 +61,15 @@ public class ErrorExplainer {
      */
     public String getLastErrorLogs() {
         return lastErrorLogs;
+    }
+
+    /**
+     * Returns the redacted adaptive workspace context produced during the last call to
+     * {@link #explainError}, or {@code null} if no adaptive context was collected.
+     */
+    @CheckForNull
+    public String getLastAdaptiveWorkspaceContext() {
+        return lastAdaptiveWorkspaceContext;
     }
 
     /**
@@ -128,6 +138,16 @@ public class ErrorExplainer {
                         String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
                         Authentication authentication, @CheckForNull Double stepTemperature,
                         UsageEvent.EntryPoint entryPoint) {
+        return explainError(run, listener, logPattern, maxLines, language, customContext, collectDownstreamLogs,
+                downstreamJobPattern, authentication, stepTemperature, entryPoint, null);
+    }
+
+    String explainError(Run<?, ?> run, TaskListener listener, String logPattern, int maxLines, String language,
+                        String customContext, boolean collectDownstreamLogs, String downstreamJobPattern,
+                        Authentication authentication, @CheckForNull Double stepTemperature,
+                        UsageEvent.EntryPoint entryPoint,
+                        @CheckForNull AdaptiveWorkspaceContextRequest adaptiveWorkspace) {
+        this.lastAdaptiveWorkspaceContext = null;
         String jobInfo = run != null ? ("[" + run.getParent().getFullName() + " #" + run.getNumber() + "]") : "[unknown]";
         long startTimeNanos = System.nanoTime();
         ProviderResolution providerResolution = resolveProvider(run);
@@ -226,6 +246,29 @@ public class ErrorExplainer {
                         collectDownstreamLogs);
                 return null;
             }
+            // Adaptive retrieval runs only after quota succeeds, so a rejected explanation spends nothing.
+            if (adaptiveWorkspace != null && StringUtils.isNotBlank(errorLogs)) {
+                logToConsole(listener, "Looking for workspace files named by the failure log.");
+                String adaptive = AdaptiveWorkspaceContext.collect(adaptiveWorkspace.workspace(), errorLogs,
+                        adaptiveWorkspace.maxBytes(), provider, run != null ? run.getParent() : null, listener);
+                if (StringUtils.isNotBlank(adaptive)) {
+                    int beforeRedaction = redactor.count();
+                    String redactedAdaptive = redactor.redact(adaptive);
+                    if (redactor.count() > beforeRedaction) {
+                        redactedCount = redactor.count();
+                        logToConsole(listener, describeRedaction(redactedCount));
+                        if (GlobalConfigurationImpl.get().isBlockWhenRedacted()) {
+                            logToConsole(listener, BLOCKED);
+                            recordUsage(entryPoint, UsageEvent.Result.BLOCKED, provider, startTimeNanos, 0,
+                                    collectDownstreamLogs);
+                            return null;
+                        }
+                    }
+                    effectiveCustomContext = appendContext(effectiveCustomContext, redactedAdaptive);
+                    this.lastAdaptiveWorkspaceContext = redactedAdaptive;
+                }
+            }
+
             this.lastErrorLogs = errorLogs;
             inputLogLineCount = countLines(errorLogs);
 
@@ -280,6 +323,17 @@ public class ErrorExplainer {
     /** The console line that says how much was masked. */
     static String describeRedaction(int count) {
         return "Masked " + count + (count == 1 ? " secret" : " secrets") + " in what is sent to the AI provider.";
+    }
+
+    @CheckForNull
+    private static String appendContext(@CheckForNull String context, String addition) {
+        if (StringUtils.isBlank(addition)) {
+            return context;
+        }
+        if (StringUtils.isBlank(context)) {
+            return addition;
+        }
+        return context.stripTrailing() + "\n\n" + addition;
     }
 
     /** The system log line that records a request: what was sent, to which model, and how much was masked. */
@@ -364,6 +418,7 @@ public class ErrorExplainer {
     ErrorExplanationAction explainErrorText(String errorText, String url, @NonNull Run<?, ?> run,
                                             UsageEvent.EntryPoint entryPoint)
             throws IOException, ExplanationException {
+        this.lastAdaptiveWorkspaceContext = null;
         String jobInfo ="[" + run.getParent().getFullName() + " #" + run.getNumber() + "]";
         long startTimeNanos = System.nanoTime();
         int inputLogLineCount = countLines(errorText);

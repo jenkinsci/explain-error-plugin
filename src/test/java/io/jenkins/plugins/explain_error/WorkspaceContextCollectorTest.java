@@ -2,6 +2,7 @@ package io.jenkins.plugins.explain_error;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -12,6 +13,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -175,6 +177,128 @@ class WorkspaceContextCollectorTest {
         }
     }
 
+    @Test
+    void collectFiles_includesTheGivenPathsInCallerOrder() throws Exception {
+        write("zeta.java", "class Zeta {}");
+        write("alpha.java", "class Alpha {}");
+        ByteArrayOutputStream log = new ByteArrayOutputStream();
+
+        String context = new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of("zeta.java", "alpha.java"), 20_000, new StreamTaskListener(log, StandardCharsets.UTF_8));
+
+        assertTrue(context.startsWith("WORKSPACE CONTEXT\n"), context);
+        assertTrue(context.indexOf("### zeta.java") < context.indexOf("### alpha.java"), context);
+        assertTrue(context.contains("class Zeta {}"), context);
+        assertTrue(context.contains("class Alpha {}"), context);
+    }
+
+    @Test
+    void collectFiles_rejectsUnsafeExcludedMissingAndGlobPaths() throws Exception {
+        write("src/ok.java", "class Ok {}");
+        write(".env", "TOKEN=secret");
+        write("target/out.java", "generated");
+        ByteArrayOutputStream log = new ByteArrayOutputStream();
+
+        String context = new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of("../outside.java", "/etc/passwd", ".env", "target/out.java", "missing.java",
+                        "src/*.java", "src/ok.java"),
+                20_000, new StreamTaskListener(log, StandardCharsets.UTF_8));
+
+        assertTrue(context.contains("### src/ok.java"), context);
+        assertTrue(context.contains("class Ok {}"), context);
+        assertFalse(context.contains("TOKEN=secret"), context);
+        assertFalse(context.contains("generated"), context);
+        assertFalse(context.contains("missing.java"), context);
+        assertFalse(context.contains("*.java"), context);
+        String messages = log.toString(StandardCharsets.UTF_8);
+        assertTrue(messages.contains("'../outside.java': path traversal is not allowed"), messages);
+        assertTrue(messages.contains("'/etc/passwd': absolute paths are not allowed"), messages);
+        assertTrue(messages.contains("'.env': path is excluded"), messages);
+    }
+
+    @Test
+    void collectFiles_honoursTheBudgetAndTruncation() throws Exception {
+        write("big.java", "x".repeat(1_000));
+
+        String context = new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of("big.java"), 200, null);
+
+        assertTrue(context.length() < 300, context);
+        assertTrue(context.contains("...[truncated]"), context);
+    }
+
+    @Test
+    void collectFiles_returnsEmptyForNoPaths() throws Exception {
+        assertEquals("", new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of(), 20_000, null));
+        assertEquals("", new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of("missing.java"), 20_000, null));
+    }
+
+    @Test
+    void selectExisting_returnsOnlySafeExistingFilesInOrderAndCaps() throws Exception {
+        write("a.java", "class A {}");
+        write("b.java", "class B {}");
+        write("c.java", "class C {}");
+        Files.createDirectories(tempDir.resolve("dir.java"));
+
+        List<String> selected = new WorkspaceContextCollector().selectExisting(new FilePath(tempDir.toFile()),
+                List.of("c.java", "missing.java", "../outside.java", ".env", "dir.java", "a.java", "c.java", "b.java"),
+                2);
+
+        assertEquals(List.of("c.java", "a.java"), selected);
+    }
+
+    @Test
+    void selectExisting_rejectsSymlinks() throws Exception {
+        write("real.java", "class Real {}");
+        Path target = tempDir.resolve("real.java");
+        Path link = tempDir.resolve("link.java");
+        try {
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | java.io.IOException e) {
+            assumeTrue(false, "symbolic links are not supported on this platform");
+        }
+
+        List<String> selected = new WorkspaceContextCollector().selectExisting(new FilePath(tempDir.toFile()),
+                List.of("link.java", "real.java"), 5);
+
+        assertEquals(List.of("real.java"), selected);
+    }
+
+    @Test
+    void selectExisting_rejectsSymlinkedDirectories() throws Exception {
+        write("real/secret.java", "class Secret {}");
+        createSymlink(tempDir.resolve("linkdir"), tempDir.resolve("real"));
+
+        List<String> selected = new WorkspaceContextCollector().selectExisting(new FilePath(tempDir.toFile()),
+                List.of("linkdir/secret.java", "real/secret.java"), 5);
+
+        assertEquals(List.of("real/secret.java"), selected);
+    }
+
+    @Test
+    void collectFiles_rejectsPathsThroughASymlinkedDirectory() throws Exception {
+        write("real/secret.java", "class Secret {}");
+        createSymlink(tempDir.resolve("linkdir"), tempDir.resolve("real"));
+
+        String context = new WorkspaceContextCollector().collectFiles(new FilePath(tempDir.toFile()),
+                List.of("linkdir/secret.java", "real/secret.java"), 20_000, null);
+
+        assertTrue(context.contains("### real/secret.java"), context);
+        assertFalse(context.contains("### linkdir/secret.java"), context);
+    }
+
+    @Test
+    void pathError_reportsTheFirstSafetyProblem() {
+        WorkspaceContextCollector collector = new WorkspaceContextCollector();
+
+        assertNull(collector.pathError("src/main/App.java"));
+        assertTrue(collector.pathError("../outside.java").contains("traversal"));
+        assertTrue(collector.pathError("/etc/passwd").contains("absolute"));
+        assertEquals("path is excluded", collector.pathError(".env"));
+    }
+
     private String collect(String patterns, int maxBytes) throws Exception {
         return new WorkspaceContextCollector().collect(new FilePath(tempDir.toFile()), patterns, maxBytes, null);
     }
@@ -183,5 +307,13 @@ class WorkspaceContextCollectorTest {
         Path file = tempDir.resolve(relativePath);
         Files.createDirectories(file.getParent());
         Files.writeString(file, content);
+    }
+
+    private void createSymlink(Path link, Path target) {
+        try {
+            Files.createSymbolicLink(link, target);
+        } catch (UnsupportedOperationException | java.io.IOException e) {
+            assumeTrue(false, "symbolic links are not supported on this platform");
+        }
     }
 }
