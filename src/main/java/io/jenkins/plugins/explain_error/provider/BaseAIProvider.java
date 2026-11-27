@@ -63,7 +63,8 @@ public abstract class BaseAIProvider extends AbstractDescribableImpl<BaseAIProvi
 
                         Lines such as "### Node ID: 12 ###", "Node Name: ...", "Start Time: ...", "--- LOG CONTENT ---"
                         and "### END OF LOG 12 ###" are markers Jenkins added around each step's output. Use them to
-                        tell steps apart, but never quote them or mention node IDs.
+                        tell steps apart, but never quote them or mention node IDs. An "Error: ..." line among
+                        them is not a marker: it is the error the step failed with, and often the cause itself.
                         Describe the failure, not the logs: do not say what the logs lack or do not contain.
 
                         If the additional instructions ask for more or less detail, they take precedence over the

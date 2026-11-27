@@ -7,6 +7,7 @@ import hudson.model.Item;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 
 import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
@@ -16,10 +17,12 @@ import org.jenkinsci.plugins.workflow.actions.TimingAction;
 import org.jenkinsci.plugins.workflow.actions.WarningAction;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 
+import hudson.AbortException;
 import hudson.console.AnnotatedLargeText;
 import hudson.model.Cause;
 import hudson.model.Result;
 import hudson.model.Run;
+import hudson.remoting.ProxyException;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
 import jenkins.model.CauseOfInterruption;
@@ -94,6 +97,12 @@ public class PipelineLogExtractor {
 
     /** The fewest log lines a failing step gets; with more failing steps than that allows, the first ones count. */
     static final int MIN_LINES_PER_STEP = 10;
+
+    /** Starts the header line that carries the error a step failed with. */
+    static final String ERROR_PREFIX = "Error: ";
+
+    /** The longest error message sent; a step's error is a line or two, not a log. */
+    static final int MAX_ERROR_LENGTH = 1000;
 
     /** Put after the name of a step that fail-fast stopped, in the header of its log. */
     static final String STOPPED_BY_FAIL_FAST =
@@ -181,8 +190,12 @@ public class PipelineLogExtractor {
      * @param logs The existing list of log lines for this node. If null, a new list is initialized.
      * @param stoppedByFailFast whether the step was stopped because another parallel branch failed first;
      *                          the node name says so, so that the model does not take it for the cause
+     * @param error the message of the error the step failed with, or {@code null}. Jenkins writes it to the
+     *              console only once the build is over, after {@code post} has run, so it may be the only
+     *              trace of the cause, as for a {@code withCredentials} step with an unknown credentials ID
      */
-    private void addHeaderLog(FlowNode node, List<String> logs, boolean stoppedByFailFast) {
+    private void addHeaderLog(FlowNode node, List<String> logs, boolean stoppedByFailFast,
+                              @CheckForNull String error) {
         long startTimeMillis = TimingAction.getStartTime(node);
         String formattedStart = "Unknown Start Time";
 
@@ -191,11 +204,14 @@ public class PipelineLogExtractor {
             formattedStart = sdf.format(new Date(startTimeMillis));
         }
 
-        List<String> header = Arrays.asList(
+        List<String> header = new ArrayList<>(Arrays.asList(
             NODE_HEADER_PREFIX + node.getId() + NODE_MARKER_SUFFIX,
             "Node Name: " + node.getDisplayName() + (stoppedByFailFast ? STOPPED_BY_FAIL_FAST : ""),
-            "Start Time: " + formattedStart,
-            "--- LOG CONTENT ---");
+            "Start Time: " + formattedStart));
+        if (error != null) {
+            header.add(ERROR_PREFIX + error);
+        }
+        header.add("--- LOG CONTENT ---");
 
         logs.addAll(0, header);
         logs.add(NODE_FOOTER_PREFIX + node.getId() + NODE_MARKER_SUFFIX);
@@ -367,7 +383,7 @@ public class PipelineLogExtractor {
         List<FailedStep> steps;
         LogAction targetLogAction = target.getAction(LogAction.class);
         if (targetLogAction != null && hasLogContent(targetLogAction)) {
-            steps = List.of(new FailedStep(target, targetLogAction, false));
+            steps = List.of(new FailedStep(target, targetLogAction, false, errorMessage(target.getError())));
         } else if (target instanceof BlockStartNode) {
             // A block node's failure output lives in the nodes it encloses: every one that failed, as in
             // a stage whose parallel branches failed
@@ -379,8 +395,15 @@ public class PipelineLogExtractor {
             // content is empty (e.g. the error() step creates a node with a
             // LogAction that carries no output).
             FlowNode parent = findImmediateParentWithLog(target);
-            steps = parent != null ? List.of(new FailedStep(parent, parent.getAction(LogAction.class), false))
-                    : List.of();
+            String error = errorMessage(target.getError());
+            if (parent != null) {
+                steps = List.of(new FailedStep(parent, parent.getAction(LogAction.class), false, error));
+            } else if (error != null) {
+                // A step that failed without a log of its own, such as withCredentials with an unknown ID
+                steps = List.of(new FailedStep(target, null, false, error));
+            } else {
+                steps = List.of();
+            }
         }
 
         List<String> lines = new ArrayList<>();
@@ -415,22 +438,47 @@ public class PipelineLogExtractor {
             if (!isEnclosedBy(node, blockId) || !isFailedFlowNode(node)) {
                 continue;
             }
+            ErrorAction error = node.getError();
+            String message = errorMessage(error);
             FlowNode logNode = node;
             LogAction nodeLogAction = node.getAction(LogAction.class);
             if (nodeLogAction == null || !hasLogContent(nodeLogAction)) {
-                logNode = findImmediateParentWithLog(node);
-                if (logNode == null || !isEnclosedBy(logNode, blockId)) {
+                FlowNode parent = findImmediateParentWithLog(node);
+                if (parent != null && isEnclosedBy(parent, blockId)) {
+                    logNode = parent;
+                    nodeLogAction = parent.getAction(LogAction.class);
+                } else if (message != null && error.getError() != null
+                        && isOrigin(resolveOrigin(error.getError(), execution), node)) {
+                    // The step failed without a log of its own; its error is all there is to send. A block
+                    // step counts once, by its start node, not once more by its end node
+                    logNode = blockStart(node);
+                    nodeLogAction = null;
+                } else {
                     continue;
                 }
-                nodeLogAction = logNode.getAction(LogAction.class);
             }
             if (seen.add(logNode.getId())) {
-                ErrorAction error = node.getError();
                 boolean stoppedByFailFast = error != null && isStoppedByFailFast(error.getError());
-                steps.add(new FailedStep(logNode, nodeLogAction, stoppedByFailFast));
+                steps.add(new FailedStep(logNode, nodeLogAction, stoppedByFailFast, message));
             }
         }
         return steps;
+    }
+
+    /** Whether the error that failed {@code node} was thrown there, counting a block's start and end as one. */
+    private static boolean isOrigin(@CheckForNull FlowNode origin, FlowNode node) {
+        return origin != null && blockStart(origin).equals(blockStart(node));
+    }
+
+    /** The start node of a block's end node, so that a block counts once; any other node as it is. */
+    private static FlowNode blockStart(FlowNode node) {
+        return node instanceof BlockEndNode<?> end ? end.getStartNode() : node;
+    }
+
+    /** Whether the step failed with an error and wrote nothing, so that its error is all there is to send. */
+    private static boolean hasOnlyError(FailedStep step) {
+        LogAction logAction = step.logAction();
+        return step.error() != null && (logAction == null || !hasLogContent(logAction));
     }
 
     private static boolean hasLogContent(LogAction logAction) {
@@ -543,6 +591,9 @@ public class PipelineLogExtractor {
                 }
             } else {
                 origin = resolveOrigin(errorAction.getError(), execution);
+                if (origin != null) {
+                    origin = blockStart(origin);
+                }
                 if (origin == null || seenOriginIds.contains(origin.getId())) {
                     continue;
                 }
@@ -551,19 +602,22 @@ public class PipelineLogExtractor {
                 continue;
             }
             LogAction logAction = origin.getAction(LogAction.class);
-            if (logAction == null && errorAction != null) {
+            if ((logAction == null || !hasLogContent(logAction)) && errorAction != null) {
                 FlowNode immediateParent = findImmediateParentWithLog(origin);
                 if (immediateParent != null && !seenOriginIds.contains(immediateParent.getId())) {
                     origin = immediateParent;
                     logAction = immediateParent.getAction(LogAction.class);
                 }
             }
-            if (logAction == null) {
+            String error = errorMessage(errorAction);
+            if (logAction == null && error == null) {
                 continue;
             }
+            // A step without a log, such as withCredentials with an unknown credentials ID, is still sent:
+            // its error is the cause, and the console has it only once the build is over
             seenOriginIds.add(origin.getId());
             steps.add(new FailedStep(origin, logAction,
-                    errorAction != null && isStoppedByFailFast(errorAction.getError())));
+                    errorAction != null && isStoppedByFailFast(errorAction.getError()), error));
         }
         return steps;
     }
@@ -587,20 +641,23 @@ public class PipelineLogExtractor {
             if (read.size() >= room) {
                 break;
             }
-            List<String> log = readLimitedLog(step.logAction().getLogText(), maxLines, pattern);
-            if (!log.isEmpty()) {
+            LogAction logAction = step.logAction();
+            List<String> log = logAction == null ? new ArrayList<>()
+                    : readLimitedLog(logAction.getLogText(), maxLines, pattern);
+            if (!log.isEmpty() || hasOnlyError(step)) {
                 read.add(step);
                 logs.add(log);
             }
         }
         int[] shares = share(logs.stream().mapToInt(List::size).toArray(), maxLines);
         for (int i = 0; i < read.size(); i++) {
-            if (shares[i] == 0) {
+            List<String> log = logs.get(i);
+            if (shares[i] == 0 && !log.isEmpty()) {
                 continue;
             }
-            List<String> log = logs.get(i);
             List<String> stepLog = new ArrayList<>(log.subList(log.size() - shares[i], log.size()));
-            addHeaderLog(read.get(i).node(), stepLog, read.get(i).stoppedByFailFast());
+            FailedStep step = read.get(i);
+            addHeaderLog(step.node(), stepLog, step.stoppedByFailFast(), step.error());
             lines.addAll(stepLog);
             included.add(read.get(i).node());
         }
@@ -648,8 +705,35 @@ public class PipelineLogExtractor {
                 .anyMatch(cause -> cause.getClass().getName().endsWith("ParallelStep$FailFastCause"));
     }
 
-    /** A step whose failure is explained, the log it is in, and whether fail-fast stopped it. */
-    private record FailedStep(FlowNode node, LogAction logAction, boolean stoppedByFailFast) {
+    /**
+     * A step whose failure is explained, the log it is in ({@code null} when it has none), whether fail-fast
+     * stopped it, and the message of the error it failed with.
+     */
+    private record FailedStep(FlowNode node, @CheckForNull LogAction logAction, boolean stoppedByFailFast,
+                              @CheckForNull String error) {
+    }
+
+    /**
+     * The message of the error a step failed with, as one line, or {@code null} when there is nothing that
+     * says why: no error, a branch stopped by fail-fast, or an interruption such as an abort.
+     * <p>
+     * An {@link AbortException} is a failure Jenkins reports by its message alone, such as
+     * {@code Could not find credentials entry with ID 'x'}; for any other error its class says what kind.
+     */
+    @CheckForNull
+    static String errorMessage(@CheckForNull ErrorAction errorAction) {
+        Throwable error = errorAction == null ? null : errorAction.getError();
+        if (error == null || error instanceof FlowInterruptedException || isStoppedByFailFast(error)) {
+            return null;
+        }
+        // ErrorAction keeps an error it cannot store as a ProxyException, whose message is the original's
+        String message = error instanceof AbortException || error instanceof ProxyException
+                ? error.getMessage() : error.toString();
+        if (message == null || message.isBlank()) {
+            return null;
+        }
+        message = message.strip().replaceAll("\\s*\\R\\s*", " ");
+        return message.length() > MAX_ERROR_LENGTH ? message.substring(0, MAX_ERROR_LENGTH) + "..." : message;
     }
 
     /**
